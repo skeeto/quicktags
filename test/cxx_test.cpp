@@ -232,14 +232,24 @@ static TagCase ccases[] = {
      "  b) z;\n"
      "DECL\n"
      "w;\n"
-     "TYPE v;\n"  // joins: charv
      "_Pragma q;\n",
-     "q\tr.c\t/^_Pragma q;$/;\"\tv\tline:8\ttyperef:typename:short\n"
+     "q\tr.c\t/^_Pragma q;$/;\"\tv\tline:7\ttyperef:typename:short\n"
      "w\tr.c\t/^w;$/;\"\tv\tline:6\ttyperef:typename:int\n"
      "x\tr.c\t/^DECL x;$/;\"\tv\tline:1\ttyperef:typename:int\n"
      "y\tr.c\t/^ARRAY(4) y;$/;\"\tv\tline:2\ttyperef:typename:long\n"
      "z\tr.c\t/^  b) z;$/;\"\tv\tline:4\ttyperef:typename:char\n",
      ""},
+    {IMPROVED, "X11 -I replacements end words", "j.c", "-I X+=int,TYPE+=char",
+     "TYPE v;\n"
+     "unsigned X(a)long t;\n"
+     "X(1)x;\n"
+     "X(1)*p;\n",
+     "p\tj.c\t/^X(1)*p;$/;\"\tv\tline:4\ttyperef:typename:int *\n"
+     "t\tj.c\t/^unsigned X(a)long t;$/;\"\tv\tline:2\ttyperef:typename:unsigned int long\n"
+     "v\tj.c\t/^TYPE v;$/;\"\tv\tline:1\ttyperef:typename:char\n"
+     "x\tj.c\t/^X(1)x;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     "p\tj.c\t/^X(1)*p;$/;\"\tv\tline:4\ttyperef:typename:int *\n"
+     "t\tj.c\t/^unsigned X(a)long t;$/;\"\tv\tline:2\ttyperef:typename:unsigned intlong\n"},
     {SHARED, "-I in C, of C++ keywords", "kc.c", "-I class=long,final=char,int=short",
      "class x;\n"
      "final y;\n"

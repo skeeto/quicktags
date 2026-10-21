@@ -196,7 +196,7 @@ apply.
 - **LEX-14 [S][V] Identifiers named by `-I`** (OPT-17; `cxx_parser_tokenizer.c`, the macro branch of `cxxParserParseNextToken`; `cpreprocessor.c`, the unget buffers).
   - Only a word that is no keyword of the language is looked up, so keywords are never replaced, not even those disabled for now (`final`, and `public` in a header, CXX-17): `-I final=char` leaves `final y;` a member of type `final`. In C, C++'s keywords are words like any other. Directives never reach the tokenizer, so a `#define` of a listed name is still tagged, and Fortran has no `-I`.
   - A listed word is dropped. If its entry takes a group, the whitespace after it is skipped, and if a `(` follows, the group to its matching `)` is dropped too, matching only parentheses (`X(a[)` is a group). A group that never closes ends the input there.
-  - If the entry has a replacement, the character after the word, or after the group or the whitespace, is pushed back, and then the replacement in front of it, to be read again through the preprocessor's filter (LEX-2..LEX-4). So the replacement joins what follows: `-I X+=int` makes `X y;` and `X(a)y;` the word `inty` [V]. Its characters report the dropped word's position, so tokens read from it take its line; once they are read, characters pushed back before it report their own position again (a stack of unget buffers).
+  - If the entry has a replacement, the character after the word, or after the group or the whitespace, is pushed back, and then the replacement in front of it, to be read again through the preprocessor's filter (LEX-2..LEX-4). So the replacement joins what follows: `-I X+=int` makes `X y;` and `X(a)y;` the word `inty` [V], and `unsigned X(a)long` the type `unsigned intlong` (here not, X11). Its characters report the dropped word's position, so tokens read from it take its line; once they are read, characters pushed back before it report their own position again (a stack of unget buffers).
   - No replacement is made, though the word and group are still dropped, while the statement holds 16384 tokens, or nesting (LEX-13, with the replacements being read) is at 1024, or the innermost pushback holds 65536 characters (Universal Ctags measures that buffer's allocated size, here the characters in it). Nor is one made of an entry already replaced 8 times since the input was last read from the file, whose word then stays a plain identifier. That bounds loops: `-I a=b,b=a` turns `a x;` back into `a` after 16 replacements [V].
   - Then the next token is read in the word's place, its reading one level deeper in the nesting.
 
@@ -879,6 +879,13 @@ Decided for this program, deliberately different from Universal Ctags.
   not tagged, because its kind is disabled or (outside headers) the
   fileScope extra is. Universal Ctags finds the scope through the
   macro's tag, and so loses it.
+- **X11** A `-I` replacement ending in an identifier character is kept
+  apart from an identifier character after it, as a preprocessor keeps
+  tokens apart (LEX-14). Universal Ctags pushes back the character after
+  the macro's group, or the blanks it skipped looking for one, right
+  after the replacement, so with `-I X+=int` it loses `y` in `X y;` and
+  `X(a)y;` (`inty`), and types `unsigned X(a)long t` as
+  `unsigned intlong`. Here a space goes between them.
 
 ### Parsing (after parity)
 

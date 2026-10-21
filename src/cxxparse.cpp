@@ -747,6 +747,9 @@ static i32 dropmacro(Cxx *c, Macro *m, iz initial)
                cppbacklen(&c->cpp)<BACKMAX;
     if (m->repl.data && room) {
         unget(&c->cpp, c->ch);
+        if (cppident(m->repl[m->repl.len-1]) && cppident(c->ch)) {
+            unget(&c->cpp, ' ');  // departure X11: words stay apart
+        }
         ungetat(&c->cpp, m->repl, line, pos);
         uses(c, m)->count++;
         nextchar(c);
