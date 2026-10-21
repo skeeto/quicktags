@@ -184,12 +184,13 @@ static void test_walk(Test *t)
                concat(&a, f, m), mn), s), sm));
     }
     {
-        // A directory's *.ctags files in name order, and a file in one
-        // ends it with a warning
+        // A directory's *.ctags files in name order, not the listing's,
+        // so b.ctags enables p after a.ctags disables it, and a file in
+        // one ends it with a warning
         Os *os = newos(&a);
         vfsfile(os, "a.c", src);
         vfsfile(os, "od/b.ctags", "--kinds-C=+p\nfoo.c\n--kinds-C=+l\n");
-        vfsfile(os, "od/a.ctags", "--extras=+q\n");
+        vfsfile(os, "od/a.ctags", "--extras=+q\n--kinds-C=-p\n");
         vfsfile(os, "od/.x.ctags", "--bogus\n");
         vfsfile(os, "od/c.txt", "--bogus\n");
         vfsfile(os, "od/.ctags", "--bogus\n");
