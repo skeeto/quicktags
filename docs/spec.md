@@ -874,6 +874,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **File tags** (EX-7, `--extras=+f`): DEL, the name, SOH, `1,0`, LF, after the file's other entries. Files of the languages this program does not parse get them too.
   - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (section 4).
   - **The TAGS file** is created before any file is tagged, so a walk of its directory finds it, of no language, and gives it an empty section: `-R` writes `TAGS,0` [V]. Here, too, the file is created empty before the walk if it does not exist.
+  - **A file that cannot be read** gets an empty section, named by the path as constructed even where `--tag-relative` makes the others relative, with WARNING `cannot open "PATH" : REASON`: with `-f ../T -R` from `wl`, `wl/a.c` but `sub/b.c,0` [V]. A file of no language is read too, so one that cannot be gets the same. Here a file that cannot be read gets no section, as it gets no tags (D19), nor does one too large to read (D7); one of a language not parsed here is not read, so it gets its section, named as any other, and no warning.
   - **`--sort=yes` or `foldcase`** after `-e` sorts the lines of the TAGS file as if they were tags, which merges the sections and loses lines: `a.c`, then `z.c`, give one section of `a.c`'s entries, sorted, and none of `z.c`'s [V]. Here the order is that of the walk, whatever `--sort` says (D18).
   - **`-a`** (OPT-20) adds the new sections after the bytes of the file as they are [V]. An existing file must still pass CLI-3's test, which accepts a TAGS file by its first line, or a tags file, to which the sections are then added.
 
@@ -1080,6 +1081,11 @@ Decided for this program, deliberately different from Universal Ctags.
   `foldcase` after `-e`, Universal Ctags sorts the TAGS file's lines as
   a tags file's, so the sections' heads gather at the top, entries leave
   their sections, and some are lost: a file that Emacs cannot read.
+- **D19** Under etags, a file of our languages that cannot be read gets
+  no section, as it gets no tags (OPT-21). Universal Ctags writes it an
+  empty one, named by the path as constructed where `--tag-relative`
+  names the other sections from the TAGS file's directory, so the name
+  may be of no file at all, or of another one.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.

@@ -1955,9 +1955,23 @@ static void test_walk(Test *t)
         }
         vfsunlink(os, "TAGS");
 
+        // D19: a file that cannot be read gets no section, where Universal
+        // Ctags writes an empty one, named as given
+        vfsunreadable(os, "sub/bad.c");
+        Run r = run(os, a, "-e -f sub/TAGS sub/bad.c sub/c.f90");
+        Str uctags19 = "\f\nsub/bad.c,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n";
+        Str want19   = "\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n";
+        expect(t, "D19", num(&a, r.status), "0");
+        expect(t, "D19", r.err, "ctags: Warning: cannot open input file "
+                                "\"sub/bad.c\" : Permission denied\n");
+        expect(t, "D19", vfsfind(os, "sub/TAGS", 0)->data, want19);
+        expect(t, "D19 departs", num(&a, want19!=uctags19), "1");
+        vfsunlink(os, "sub/TAGS");
+        vfsunlink(os, "sub/bad.c");
+
         // On Windows, a path as given, with its '\', unless made relative
         os->windows = 1;
-        Run r = run(os, a, "-e --tag-relative=no -f - sub\\c.f90");
+        r = run(os, a, "-e --tag-relative=no -f - sub\\c.f90");
         expect(t, "etags windows", r.out,
                "\f\nsub\\c.f90,16\nprogram p\x7fp\x01" "1,0\n");
         r = run(os, a, "-e -f - sub\\c.f90");
