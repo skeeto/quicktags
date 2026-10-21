@@ -207,6 +207,23 @@ static void test_walk(Test *t)
                "ctags: Warning: Ignoring non-option in od/b.ctags\n");
     }
     {
+        // On Windows, a directory ending in '\' takes no '/' before names
+        Os *os = newos(&a);
+        os->windows = 1;
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "od/b.ctags", "--kinds-C=+p\nfoo.c\n");
+        vfsfile(os, "od/a.ctags", "--extras=+q\n");
+        Run r = run(os, a, "-f - --options=od\\ a.c");
+        expect(t, "options dir\\ status", num(&a, r.status), "0");
+        expect(t, "options dir\\ err", r.err,
+               "ctags: Warning: Ignoring non-option in od\\b.ctags\n");
+        expect(t, "options dir\\ out", r.out, concat(&a, concat(&a, concat(&a,
+               concat(&a, f, m), mn), s), sm));
+        r = run(os, a, "-f - --options=od a.c");
+        expect(t, "options dir win err", r.err,
+               "ctags: Warning: Ignoring non-option in od/b.ctags\n");
+    }
+    {
         // Nested files, each read once
         Os *os = newos(&a);
         vfsfile(os, "a.c", src);
