@@ -709,7 +709,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 
 **Identifiers**
 - **OPT-17 [S][V] `-I LIST|@FILE|-`** (`options.c processIgnoreOption`, `cpreprocessor.c saveIgnoreToken`) fills a table of identifiers that the C and C++ tokenizer drops or replaces (LEX-14), each option acting as it is read.
-  - A parameter starting with `@`, `.`, `/` or `\`, or on Windows with a letter and `:`, names a file (after the `@`), read at once: each line, at LF or CRLF, with its trailing whitespace removed, is one token, and empty lines are skipped. On Windows the file is read as text, so it ends at its first Ctrl-Z (0x1A) [V]. Leading whitespace, spaces and commas stay in the token, so `a b` is one that names nothing. One that cannot be read is FATAL `cannot open "FILE" : REASON`, as `Permission denied` for a directory, and `Invalid argument` for an empty name (`-I @`), on Windows.
+  - A parameter starting with `@`, `.`, `/` or `\`, or on Windows with a letter and `:`, names a file (after the `@`), read at once: each line, at LF or CRLF, up to a NUL (X4) and with its trailing whitespace removed, is one token, and empty lines are skipped. On Windows the file is read as text, so it ends at its first Ctrl-Z (0x1A) [V]. Leading whitespace, spaces and commas stay in the token, so `a b` is one that names nothing. One that cannot be read is FATAL `cannot open "FILE" : REASON`, as `Permission denied` for a directory, and `Invalid argument` for an empty name (`-I @`), on Windows.
   - `-I -` empties the table.
   - Any other parameter is a list split at spaces, tabs, newlines and commas.
   - `--param-CPreProcessor.ignore=TOKEN` adds one token, unsplit (OPT-13).
@@ -867,7 +867,10 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X3** A `'` digit separator applies only inside numbers, so `u8'x'`
   is a character literal.
 - **X4** NUL is ordinary data, not the end of a line, and ends a pattern
-  without the `$` anchor.
+  without the `$` anchor. In a `-I` file it ends the line's token, and
+  the line still ends at its newline, where Universal Ctags drops the
+  rest of the line and joins the next one on (LEX-1): `A`, NUL, `junk`,
+  LF, `B` is its one token `AB`.
 - **X5** Bytes 0x80 and above are identifier characters.
 - **X6** `_Pragma(...)` and MSVC's `__pragma(...)` are dropped like
   `__attribute__(...)`, so pragmas between a declaration's parts do not

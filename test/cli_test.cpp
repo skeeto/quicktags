@@ -866,11 +866,13 @@ static void test_cli(Test *t)
         expect(t, st[i].args, showfields(&tmp, r.opt.fields), st[i].fields);
     }
 
-    // The -I table (OPT-17): macros by name, and how many there are
+    // The -I table (OPT-17): macros by name, and how many there are. A
+    // NUL ends a line's token (X4), where Universal Ctags joins the next
+    // line on, to make the tokens nul#c and "sp last".
     {
         Os *os = newos(&a);
         vfsfile(os, "m.txt", "  lead\nx+=int y\r\n\n z, w \t\nnul\0" "x=y\n"
-                             "#c\n" "last");
+                             "#c\n" "sp \0" "junk\n" "last");
         Str ls = "-I a,,b+\tc=d\ne+=f( a";
         struct { Str args, name, want; } ms[] = {
             {ls, "a", "a"},
@@ -890,6 +892,7 @@ static void test_cli(Test *t)
             {"-I @m.txt a",  " z, w",  " z, w"},
             {"-I @m.txt a",  "nul",    "nul"},
             {"-I ./m.txt a", "#c",     "#c"},
+            {"-I ./m.txt a", "sp",     "sp"},
             {"-I ./m.txt a", "last",   "last"},
         };
         for (iz i = 0; i < countof(ms); i++) {
@@ -905,7 +908,7 @@ static void test_cli(Test *t)
             {"-I +x,=y,+=z a",            0},
             {"-I a=1,b -I a=2 a",         2},
             {"-I a,b -I - -I c a",        1},
-            {"-I @m.txt a",               6},
+            {"-I @m.txt a",               7},
         };
         for (iz i = 0; i < countof(ns); i++) {
             Arena  tmp = a;
