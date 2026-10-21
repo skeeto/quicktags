@@ -133,14 +133,27 @@ static void print(Out *o, Str s)
 // Lines in order: a span of an index, or a cursor over text, which
 // reads it a line at a time into cur, where beg then points.
 struct Stream {
-    Line *beg;
-    Line *end;
-    Line  cur;
-    u8   *next;  // a cursor's text yet to read, up to stop, ending in LF
-    u8   *stop;
+    Line     *beg;
+    Line     *end;
+    Line      cur;
+    u8       *next;  // a cursor's text yet to read, up to stop, ending in LF
+    u8       *stop;
+    Map<b32> *drop;  // files whose lines a cursor skips (D9)
 };
 
-// Move an empty cursor to its next line that is not blank, if any.
+// Whether a line is one of a file tagged again, whose file field is in
+// the set, and not a pseudo-tag (D9).
+static b32 dropped(Map<b32> *drop, Str line)
+{
+    if (!drop || startswith(line, "!_")) {
+        return 0;
+    }
+    Cut name = cut(line, '\t');
+    return name.ok && upsert(&drop, cut(name.tail, '\t').head, 0);
+}
+
+// Move an empty cursor to its next line that is not blank or dropped,
+// if any.
 template<b32 fold>
 static void refill(Stream *s)
 {
@@ -149,7 +162,7 @@ static void refill(Stream *s)
         u8 *end = beg;
         for (; *end != '\n'; end++) {}
         s->next = end + 1;
-        if (end > beg) {
+        if (end>beg && !dropped(s->drop, span(beg, end))) {
             s->cur.data = beg;
             s->cur.len  = end - beg;
             s->cur.key  = linekey<fold>(beg, end-beg);
@@ -508,13 +521,28 @@ static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
     Stream *s  = alloc<Stream>(&scratch, n+1);
     i32     ns = n;
     if (old->text.data) {
+        // The old lines but those of files tagged again (D9)
+        Map<b32> *drop = 0;
+        for (i32 i = 0; i < n; i++) {
+            for (Chunk *k = ws[i].chunks; k; k = k->next) {
+                *upsert(&drop, k->outpath, &scratch) = 1;
+            }
+        }
         Stream *t = s + ns++;
         if (old->lines) {
+            iz len = 0;
+            for (iz i = 0; i < old->nlines; i++) {
+                Line *l = old->lines + i;
+                if (!dropped(drop, {l->data, l->len})) {
+                    old->lines[len++] = *l;
+                }
+            }
             t->beg = old->lines;
-            t->end = old->lines + old->nlines;
+            t->end = old->lines + len;
         } else {
             t->next = old->text.data;
             t->stop = old->text.data + old->text.len;
+            t->drop = drop;
         }
     }
 

@@ -37,11 +37,13 @@ struct Ctx {
     Str      cwd;      // with --tag-relative: the current directory
     Str      base;     // and the directory paths are relative to
     b32      ordered;  // files' tags are written in the walk's order
+    b32      chunked;  // each file tagged gets a chunk: ordered, or -a (D9)
     Queue    queue;
 };
 
 // One file's tags, for output in the walk's order: a span of its
-// worker's tag lines, as offsets until the worker finishes them.
+// worker's tag lines, as offsets until the worker finishes them. With
+// -a, also the file whose old lines are dropped (D9).
 struct Chunk {
     Chunk *next;
     Str    key;      // the item's
@@ -61,7 +63,7 @@ struct alignas(64) Worker {
     Buf    tags;
     Buf    log;
     Line  *lines;
-    Chunk *chunks;   // if ordered, one per file, last first
+    Chunk *chunks;   // if chunked, one per file, last first
     iz     nchunks;
     iz     nlines;
     iz     nfiles;
@@ -639,7 +641,7 @@ static void visitfile(Worker *w, Item *it)
     f.nofast = c->opt->nofast;
     parsefile(&f, tmp);
 
-    if (c->ordered) {
+    if (c->chunked) {
         // The output path lives in scratch, so copy it out
         Chunk *k = alloc<Chunk>(&w->perm);
         k->key     = it->key;

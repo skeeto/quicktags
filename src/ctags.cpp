@@ -210,6 +210,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     ctx.os      = os;
     ctx.opt     = &opt;
     ctx.ordered = opt.sort == SORT_NO;
+    ctx.chunked = ctx.ordered || old.text.data;
     if (opt.tagrelative != TREL_NO) {
         // Paths are made relative to the tags file's directory (OPT-18)
         ctx.cwd = os_cwd(os, &g);

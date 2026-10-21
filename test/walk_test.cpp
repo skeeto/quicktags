@@ -714,9 +714,102 @@ static void test_walk(Test *t)
             }
         }
 
+        // D9: the old lines of each file tagged again are dropped, even
+        // one with no tags now, but never pseudo-tags, where Universal
+        // Ctags keeps them all (and, adding no tag, leaves the file)
+        struct {
+            Str out, old, args, want, uctags;
+            b32 windows;
+        } d9[] = {
+            {"tags", "!_TAG_FILE_SORTED\t1\t/x/\nold\ta.c\t1\nw\tq.c\t1\n",
+             "-a a.c", concat(&a, "!_TAG_FILE_SORTED\t1\t/x/\nw\tq.c\t1\n", x),
+             concat(&a, "!_TAG_FILE_SORTED\t1\t/x/\nold\ta.c\t1\nw\tq.c\t1\n",
+                    x), 0},
+            {"tags", "e\tempty.c\t1\nw\tq.c\t1\n", "-a empty.c",
+             "w\tq.c\t1\n", "e\tempty.c\t1\nw\tq.c\t1\n", 0},
+            {"tags", "w\tq.c\t1\nold\ta.c\t1\n", "-u -a a.c",
+             concat(&a, "w\tq.c\t1\n", x),
+             concat(&a, "w\tq.c\t1\nold\ta.c\t1\n", x), 0},
+            {"tags", "!_TAG_X\ta.c\t//\nold\ta.c\t1\n", "-a a.c",
+             concat(&a, "!_TAG_X\ta.c\t//\n", x),
+             concat(&a, "!_TAG_X\ta.c\t//\nold\ta.c\t1\n", x), 0},
+
+            // As the file field has it, here relative to sub/
+            {"sub/tags", "y\tb.c\t1\nz\tq.c\t1\n",
+             "--tag-relative=yes -f sub/tags -a sub/b.c",
+             "y\tb.c\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+             "z\tq.c\t1\n",
+             "y\tb.c\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+             "y\tb.c\t1\nz\tq.c\t1\n", 0},
+            {"tags", "y\tsub/b.c\t1\nz\tq.c\t1\n", "-a sub\\b.c",
+             "y\tsub/b.c\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+             "z\tq.c\t1\n",
+             "y\tsub/b.c\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+             "y\tsub/b.c\t1\nz\tq.c\t1\n", 1},
+        };
+        for (iz i = 0; i < countof(d9); i++) {
+            Os *os = newos(&a);
+            os->windows = d9[i].windows;
+            vfsfile(os, "a.c", "int x;\n");
+            vfsfile(os, "empty.c", "");
+            vfsfile(os, "sub/b.c", "int y;\n");
+            vfsfile(os, d9[i].out, d9[i].old);
+            Str name = concat(&a, "D9: ", d9[i].args);
+            Run r    = run(os, a, d9[i].args);
+            expect(t, name, num(&a, r.status), "0");
+            expect(t, name, vfsfind(os, d9[i].out, 0)->data, d9[i].want);
+            expect(t, name, num(&a, d9[i].want!=d9[i].uctags), "1");
+        }
+
+        // So appending a tree to its own tags file changes nothing, in
+        // any order, however often
+        Str modes[] = {"", "-u", "--sort=foldcase"};
+        for (iz m = 0; m < countof(modes); m++) {
+            Os *os = newos(&a);
+            vfsfile(os, "a.c", "int x;\nint X;\n");
+            vfsfile(os, "sub/b.cpp", "int y;\nint B;\n");
+            vfsfile(os, "sub/c.f90", "integer :: z\n");
+            run(os, a, concat(&a, modes[m], " -R"));
+            Str once = vfsfind(os, "tags", 0)->data;
+            for (i32 i = 0; i < 2; i++) {
+                Str args = concat(&a, modes[m], " -a -R");
+                Run r    = run(os, a, args);
+                expect(t, args, num(&a, r.status), "0");
+                expect(t, args, vfsfind(os, "tags", 0)->data, once);
+            }
+        }
+
+        // gutentags' update: a full run, the file's lines filtered out,
+        // then the file appended, makes what a full run makes
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int x;\n");
+        vfsfile(os, "b.c", "int y;\nint w;\n");
+        vfsfile(os, "sub/c.c", "int z;\n");
+        run(os, a, "-R");
+        vfsfile(os, "b.c", "int y2;\n");
+        Run full = run(os, a, "-R -f fresh");
+        Buf filtered(&a, 1<<10);
+        for (Cut c = cut(vfsfind(os, "tags", 0)->data, '\n'); c.ok;
+             c = cut(c.tail, '\n')) {
+            if (find(c.head, "\tb.c\t") < 0) {
+                print(&filtered, c.head);
+                putbyte(&filtered, '\n');
+            }
+        }
+        for (i32 filter = 0; filter < 2; filter++) {
+            Str start = filter ? finish(&filtered)
+                               : vfsfind(os, "tags", 0)->data;
+            vfsfile(os, "tags.temp", start);
+            Run r = run(os, a, "-f tags.temp --append b.c");
+            Str name = filter ? Str("gutentags filtered") : Str("gutentags");
+            expect(t, name, num(&a, full.status | r.status), "0");
+            expect(t, name, vfsfind(os, "tags.temp", 0)->data,
+                   vfsfind(os, "fresh", 0)->data);
+        }
+
         // Refused: to standard output, a file that cannot be read, or
         // one that is not a tags file, each left as it was
-        Os *os = newos(&a);
+        os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-a -f - a.c");
         expect(t, "append stdout", num(&a, r.status), "1");
