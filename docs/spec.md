@@ -127,7 +127,7 @@ apply.
 
 ### 1.3 Language detection
 
-- **LANG-1 [V][S]** The extension is the text after the last `.` of the basename, compared case-insensitively on this build:
+- **LANG-1 [V][S]** Each language has a map of extensions and of file name patterns, by default no patterns and these extensions:
 
   | Language | Extensions |
   |---|---|
@@ -135,15 +135,30 @@ apply.
   | C++ | `c++ cc cp cpp cxx h h++ hh hp hpp hxx inl` |
   | Fortran | `f for ftn f77 f90 f95 f03 f08 f15` |
 
-  - Because the build has `CASE_INSENSITIVE_FILENAMES`, `foo.C` is **C** (on Unix it would be C++). `.H`, `.CPP`, `.F90`, `.F` map case-insensitively.
-- **LANG-2 [V]** If the name ends in `.in`, the suffix is stripped and the lookup repeated: `config.h.in` is C++.
+  - Where file names have case, C++ also has `C H CPP CXX` and Fortran the uppercase of its own. This build has `CASE_INSENSITIVE_FILENAMES` and not them, and compares extensions ignoring case, so `foo.C` is **C** (on Unix it would be C++), and `.H`, `.CPP`, `.F90`, `.F` map as in lowercase.
+  - Here the maps are those of this build, but for C++'s `C`, which comes last (D1).
+- **LANG-2 [S][V] Matching** (`parse.c getFileLanguageForRequestInternal`), on the base name, among the enabled languages:
+  1. their patterns, matched as excludes are (DISC-8; on Windows, uppercased);
+  2. their extensions, against the text after the last `.` of the name, which is empty without one, so the empty extension (mapped by `.`) takes the names without a `.` [V].
+
+  The first step that matches any language decides, and of several languages, the first by name ignoring case: C, C++, Fortran (or, with ObjectiveC enabled, a `.h` it claims, LANG-4). If neither step matches and the name ends in `.in`, exactly, they are tried again on the name without it: `config.h.in` is C++, but `--map-C++=+.in` makes `x.c.in` C++.
+  - Here extensions are compared exactly before ignoring case, across all the languages, so `.C` is C++, and `.in` ends a name ignoring case (D1).
 - **LANG-3 [V]** There is no content sniffing without `-G`. Extension-less files, including libc++'s `vector`, and `.inc .def .ipp .tcc .cppm .ixx .cuf .fpp .f18` are not tagged.
 - **LANG-4 [V]** Under the parity target, every `.h` is C++, never C or ObjC. [I] Every `.f` is Fortran.
   - Under default languages:
     - `.h` becomes ObjectiveC if any `mio_gets` chunk of up to 0x800 bytes begins with `#import`, `@interface `, `@implementation ` or `@protocol ` (`selectors.c` 181-235).
     - `.f` becomes Forth if a chunk begins with `\`, or with `:` followed by whitespace (346-361).
-- **LANG-5 [S][V]** A file is a header iff its full-name extension, compared case-insensitively, is one of `h H hh hpp hxx h++ inc def` (`options.c` 131; `-h` changes the list).
+- **LANG-5 [S][V]** A file is a header iff its full-name extension, compared case-insensitively, is one of `h H hh hpp hxx h++ inc def` (`options.c` 131; `-h` changes the list, LANG-6), whatever its language.
   - So `.inl`, `.hp`, `.cc`, `.cpp`, `.c` and `.h.in` are **not** headers.
+  - Here the extension is that of the name without a final `.in`, compared ignoring case, and `inl` and `hp` are headers too (D2).
+- **LANG-6 [S][V] Options** (their grammar and messages: OPT-12).
+  - `--languages`: a disabled language takes no files, and its extensions go to no other language, so `--languages=-C x.c` tags nothing.
+  - `--language-force=LANG` makes every input LANG, given or walked, whatever its name, so `-R --language-force=C` parses `Makefile` and every other file not excluded as C. When LANG is disabled, tagging a file is FATAL `C parser specified with --language-force is disabled`; under the parity target every other language is disabled, so forcing one is FATAL [V]. Here the check is made once the options are parsed, before anything is tagged, and only for our languages.
+  - `--langmap=LANG:MAPS` takes each extension or pattern from every language, first, as the first one equal to it, ignoring case on this build (`stringListDeleteItemExtension`), then adds it to LANG's: `--langmap=c:+.h` makes `.h` C, and `--langmap=c:+(*.x) --langmap=c++:+(*.X)` makes `p.x` C++ [V]. Without `+`, LANG's map is emptied first, its patterns too: `--langmap=c:.h` leaves `.c` to no language.
+  - `--map-LANG=+X` adds X to LANG's map alone, so another language may share it (and the first by name wins, LANG-2), `-X` removes the first item equal to it, ignoring case, from LANG's, and a bare X makes it LANG's whole map. Only the first item counts: `--map-C=.c.h` gives C `c`.
+  - `default` restores the maps: all of them for `--langmap=default`, one for `LANG:default`.
+  - `-h LIST` sets the header extensions: `default` (exactly) restores them, a leading `+` adds to them, and otherwise they are replaced. LIST is split at `.`, once a leading `.` is dropped, so `.h.hpp` and `h.hpp` are alike, `.` is the empty extension, and `-h +` adds nothing. The list is FATAL `-h: Invalid list` when it names an existing path, so `-h .` always is.
+  - Here a map naming a language this program does not parse takes its items from ours with `--langmap`, and does nothing else: no file is tagged as that language. Forcing such a language tags nothing, as Universal Ctags would tag no file of ours as it, where it is enabled.
 
 ### 1.4 Lexing and preprocessing (C and C++ share it)
 
@@ -639,7 +654,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -686,7 +701,8 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--language-force=LANG|auto` (`auto` ignoring case), with `--lang` and `--language` warning `"--lang" option is obsolete; use "--language-force" instead` first.
   - `--langmap=default` restores every map. Otherwise items `LANG:[+]MAPS` separated by `,`: the language runs to the first `:` in the rest of the value; without `+` its map is first cleared; `LANG:default` (ignoring case) restores one map; each map is `.ext` (up to `.`, `(`, `,` or the end) or `(pattern)` (`\)` does not end it), and is taken from every other language. An unknown language warns with the whole value and ends the option; a bad map is FATAL `Badly formed language map for C language` or `Unterminated file name pattern for C language`.
   - `--map-LANG=[+|-]MAP` adds, removes, or replaces the map with one item, the rest ignored, without taking it from other languages. An empty value is FATAL `no parameter is given for map-C`.
-  - Until this program edits its own maps (here): a map for our languages, an extension of ours (or `in`) or any pattern added to another language, may change ours, and is not yet supported.
+  - `-h LIST`, `--languages`, `--language-force` and the maps act as LANG-6 says.
+  - `all` also enables the languages this program does not parse. Of those, ObjectiveC claims some `.h` files (LANG-4), and QtMoc (of C++) and JNI (of C and C++), enabled by default in Universal Ctags, add their tags to our files; the reference disables them all (P-1). Here, as in the reference, they never take a file or add a tag, whatever `--languages` says, so `--languages=all` and `--languages=+QtMoc` enable only our languages, of all they name.
   - `--langdef=NAME[{flags}]`: FATAL `No language specified for "langdef" option` when empty, `Language "X" already defined` for a known name, `"all" is reserved; don't use it as the name for defining a new language` (also `NONE`, exact case), and `don't use `_' in a language name (a_b)` for any character but a letter, digit, `+` or `#` (with `"'"` for a quote or backquote).
   - Its flags (`main/flags.c`, `parse.c processLanguageDefineOption`) start at the first `{`, each `{FLAG}` or `{FLAG=VALUE}`; text between them is ignored, `{{` ends them (a script follows), and a `{` without a `}` ends them with WARNING `long flags specifier opened with `{' is not closed `}': "FLAGS"`, FLAGS from the first `{` on.
   - `{base=LANG}` makes NAME a subparser of LANG, ignoring case, the last valid one counting. An empty LANG warns `No base parser specified for "base" flag of --langdef option`, an unknown one `Unknown language(X) is specified for "base" flag of --langdef option`, and `CPreProcessor` `Because of an internal limitation, Making a sub parser based on the CPreProcessor parser is not allowed: X`, and each is ignored. `{dedicated}`, `{shared}` and `{bidirectional}` set the direction, the last one counting, shared by default; without a base they warn `Ignore the direction of subparser because "{base=}" is not given`. Universal Ctags crashes on `{base}` without `=`; here it warns as an empty one does. The other flags (`_autoFQTag`, `_foreignLanguage`, `version`) are accepted without their checks.
@@ -827,9 +843,15 @@ Decided for this program, deliberately different from Universal Ctags.
   and not with `--extras=-p` (EX-5).
 - **The tags file is replaced atomically** (written to `NAME.tmpN`, then
   renamed), so Vim never sees a partial file, and no temporary files leak.
-- **D1** `.C` is C++ (on Windows, Universal Ctags makes it C).
+- **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). Here an
+  extension is compared exactly, for every language, before it is
+  compared ignoring case, and C++'s map ends with `C` (LANG-1, LANG-2).
+  So with `--map-C=+.H`, `.H` is C but `.h` stays C++, where Universal
+  Ctags on Windows makes both C.
 - **D2** `.inl` and `.hp` are headers, and `X.h.in` is tested by the
-  extension of `X.h` (no spurious `file:` fields).
+  extension of `X.h` (no spurious `file:` fields), whatever the
+  language, forced or not. A final `.in` is recognized ignoring case, so
+  `x.c.IN` is C, where Universal Ctags tags nothing.
 - **D4** Links and junctions to directories are skipped while recursing,
   so there are no cycles. Links to files are followed, unless
   `--links=no`, which skips them and links given as arguments, on
@@ -877,7 +899,10 @@ Decided for this program, deliberately different from Universal Ctags.
   only our languages (OPT-15); `--langdef=NAME{base}` warns where
   Universal Ctags crashes (OPT-12); a `-L` list is read before anything
   is tagged, skips lines of only blanks, and may hold initOnly options
-  after its files (DISC-6).
+  after its files (DISC-6); forcing a language this program does not
+  parse tags nothing, where the reference is FATAL as the language is
+  disabled, and forcing a disabled one of ours is FATAL even when no
+  file would be tagged (LANG-6).
 
 ### Lexing (built in from the start)
 
