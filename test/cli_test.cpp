@@ -443,7 +443,9 @@ static void test_cli(Test *t)
         {"--append=x a",       FATAL, "ctags: Invalid value for \"append\" "
                                       "option\n"},
         {"--links a",          OK,    ""},
-        {"--links=no a",       FATAL, "ctags: --links: not yet supported\n"},
+        {"--links=no a",       OK,    ""},
+        {"--links=x a",        FATAL, "ctags: Invalid value for \"links\" "
+                                      "option\n"},
         {"--if0=no a",         OK,    ""},
         {"--if0 a",            FATAL, "ctags: --if0: not supported\n"},
         {"--if0=x a",          FATAL, "ctags: Invalid value for \"if0\" "

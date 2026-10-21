@@ -255,7 +255,7 @@ static void visitdir(Worker *w, Item *it)
     for (Dirent *d = l.head; d; d = d->next) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
-        if (excluded(c->opt, path, d->name)) {
+        if ((d->islink && c->opt->nolinks) || excluded(c->opt, path, d->name)) {
             w->perm.beg = mark;
             continue;
         }
@@ -343,7 +343,9 @@ static void examine(Ctx *c, Item *it, Arena scratch)
 {
     Stat s = os_stat(c->os, scratch, it->path);
     it->type = ITEM_NONE;
-    if (s.type == STAT_NONE) {
+    if (s.islink && c->opt->nolinks) {
+        return;  // even one that leads nowhere (DISC-7)
+    } else if (s.type == STAT_NONE) {
         it->err = s.err;
     } else if (s.type == STAT_DIR) {
         it->type = ITEM_DIR;

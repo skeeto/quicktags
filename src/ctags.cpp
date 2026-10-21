@@ -24,10 +24,11 @@ struct Os;
 struct Worker;
 
 struct Dirent {
-    Dirent *next;   // in the order the system listed them
+    Dirent *next;    // in the order the system listed them
     Str     name;
     i64     size;
     b32     isdir;
+    b32     islink;  // a symbolic link (to a file)
 };
 
 enum : i32 { STAT_NONE, STAT_FILE, STAT_DIR, STAT_OTHER };
@@ -40,11 +41,12 @@ enum : i32 {
     OSERR_IO,
 };
 
-struct Stat    { i32 type; i64 size; i32 err; };
+struct Stat    { i32 type; i64 size; i32 err; b32 islink; };
 struct Listing { Dirent *head; i32 err; };      // !err && !head: empty
 struct Read    { Str data; i64 size; i32 err; };
 
-// Classify a path, following links.
+// Classify a path, following links, and note whether it is a link
+// itself, which a dangling link also is.
 static Stat    os_stat(Os *, Arena, Str path);
 // List a directory in system order, without "." and "..", devices, or
 // links and junctions to directories. Links to files are listed.

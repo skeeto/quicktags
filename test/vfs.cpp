@@ -10,6 +10,7 @@ struct VNode {
     Str     name;
     Str     data;
     b32     isdir;
+    b32     islink;  // a link to a file, which data stands for
 };
 
 struct Os {
@@ -84,6 +85,13 @@ static void vfsfile(Os *os, Str path, Str data)
     n->data = clone(os->a, data);
 }
 
+// Add a link to a file, standing for the file with its contents.
+static void vfslink(Os *os, Str path, Str data)
+{
+    vfsfile(os, path, data);
+    vfsfind(os, path, 0)->islink = 1;
+}
+
 static void vfsdir(Os *os, Str path)
 {
     VNode *n = vfsfind(os, path, os->a);
@@ -122,8 +130,9 @@ static Stat os_stat(Os *os, Arena, Str path)
     } else if (n->isdir) {
         r.type = STAT_DIR;
     } else {
-        r.type = STAT_FILE;
-        r.size = n->data.len;
+        r.type   = STAT_FILE;
+        r.size   = n->data.len;
+        r.islink = n->islink;
     }
     return r;
 }
@@ -139,9 +148,10 @@ static Listing os_list(Os *os, Arena *a, Str path)
     Dirent **tail = &r.head;
     for (VNode *c = n->child; c; c = c->next) {
         Dirent *d = alloc<Dirent>(a);
-        d->name  = clone(a, c->name);
-        d->size  = c->data.len;
-        d->isdir = c->isdir;
+        d->name   = clone(a, c->name);
+        d->size   = c->data.len;
+        d->isdir  = c->isdir;
+        d->islink = c->islink;
         *tail = d;
         tail  = &d->next;
     }

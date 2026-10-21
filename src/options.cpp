@@ -1903,7 +1903,6 @@ static i32 parsefinish(Parse *p)
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
-    if (opt->nolinks)                 return notyet(p, "--links");                 // M2a
     if (opt->langs != LANGS_ALL)      return notyet(p, "--languages");             // M2b
     if (opt->force)                   return notyet(p, "--language-force");        // M2b
     if (opt->mapped)                  return notyet(p, "--langmap");               // M2b

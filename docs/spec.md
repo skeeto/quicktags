@@ -115,7 +115,7 @@ apply.
   - `-L` in the list warns `-L option specified more than once, last value used`, and is ignored, as the list being read is the only one read.
   - With a list, there are files, even if the list is empty, so `-R` does not recurse into `.` (CLI-2), and no files is not an error.
   - Here the list is read once the command line is parsed, before anything is tagged, so a list that cannot be read is FATAL first. Its options act as those of the command line do, on every file (section 4), and none is refused for following a file name; a directory in it is recursed (D8); and a line of only blanks is skipped.
-- **DISC-7 [S] `--links=no`** skips symbolic links (step 2 of DISC-1), arguments and list entries as well as walked entries, and directories as well as files. The check uses `lstat`, which this Windows build lacks, so there the option does nothing [V]: a link to a file is tagged, and one to a directory recursed into, through the link.
+- **DISC-7 [S] `--links=no`** skips symbolic links (step 2 of DISC-1), arguments and list entries as well as walked entries, and directories as well as files, even dangling ones. The check uses `lstat`, which this Windows build lacks, so there the option does nothing [V]: a link to a file is tagged, and one to a directory recursed into, through the link. Here it works on Windows too, where a link is a reparse point that is a name surrogate (symbolic links and junctions), and walks never follow links to directories anyway (D4).
 - **DISC-8 [S][V] Patterns** (gnulib `fnmatch_loop.c`, as built, single-byte, without `FNM_CASEFOLD`): a pattern matches the whole name, one element at a time.
   - `*` matches any run of characters, `/` and a leading `.` included; `?` matches any one character.
   - `\` makes the next character literal; at the end of the pattern it matches nothing.
@@ -639,7 +639,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -831,7 +831,9 @@ Decided for this program, deliberately different from Universal Ctags.
 - **D2** `.inl` and `.hp` are headers, and `X.h.in` is tested by the
   extension of `X.h` (no spurious `file:` fields).
 - **D4** Links and junctions to directories are skipped while recursing,
-  so there are no cycles. Links to files are followed.
+  so there are no cycles. Links to files are followed, unless
+  `--links=no`, which skips them and links given as arguments, on
+  Windows too (DISC-7).
 - **D5** Paths are UTF-8 (WTF-8) with no MAX_PATH limit.
 - **D7** Files over 64 MiB are skipped with a warning.
 - **D8** A directory argument is always tagged recursively, so `ctags .`
@@ -860,7 +862,7 @@ Decided for this program, deliberately different from Universal Ctags.
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
   `--file-scope`, `--file-tags`), `--options`, `--exclude`,
-  `--exclude-exception`, `-L`, the listings (OPT-15), `--version`,
+  `--exclude-exception`, `-L`, `--links`, the listings (OPT-15), `--version`,
   `--help`, and this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported

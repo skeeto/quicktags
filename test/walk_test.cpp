@@ -586,6 +586,28 @@ static void test_walk(Test *t)
     }
 
     {
+        // --links=no skips links to files, walked or given (DISC-7)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",     "int a;\n");
+        vfslink(os, "l.c",     "int l;\n");
+        vfslink(os, "sub/m.c", "int m;\n");
+        vfsfile(os, "sub/n.c", "int n;\n");
+        struct { Str args, names; } cases[] = {
+            {"-R",                         "a l m n"},
+            {"-R --links=no",              "a n"},
+            {"--links=no a.c l.c sub",     "a n"},
+            {"--links=no --links a.c l.c", "a l"},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, tagnames(&a, r.out), cases[i].names);
+            expect(t, args, r.err, "");
+        }
+    }
+
+    {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-f - b.c a.c c.c");

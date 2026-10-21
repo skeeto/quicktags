@@ -42,7 +42,9 @@ static Stat os_stat(Os *, Arena scratch, Str path)
 {
     Stat        r  = {};
     struct stat st = {};
-    if (stat(cstr(&scratch, path), &st)) {
+    char       *p  = cstr(&scratch, path);
+    r.islink = !lstat(p, &st) && S_ISLNK(st.st_mode);
+    if (stat(p, &st)) {
         r.err = oserr(errno);
     } else if (S_ISDIR(st.st_mode)) {
         r.type = STAT_DIR;
@@ -81,7 +83,8 @@ static Listing os_list(Os *, Arena *a, Str path)
         if (lstat(cful, &st)) {
             continue;
         }
-        if (S_ISLNK(st.st_mode)) {
+        b32 islink = S_ISLNK(st.st_mode);
+        if (islink) {
             if (stat(cful, &st) || S_ISDIR(st.st_mode)) {
                 continue;
             }
@@ -90,9 +93,10 @@ static Listing os_list(Os *, Arena *a, Str path)
             continue;
         }
         Dirent *d = alloc<Dirent>(a);
-        d->name  = clone(a, name);
-        d->size  = (i64)st.st_size;
-        d->isdir = S_ISDIR(st.st_mode);
+        d->name   = clone(a, name);
+        d->size   = (i64)st.st_size;
+        d->isdir  = S_ISDIR(st.st_mode);
+        d->islink = islink;
         *tail = d;
         tail  = &d->next;
     }
