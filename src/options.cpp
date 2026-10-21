@@ -103,7 +103,8 @@ static Str usage =
 "                          Fortran, as letters or {names}\n"
 "  --extras=[+|-]EXTRAS    q: also tag C and C++ names qualified by\n"
 "                          scope (ns::Class::f), F: file-scoped tags,\n"
-"                          p: pseudo-tags (default: Fp)\n"
+"                          f: a tag for each file, p: pseudo-tags\n"
+"                          (default: Fp)\n"
 "  --options=FILE|DIR      read options from FILE, one per line, or from\n"
 "                          the *.ctags files in DIR\n"
 "  -I LIST|@FILE|-         C and C++ macros to drop: X, or X+ with the\n"
@@ -2186,9 +2187,7 @@ static i32 parsefinish(Parse *p)
 
     // Parsed, but not yet implemented: each check goes when its
     // milestone lands
-    b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
-    if (filetags)                     return notyet(p, "--extras=+f");             // M7
 
     // Universal Ctags finds this once it is to tag a file (LANG-6)
     i32 force = opt->force;

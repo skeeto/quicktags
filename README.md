@@ -11,7 +11,7 @@ tags files match [Universal Ctags][] 6.2.1 where that is correct, with a
 Options: `-R` (`--recurse`), `-f`/`-o FILE` (`-` for standard output),
 `--kinds-LANG=[+|-]KINDS` for C, C++, and Fortran (also `--LANG-kinds`),
 `--extras=[+|-]EXTRAS` (`q` adds C and C++ tags qualified by scope, such
-as `ns::Class::name`; `F` and `p` drop file-scoped tags and pseudo-tags
+as `ns::Class::name`; `f` adds a tag for each file; `F` and `p` drop file-scoped tags and pseudo-tags
 when turned off), and `--jobs=N`. `--help` lists the kinds. Files are
 tagged by extension, as Universal Ctags does.
 

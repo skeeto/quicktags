@@ -6,6 +6,7 @@ struct Source {
     Str  path;      // as constructed, the input to anonymous names
     Str  outpath;   // the file field: '\' as '/', escaped
     Str  text;      // contents after any UTF-8 BOM
+    i64  mtime;     // for the file tag's epoch: field
     u32  anonhash;
     i32  lang;
     b32  header;
@@ -396,6 +397,63 @@ static void tagline(File *f, Tag *t)
         if (fieldon(on, FIELD_CXXNAME) && t->aliased.data) {
             beginfield(b, &any, "name");
             printescaped(b, t->aliased, 0);
+        }
+    }
+    putbyte(b, '\n');
+    f->ntags++;
+}
+
+// Append the file's own tag, of the file kind, which the inputFile extra
+// adds after its other tags (EX-7): the name given, the address line 1
+// whatever the excmd, and of the fields only the kind, line, language,
+// roles, extras, and epoch. E-ctags writes the name and path as they
+// are, so drops the tag if either would break the line (FLD-6).
+static void filetag(File *f, Str name)
+{
+    Source *src = f->src;
+    Format *fmt = f->fmt;
+    Buf    *b   = f->out;
+    u64     on  = fmt ? fmt->fields : defaultfields();
+    b32     raw = fmt && fmt->ectags;
+    if (raw && (hasbreak(name) || hasbreak(src->path))) {
+        return;
+    }
+
+    if (raw) {
+        print(b, name);
+    } else {
+        printescaped(b, name, 1);
+    }
+    putbyte(b, '\t');
+    print(b, src->outpath);
+    print(b, "\t1");
+
+    if (!fmt || !fmt->nofields) {
+        b32 any = 0;
+        if (fieldon(on, FIELD_KINDLONG) || fieldon(on, FIELD_KIND)) {
+            Str key = fieldon(on, FIELD_KINDKEY) ? Str("kind") : Str{};
+            beginfield(b, &any, key);
+            print(b, fieldon(on, FIELD_KINDLONG) ? Str("file") : Str("F"));
+        }
+        if (fieldon(on, FIELD_LINE)) {
+            beginfield(b, &any, "line");
+            print(b, "1");
+        }
+        if (fieldon(on, FIELD_LANGUAGE)) {
+            beginfield(b, &any, "language");
+            print(b, langnames[src->lang]);
+        }
+        if (fieldon(on, FIELD_ROLES)) {
+            beginfield(b, &any, "roles");
+            print(b, "def");
+        }
+        if (fieldon(on, FIELD_EXTRAS)) {
+            beginfield(b, &any, "extras");
+            print(b, "inputFile");
+        }
+        if (fieldon(on, FIELD_EPOCH)) {
+            beginfield(b, &any, "epoch");
+            print(b, src->mtime);
         }
     }
     putbyte(b, '\n');

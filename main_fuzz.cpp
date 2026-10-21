@@ -1,6 +1,6 @@
 // Fuzz test layer for AFL++, over the in-memory file system: the first
-// byte picks a language, kinds, -I macros and the order, the rest is a
-// file to tag.
+// byte picks a language, kinds, -I macros, file tags and the order, the
+// rest is a file to tag.
 // Undefined behavior traps, and the output is checked for the format's
 // invariants.
 // $ afl-clang-fast++ -std=c++20 -g3 -fsanitize=undefined -fsanitize-trap -o fuzz main_fuzz.cpp
@@ -44,6 +44,7 @@ int main()
         Str fkinds  = buf[0]&0x80 ? Str("--kinds-Fortran=*") : Str("--kinds-Fortran=+L");
         Str macros  = buf[0]&0x40 ? Str("-Ix=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R")
                                   : Str("-I-");
+        Str extras  = buf[0]&0x08 ? Str("--extras=+f") : Str("--extras=-f");
         Str sorts[] = {"--sort=no", "--sort=yes", "--sort=foldcase", "--sort=yes"};
         i32 order   = buf[0]>>4 & 3;  // SORT_*, then yes again
 
@@ -55,8 +56,8 @@ int main()
             Os *os = newos(&a);
             vfsfile(os, name, {buf+1, len-1});
             Str sort   = run ? Str("--sort=yes") : sorts[order];
-            Str args[] = {"ctags", kinds, ckinds, fkinds, macros, sort, "-f",
-                          "-", name};
+            Str args[] = {"ctags", kinds, ckinds, fkinds, macros, extras, sort,
+                          "-f", "-", name};
             if (ctags_main(os, m, args, countof(args))) {
                 __builtin_trap();
             }

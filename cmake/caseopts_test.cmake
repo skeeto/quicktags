@@ -80,6 +80,14 @@ ctags_caseopts("${lines}")
 expect("args" "${ctags_args}"
   "--kinds-C++=+p;--extras=+q;--KINDS-c=+l;--C++-kinds=+z;-I X=int;--param-CPreProcessor.ignore=Y")
 expect("fmt" "${ctags_fmt}" "--fields=+K;--sort=no")
+expect("noepoch" "${ctags_noepoch}" ON)
+
+# The file tags' extra, kept, but their epochs not compared (D17)
+ctags_caseopts("--file-tags;--fields=+K")
+expect("file-tags" "${ctags_args}" "--file-tags")
+expect("file-tags noepoch" "${ctags_noepoch}" ON)
+ctags_caseopts("--kinds-C=+p;--fields=+K")
+expect("no extras noepoch" "${ctags_noepoch}" OFF)
 
 set(formats
   "-n" "-N" "-nN" "--excmd=combine" "--format=1" "--pattern-length-limit=9"

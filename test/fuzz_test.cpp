@@ -117,6 +117,7 @@ struct Lint {
     b32 deflt;     // the kind letter first, then line:
     b32 strip;     // the default output once stripped (fuzzstrip)
     i32 order = ORDER_BYTES;
+    b32 filetag = 0;  // one file tag (EX-7), last if unsorted
 };
 
 static Lint lints[] = {
@@ -129,15 +130,21 @@ static Lint lints[] = {
                                                         EXCMD_MIXED,   0, 1, 0},
     // One of the following too, in turn
     {"--fields=* --extras=+q --kinds-C++=* ",           EXCMD_MIXED,   0, 0, 0},
-    {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0, 0},
+    {"--excmd=number --fields=+lKzZEr --extras=+qf ",   EXCMD_NUMBER,  0, 0, 0,
+     ORDER_BYTES, 1},
     {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1, 0},
-    {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0, 0},
+    {"-N --pattern-length-limit=10 --fields=+Zr --extras=+f ",
+                                                        EXCMD_PATTERN, 0, 0, 0,
+     ORDER_BYTES, 1},
     {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0, 0},
-    {"--output-format=e-ctags --fields=+zES ",          EXCMD_MIXED,   0, 0, 0},
+    {"--output-format=e-ctags --fields=+zES --file-tags ",
+                                                        EXCMD_MIXED,   0, 0, 0,
+     ORDER_BYTES, 1},
     {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1},
-    // Unsorted and folded, which sorted are the default output
-    {"-u --fields=+lzZEr ",                             EXCMD_MIXED,   0, 0, 1,
-     ORDER_NONE},
+    // Unsorted and folded, which sorted are the default output (but for
+    // the file tag)
+    {"-u --fields=+lzZEr --extras=+f ",                 EXCMD_MIXED,   0, 0, 1,
+     ORDER_NONE, 1},
     {"--sort=foldcase --fields=+iaSm ",                 EXCMD_MIXED,   0, 1, 1,
      ORDER_FOLD},
 };
@@ -166,7 +173,8 @@ static i32 fieldrank(Str key)
 {
     static Str keys[] = {
         "kind", "line", "language", "scope", "typeref", "file", "inherits",
-        "access", "implementation", "signature", "roles", "extras", "name",
+        "access", "implementation", "signature", "roles", "extras", "epoch",
+        "name",
     };
     for (i32 i = 0; i < countof(keys); i++) {
         if (key == keys[i]) {
@@ -218,7 +226,7 @@ static b32 lintaddress(Str addr, i32 excmd, iz lines)
 // Are extras a subsequence of those written here, in their order?
 static b32 lintextras(Str s)
 {
-    Str names[] = {"fileScope", "qualified", "anonymous"};
+    Str names[] = {"fileScope", "inputFile", "qualified", "anonymous"};
     iz  next    = 0;
     Cut c       = {};
     c.tail = s;
@@ -258,14 +266,16 @@ static iz fieldsat(Str s)
 
 // Is the tags output well formed for the source and options? In order,
 // each address as the excmd says, the fields in order, and the line
-// field in range, and equal to a line number in the address.
-static Str fuzzlint(Str out, Str src, Lint *x)
+// field in range, and equal to a line number in the address. A file tag,
+// named for the file, is addressed by line 1 whatever the excmd.
+static Str fuzzlint(Str out, Str path, Str src, Lint *x)
 {
     iz lines = 1;
     for (iz i = 0; i < src.len; i++) {
         lines += src[i] == '\n';
     }
-    Str prev = {};
+    iz  nfile = 0;
+    Str prev  = {};
     for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
         Str l = c.head;
         if (prev.data && !lintorder(prev, l, x->order)) {
@@ -294,7 +304,14 @@ static Str fuzzlint(Str out, Str src, Lint *x)
             fields = cuthead(addr, at+3);
             addr   = takehead(addr, at);
         }
-        if (!lintaddress(addr, x->excmd, lines)) {
+        if (x->filetag && name.head==path) {
+            nfile++;
+            if (!(addr == "1")) {
+                return "file tag not at line 1";
+            } else if (x->order==ORDER_NONE && c.tail.len) {
+                return "file tag not last";
+            }
+        } else if (!lintaddress(addr, x->excmd, lines)) {
             return "bad address";
         }
         iz digits = 0;
@@ -329,18 +346,24 @@ static Str fuzzlint(Str out, Str src, Lint *x)
             return "no line field";
         }
     }
+    if (nfile != x->filetag) {
+        return "not one file tag";
+    }
     return {};
 }
 
 // Output with --fields=+lzZEriaSm, in any order, as the default options
-// would write it: each line without its language, inherits, access,
-// implementation, signature, roles, and extras fields, and without the
-// kind and scope keys, then sorted, each line once.
+// would write it: without the file tag, each line without its language,
+// inherits, access, implementation, signature, roles, and extras fields,
+// and without the kind and scope keys, then sorted, each line once.
 static Str fuzzstrip(Arena *a, Str out)
 {
     Slice<Str> lines = {};
     for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
         Str l    = c.head;
+        if (find(l, "\textras:inputFile") >= 0) {
+            continue;
+        }
         Cut name = cut(l, '\t');
         Cut file = cut(name.tail, '\t');
         iz  at   = fieldsat(file.tail);
@@ -404,7 +427,7 @@ static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
         print(&cmd, "-f - ");
         print(&cmd, file);
         Run got = runcap(os, a, finish(&cmd), (iz)8<<20);
-        r.bad  = fuzzlint(got.out, src, runs[o]);
+        r.bad  = fuzzlint(got.out, file, src, runs[o]);
         r.lint = runs[o];
         if (!o) {
             deflt = got.out;

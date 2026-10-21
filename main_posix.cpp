@@ -49,8 +49,9 @@ static Stat os_stat(Os *, Arena scratch, Str path)
     } else if (S_ISDIR(st.st_mode)) {
         r.type = STAT_DIR;
     } else if (S_ISREG(st.st_mode)) {
-        r.type = STAT_FILE;
-        r.size = (i64)st.st_size;
+        r.type  = STAT_FILE;
+        r.size  = (i64)st.st_size;
+        r.mtime = (i64)st.st_mtime;
     } else {
         r.type = STAT_OTHER;
     }
@@ -95,6 +96,7 @@ static Listing os_list(Os *, Arena *a, Str path)
         Dirent *d = alloc<Dirent>(a);
         d->name   = clone(a, name);
         d->size   = (i64)st.st_size;
+        d->mtime  = (i64)st.st_mtime;
         d->isdir  = S_ISDIR(st.st_mode);
         d->islink = islink;
         *tail = d;

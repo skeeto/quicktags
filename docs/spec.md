@@ -500,7 +500,8 @@ depends on how far the walk had read when the label was seen. Our
   - `roles:def` (`r`) on every tag written here: only reference tags, which are not written (EX-6), have other roles.
   - `extras:` (`E`) on a tag with any extra, in FLD-4's order: `fileScope` on every tag with `file:` (those that `--extras=-F` drops, EX-2), `qualified` on the copies made by `--extras=+q` (EX-4), and `anonymous` on tags named for unnamed entities (EX-3), so at most `fileScope,qualified,anonymous`.
   - `inherits:` (`i`), `access:` (`a`), `implementation:` (`m`) and `signature:` (`S`) on the tags FLD-7 to FLD-11 give them.
-  - Nothing for `C` (xref output only), `R`, `p` (no effect in tags output), `x` (it needs libxml2, which this build lacks), and `T` but on file-kind tags (`epoch:`, EX-6).
+  - Nothing for `C` (xref output only), `R`, `p` (no effect in tags output), `x` (it needs libxml2, which this build lacks), and `T` but on file-kind tags (`epoch:`, EX-7).
+  - A file-kind tag (EX-7) has only the kind, `line:`, `language:`, `roles:`, `extras:` and `epoch:`, and in Universal Ctags `end:`.
   - Universal Ctags also writes `end:` (`e`) on definitions whose last line it knows, and `nth:` (`o`) on members, enumerators and macro parameters. Here `e` and `o` are accepted and write nothing (section 4).
 - **FLD-6 [S][V] `--output-format=e-ctags`** (`writer-ctags.c eCtagsWriter`), Exuberant Ctags' flavor of the format:
   - The name, the file field, the scope name and the signature (FLD-8) are written as they are, not escaped (FLD-2), but the typeref, the base classes (FLD-9) and the parser's fields still are.
@@ -694,7 +695,15 @@ depends on how far the walk had read when the label was seen. Our
   - Macros and macro parameters never have one, nor does Fortran.
   - The scope type is read when the tag is committed, its name when it began; they agree everywhere here.
 - **EX-5 [S] pseudo.** Without it, no pseudo-tags are written. With it given explicitly, Universal Ctags also writes them to stdout.
-- **EX-6** `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (guest parsers, reference tags with roles, subparsers, empty names). `inputFile`'s file-kind entries with an `epoch` field are not written yet (M7), so the extra is refused while it would write them (OPT-6).
+- **EX-6** `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (guest parsers, reference tags with roles, subparsers, empty names).
+- **EX-7 [S][V] inputFile** (`entry.c`, `parse.c`, `field.c`). While the `f` extra and the file kind are both enabled (CLI-4), every file a parser tags gets one more tag, of the file kind, made once the parse is over, so after a failed first pass's retry, and after all the file's other tags in unsorted output (SORT-4). A file with no other tags gets one too, an empty one included.
+  - Its name is the base name of the path as constructed (DISC-2): what follows the last `/`, on Windows also the last `\` or `:` (`C:a.c` gives `a.c`). It is escaped as any name (FLD-2), so `!x.c` is `\x21x.c`. `--tag-relative` changes the file field only (OPT-18): with `--tag-relative -f sub/tags`, `a.c` is the tag `a.c` in `../a.c`.
+  - Its address is the line number `1`, under every `--excmd`, `pattern` and `combine` too, followed by `;"` and the fields as any address is (OUT-6, OUT-8): `a.c\ta.c\t1;"\tF\tline:1\tepoch:1792612665`; with `--format=1`, `a.c\ta.c\t1`; with `--kinds-C= --extras=f --fields=T`, which leaves the file kind and drops the kind field, `a.c\ta.c\t1;"\tepoch:1792612665`.
+  - Its fields, each while enabled (FLD-5): the kind `F`, `file` with `K`, after `kind:` with `z`; `line:1`; `language:` with the parser's name, so `C++` for a `.h` file (LANG-4); `roles:def`; `extras:inputFile`; and `epoch:` (`T`, enabled by default), the file's last modification time, in seconds since 1970 UTC. No other tag has `epoch:`. Universal Ctags also writes `end:` (`e`) with the number of lines; here `e` writes nothing (section 4).
+  - The other extras leave it alone: it is not dropped by `--extras=-F` or `--extras=-{anonymous}`, gets no qualified copy, and takes no anonymous number.
+  - E-ctags (FLD-6) writes its name and file as they are, dropping it when either holds a tab or a newline, or here a NUL (X4).
+  - Files that are not tagged get none: those of no language or a disabled one, excluded, missing or unreadable ones, and directories. Here neither do files over 64 MiB (D7), nor files of languages this program does not parse, which Universal Ctags tags with an empty parser or its own (`--langdef=Foo --map-Foo=+.foo` gives `x.foo` one, of the language `Foo`).
+  - Universal Ctags reads the time with `stat` when it opens the file. On Windows, this build's C runtime converts the system's time to local time and back with the daylight saving offset in effect now, not then, so in summer a file last modified in winter gets an epoch an hour late [V]: `touch -t 202601151200` in New York, then `1768500000` for `1768496400`. Here the time is the system's, unconverted (D17).
 
 ### 1.12 Options
 
@@ -719,7 +728,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -1039,6 +1048,13 @@ Decided for this program, deliberately different from Universal Ctags.
   which names no file, or relative climbs to that drive's root,
   `../../..//host/share/a.c`; and from a UNC current directory it puts
   `@:` before `/x`, its drive number 0 as a letter.
+- **D17** A file tag's `epoch:` (EX-7) is the file's modification time
+  as the system keeps it, in seconds since 1970 UTC, on Windows too.
+  There Universal Ctags takes it from the C runtime's `stat`, which
+  shifts it by the daylight saving offset in effect when ctags runs, so
+  while that is on, a file last modified while it was off is written an
+  hour late (`1768500000` for `1768496400`), and the epoch of an
+  unchanged file changes twice a year.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
@@ -1058,8 +1074,8 @@ Decided for this program, deliberately different from Universal Ctags.
   `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
-  (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
-  effects (EX-6).
+  (OPT-6). Of the extras, only `anonymous`, `F`, `f`, `p` and `q` have
+  effects (EX-6, EX-7).
 - Smaller departures in parsing options: a letter that takes a
   parameter is FATAL as the last argument (OPT-1); option files skip
   lines of only blanks, print no empty line after their warning, do not
@@ -1071,7 +1087,8 @@ Decided for this program, deliberately different from Universal Ctags.
   is tagged, skips lines of only blanks, and may hold initOnly options
   after its files (DISC-6); forcing a language this program does not
   parse tags nothing, where the reference is FATAL as the language is
-  disabled, and forcing a disabled one of ours is FATAL even when no
+  disabled, and files of such languages, as `--langdef` makes them, get
+  no file tag (EX-7); forcing a disabled one of ours is FATAL even when no
   file would be tagged (LANG-6); a tags file named on a drive but not
   from its root, `-f C:sub/tags`, is refused only with `--tag-relative`,
   and an input so named ends the run after the walk, not while tagging,

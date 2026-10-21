@@ -504,22 +504,21 @@ static void test_cli(Test *t)
         {"--exclude-exception=@nosuch a", FATAL, "ctags: cannot open "
                                                  "\"nosuch\" : No such "
                                                  "file or directory\n"},
-        {"--file-tags a",      FATAL, "ctags: Warning: \"--file-tags\" option "
+        {"--file-tags a",      OK,    "ctags: Warning: \"--file-tags\" option "
                                       "is obsolete; use \"--extras=+f\" "
-                                      "instead\n"
-                                      "ctags: --extras=+f: not yet supported\n"},
+                                      "instead\n"},
         {"--file-tags=no a",   OK,    "ctags: Warning: \"--file-tags\" option "
                                       "is obsolete; use \"--extras=-f\" "
                                       "instead\n"},
-        {"--extras=+f a",      FATAL, "ctags: --extras=+f: not yet supported\n"},
-        {"--extras=* a",       FATAL, "ctags: --extras=+f: not yet supported\n"},
-        {"--extra=+fq a",      FATAL, "ctags: Warning: --extra option is "
-                                      "obsolete; use --extras instead\n"
-                                      "ctags: --extras=+f: not yet supported\n"},
-        {"--extras-all=+{inputFile} a", FATAL,
-         "ctags: --extras=+f: not yet supported\n"},
-        {"--kinds-C=-F --extras=+f a", FATAL,
-         "ctags: --extras=+f: not yet supported\n"},
+        {"--file-tags=x a",    FATAL, "ctags: Invalid value for \"file-tags\" "
+                                      "option\n"},
+        {"--extras=+f a",      OK,    ""},
+        {"--extras=* a",       OK,    ""},
+        {"--extra=+fq a",      OK,    "ctags: Warning: --extra option is "
+                                      "obsolete; use --extras instead\n"},
+        {"--extras-all=+{inputFile} a", OK, ""},
+        {"--extras=+{inputFile} a",     OK, ""},
+        {"--kinds-C=-F --extras=+f a",  OK, ""},
         {"--extras=+f --kinds-python=-F a", OK, ""},
         {"--extras=+f --kinds-all=-F a",    OK, ""},
         {"--kinds-C=+F a",     OK,    ""},

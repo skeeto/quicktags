@@ -446,6 +446,96 @@ static TagCase ccases[] = {
      "m\tz.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\ttyperef:typename:int\tfile:\n"
      "s\tz.c\t/^struct s { int m; };$/;\"\ts\tline:1\tfile:\n",
      ""},
+
+    // The inputFile extra (EX-7), without the epoch, which varies
+    {SHARED, "EX-7 a file tag", "a.c", "--extras=+f --fields=-T",
+     "int a;\n"
+     "static int b;\n",
+     "a\ta.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "a.c\ta.c\t1;\"\tF\tline:1\n"
+     "b\ta.c\t/^static int b;$/;\"\tv\tline:2\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "EX-7 an empty file's tag", "e.c", "--extras=+f --fields=-T",
+     "",
+     "e.c\te.c\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 the file tag last", "r.c", "--extras=+f --fields=-T --sort=no",
+     "#ifdef A\n"
+     "int f(void) {\n"
+     "#else\n"
+     "int f(int x) {\n"
+     "#endif\n"
+     "    return x;\n"
+     "}\n"
+     "}\n"
+     "int g;\n",
+     "f\tr.c\t/^int f(void) {$/;\"\tf\tline:2\ttyperef:typename:int\n"
+     "g\tr.c\t/^int g;$/;\"\tv\tline:9\ttyperef:typename:int\n"
+     "r.c\tr.c\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 a header's file tag fields", "h.h",
+     "--extras=+fq --fields=+KzlErSZ-T --kinds-C=+p",
+     "struct s { int m; };\n"
+     "void f(int);\n"
+     "struct { int n; } v;\n",
+     "__anon0b8873a30108\th.h\t/^struct { int n; } v;$/;\"\tkind:struct\tline:3\tlanguage:C++\troles:def\textras:anonymous\n"
+     "__anon0b8873a30108::n\th.h\t/^struct { int n; } v;$/;\"\tkind:member\tline:3\tlanguage:C++\tscope:struct:__anon0b8873a30108\ttyperef:typename:int\troles:def\textras:qualified\n"
+     "f\th.h\t/^void f(int);$/;\"\tkind:prototype\tline:2\tlanguage:C++\ttyperef:typename:void\tsignature:(int)\troles:def\n"
+     "h.h\th.h\t1;\"\tkind:file\tline:1\tlanguage:C++\troles:def\textras:inputFile\n"
+     "m\th.h\t/^struct s { int m; };$/;\"\tkind:member\tline:1\tlanguage:C++\tscope:struct:s\ttyperef:typename:int\troles:def\n"
+     "n\th.h\t/^struct { int n; } v;$/;\"\tkind:member\tline:3\tlanguage:C++\tscope:struct:__anon0b8873a30108\ttyperef:typename:int\troles:def\n"
+     "s\th.h\t/^struct s { int m; };$/;\"\tkind:struct\tline:1\tlanguage:C++\troles:def\n"
+     "s::m\th.h\t/^struct s { int m; };$/;\"\tkind:member\tline:1\tlanguage:C++\tscope:struct:s\ttyperef:typename:int\troles:def\textras:qualified\n"
+     "v\th.h\t/^struct { int n; } v;$/;\"\tkind:variable\tline:3\tlanguage:C++\ttyperef:struct:__anon0b8873a30108\troles:def\n",
+     ""},
+    {SHARED, "EX-7 other extras leave the file tag", "h.h",
+     "--extras=+f-F-{anonymous} --fields=-T",
+     "struct s { int m; };\n"
+     "struct { int n; } v;\n",
+     "h.h\th.h\t1;\"\tF\tline:1\n"
+     "m\th.h\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\ttyperef:typename:int\n"
+     "n\th.h\t/^struct { int n; } v;$/;\"\tm\tline:2\tstruct:__anon0b8873a30108\ttyperef:typename:int\n"
+     "s\th.h\t/^struct s { int m; };$/;\"\ts\tline:1\n"
+     "v\th.h\t/^struct { int n; } v;$/;\"\tv\tline:2\ttyperef:struct:__anon0b8873a30108\n",
+     ""},
+    {SHARED, "EX-7 a file tag's address in pattern mode", "a.c",
+     "--extras=+f --fields=-T --excmd=pattern",
+     "int a;\n",
+     "a\ta.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "a.c\ta.c\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 a file tag's address in combine mode", "a.c",
+     "--extras=+f --fields=-T --excmd=combine",
+     "int a;\n",
+     "a\ta.c\t1;/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "a.c\ta.c\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 a file tag in the original format", "a.c",
+     "--extras=+f --format=1",
+     "int a;\n",
+     "a\ta.c\t/^int a;$/\n"
+     "a.c\ta.c\t1\n",
+     ""},
+    {SHARED, "EX-7 a file tag in e-ctags", "a.c",
+     "--extras=+f --fields=-T --output-format=e-ctags",
+     "int a;\n",
+     "a\ta.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "a.c\ta.c\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 the file kind disabled", "a.c", "--extras=+f --kinds-C=-F",
+     "int a;\n",
+     "a\ta.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "EX-7 the file kind alone", "a.c",
+     "--kinds-C= --extras=f --fields=n",
+     "int a;\n",
+     "a.c\ta.c\t1;\"\tline:1\n",
+     ""},
+    {SHARED, "EX-7 a file tag's name escaped", "!x.c", "--extras=+f --fields=-T",
+     "int z;\n",
+     "\\x21x.c\t!x.c\t1;\"\tF\tline:1\n"
+     "z\t!x.c\t/^int z;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -1179,6 +1269,14 @@ static TagCase cxxcases[] = {
      "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
      "b\tn.cpp\t/^int b;$/;\"\tv\tline:3\ttyperef:typename:int\n",
      "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+
+    {SHARED, "EX-7 a C++ file tag", "n.cpp",
+     "--extras=+f --fields=+l-T --sort=no",
+     "namespace n { int v; }\n",
+     "n\tn.cpp\t/^namespace n { int v; }$/;\"\tn\tline:1\tlanguage:C++\tfile:\n"
+     "v\tn.cpp\t/^namespace n { int v; }$/;\"\tv\tline:1\tlanguage:C++\tnamespace:n\ttyperef:typename:int\n"
+     "n.cpp\tn.cpp\t1;\"\tF\tline:1\tlanguage:C++\n",
+     ""},
 };
 
 // head, n spaces, then tail.

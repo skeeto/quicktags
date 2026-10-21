@@ -58,6 +58,12 @@ elseif(MODE STREQUAL "fmt")
   set(base ${ctags_args})
   ctags_keyedopts(opts ${ctags_args} ${ctags_fmt})
 endif()
+if(ctags_noepoch AND MODE MATCHES "^(args|fmt)$")
+  # File tags' epochs, which may differ (D17), last so nothing enables
+  # them again
+  list(APPEND base --fields=-T)
+  list(APPEND opts --fields=-T)
+endif()
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})
