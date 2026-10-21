@@ -1,6 +1,7 @@
 // Fuzzing in process: generated token soup and mutated tag-case sources,
-// each tagged with default and with all kinds, checking that the output
-// is well formed. Debug builds also trap on undefined behavior.
+// each tagged with default and with all kinds, and in other formats,
+// checking that the output is well formed. Debug builds also trap on
+// undefined behavior.
 
 static u32 rand32(u64 *rng)
 {
@@ -106,15 +107,15 @@ struct Lint {
 };
 
 static Lint lints[] = {
-    {"",                                             EXCMD_MIXED,   0, 1},
-    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ", EXCMD_MIXED,   0, 1},
+    {"",                                                EXCMD_MIXED,   0, 1},
+    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1},
     // One of the following too, in turn
-    {"--fields=*-Saim --extras=+q --kinds-C++=* ",   EXCMD_MIXED,   0, 0},
-    {"--excmd=number --fields=+lKzZEr --extras=+q ", EXCMD_NUMBER,  0, 0},
+    {"--fields=*-Saim --extras=+q --kinds-C++=* ",      EXCMD_MIXED,   0, 0},
+    {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0},
     {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1},
-    {"-N --pattern-length-limit=10 --fields=+Zr ",  EXCMD_PATTERN, 0, 0},
-    {"--format=1 -n ",                               EXCMD_NUMBER,  1, 0},
-    {"--output-format=e-ctags --fields=+zE ",        EXCMD_MIXED,   0, 0},
+    {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0},
+    {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0},
+    {"--output-format=e-ctags --fields=+zE ",           EXCMD_MIXED,   0, 0},
 };
 
 // Universal Ctags' order of the fields written here (FLD-4), by key,
