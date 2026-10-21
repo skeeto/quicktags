@@ -322,8 +322,8 @@ static void driveerror(Buf *log, Str path)
 // A path made absolute from the current directory, on Windows from its
 // drive if the path has none: each "." name dropped with the separator
 // before it, each ".." with the separator and name before that, back to
-// a separator of any kind, separators but ':' made '/', and the drive
-// letter uppercased.
+// a separator of any kind, and past doubled separators (D14), the
+// separators but ':' made '/', and the drive letter uppercased.
 static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
 {
     Str full = path;
@@ -351,6 +351,7 @@ static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
         if (name == ".") {
             continue;
         } else if (name == "..") {
+            for (; len>0 && r[len-1]=='/'; len--) {}  // empty names
             iz cut = len;
             for (; cut>0 && !relsep(r[cut-1], windows); cut--) {}
             len = cut ? cut-1 : len;
@@ -373,8 +374,9 @@ static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
 // A path relative to a directory, both absolute, from the first byte
 // where they differ, comparing ASCII letters regardless of case on
 // Windows: a "../" for each separator the directory has past the last
-// separator they share, then the path past it. With none shared, as on
-// another drive, the path itself.
+// separator they share, but doubled ones, then the path past it, which
+// without a "../" does not begin with a separator (D14). With none
+// shared, as on another drive, the path itself.
 static Str relpath(Arena *a, Str path, Str dir, b32 windows)
 {
     iz same = 0;
@@ -395,11 +397,15 @@ static Str relpath(Arena *a, Str path, Str dir, b32 windows)
 
     Buf b(a, path.len);
     for (iz i = shared+1; i < dir.len; i++) {
-        if (relsep(dir[i], windows)) {
+        if (relsep(dir[i], windows) && !relsep(dir[i-1], windows)) {
             print(&b, "../");
         }
     }
-    print(&b, cuthead(path, shared+1));
+    iz rest = shared + 1;
+    if (!b.len && path[shared]!=':') {
+        for (; rest<path.len && relsep(path[rest], windows); rest++) {}
+    }
+    print(&b, cuthead(path, rest));
     return finish(&b);
 }
 

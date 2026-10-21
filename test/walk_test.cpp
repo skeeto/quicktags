@@ -1112,6 +1112,28 @@ static void test_walk(Test *t)
         expect(t, "trel anon ./", num(&a, tagnames(&a, r3.out)==n1), "0");
         vfsunlink(os, "anon.c");
 
+        // D14: doubled separators are no name of their own where Universal
+        // Ctags' counting them goes wrong, and stay where they lead to the
+        // file, as there
+        struct { Str out, args, want, uctags; } d14[] = {
+            {"-",           "--tag-relative .//a.c",          "a=a.c", "a=/a.c"},
+            {"sub/tags",    "--tag-relative sub//b.c sub///deep/d.c",
+                            "b=b.c d=deep/d.c",       "b=/b.c d=//deep/d.c"},
+            {"sub//tags",   "--tag-relative a.c sub/b.c",
+                            "a=../a.c b=b.c",         "a=../../a.c b=../b.c"},
+            {".//sub/tags", "--tag-relative=always a.c sub/b.c",
+                            "a=../a.c b=../sub/b.c",  "a=../../a.c b=../../sub/b.c"},
+            {"-",           "--tag-relative=never x//../a.c",
+                            a1,                       "a=/home/u/w/x/a.c"},
+            {"sub/tags",    "--tag-relative .//a.c",          "a=..//a.c", "a=..//a.c"},
+            {"-",           "--tag-relative=never .//a.c",
+                            "a=/home/u/w//a.c",       "a=/home/u/w//a.c"},
+        };
+        for (iz i = 0; i < countof(d14); i++) {
+            TrelCase c = {d14[i].out, d14[i].args, 0, d14[i].want, ""};
+            runtrel(t, os, &c, 1);
+        }
+
         // Without a current directory, --tag-relative fails
         os->cwd = {};
         Run r = run(os, a, "-f - --tag-relative a.c");

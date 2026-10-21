@@ -767,7 +767,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     | `../tags` | `w/a.c` | `w/sub/b.c` | `w/sub/deep/d.c` |
 
     On Windows the comparison makes `SUB/B.C` `B.C` under `-f sub/tags`, and an input on another drive stays absolute even with `always`. `never` writes `/w/a.c`, `/w/sub/b.c`, …, and `yes` writes an absolute input as constructed, `c:\w\a.c` as `c:/w/a.c`, where `always` and `never` uppercase its drive.
-  - **[V] Bugs** with doubled separators, each counted as a name: under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x`. A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x`.
+  - **[V] Bugs** with doubled separators, each counted as a name (here not, D14): `x//../a.c` is `x/a.c`; under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x`. A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x`.
   - **Drive-relative paths.** On Windows, making absolute a path that is a letter, `:`, and then not a separator is FATAL `C:a.c: relative file names with drive letters not supported`: an input once it is to be tagged, with any value but `no` (one that is missing only warns, and one of no language is skipped), and the tags file's directory once the file is opened (`-f C:sub/tags`: `C:sub/: relative …`), whatever the value, leaving the file created and empty.
   - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
 
@@ -921,6 +921,15 @@ Decided for this program, deliberately different from Universal Ctags.
   list names, and a list that cannot be opened is FATAL. Universal Ctags
   parses such an option but never reads its list, so it tags `a.c`
   alone, and exits 0 though the list does not exist.
+- **D14** Under `--tag-relative` (OPT-18), doubled separators are no
+  name of their own where Universal Ctags' counting them goes wrong:
+  `..` after them takes the name before them (`x//../a.c` is `a.c`,
+  where Universal Ctags writes `x/a.c`, which is not the file); they
+  are no level of the tags file's directory (with `-f sub//tags`,
+  `a.c` is `../a.c`, not `../../a.c`); and a relative path does not
+  begin with a separator (with `-f -`, `.//a.c` is `a.c`, not `/a.c`,
+  and with `-f sub/tags`, `sub//b.c` is `b.c`, not `/b.c`). They stay
+  where they lead to the file, as there: `..//a.c`, `/w//a.c`.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
