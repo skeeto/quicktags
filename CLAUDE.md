@@ -16,12 +16,19 @@ come from ssg (`~/src/skeeto.github.com/_ssg/`); keep them close to it.
 ```
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-ctest --test-dir build -j24 -L '^unit$'    # unit tests, import check, cases
+ctest --test-dir build -j24 -L '^unit$'    # unit tests, platform, harness, cases
 ctest --test-dir build -j24 -L units       # differential, Universal Ctags Units
 ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 ctest --test-dir build -j24 -L plugins     # plugins' own command lines
 ```
 
+- The `unit` label: `unit/GROUP` (one per `CTAGS_TEST_GROUPS` entry),
+  `platform` and `platform/cwd` (the real binary on the real file
+  system), `imports` (Win32 imports against `test/imports.txt`),
+  `harness/tagdiff` and `harness/caseopts` (the test tools themselves),
+  and `cases/uctags`. The `cmake/*.cmake` scripts run with `-P` begin
+  with `cmake_minimum_required`, so old CMake takes the project's
+  policies.
 - Plugin tests (`cmake/runplugins.cmake`, one per tool): each editor
   plugin's or build script's exact ctags command lines (tagbar, vista,
   ctrlp, taglist, fzf, LeaderF, easytags, gutentags, the kernel's
@@ -29,23 +36,25 @@ ctest --test-dir build -j24 -L plugins     # plugins' own command lines
   on a copy of `test/plugins/` with both tools; ledger scope
   `plugins/TOOL[/STEP]`. Also `--version` against the plugins' checks,
   a 6-line header (LeaderF), and numeric `-n` addresses.
-
 - Units modes (`cmake/runcase.cmake`): `default`, `allkinds`, `args` (a
   case's options that change which tags exist) and `fmt` (also those that
   change only how tags are written, compared by key against the `args`
   run; skipped while it keeps none). `cmake/caseopts.cmake` holds the
-  strip and keep lists, and the `--fields` filter, that milestones extend.
+  strip and keep lists, and the `--fields` filter.
 - `tagdiff` (`test/tagdiff.cpp`, tested by `harness/tagdiff`): `--ordered`
   compares order and duplicates too, `--base REFBASE OURSBASE` compares
   only tags whose lines agree in two base runs, keyed by name, file and
   line, and `--etags` reads TAGS files.
 - Corpus tests (opt-in): configure with `-DCTAGS_CORPUS_LLAMA=~/src/llama.cpp
   -DCTAGS_CORPUS_LLVM=~/src/llvm-project -DCTAGS_CORPUS_REUSE_REF=ON`, then
-  `ctest -L corpus` (corpus/llama, corpus/llvm/TOPDIR). `CTAGS_UNITS_ONLY`
-  and `CTAGS_CORPUS_ONLY` (e.g. `C:d,C++:d` or `Fortran:*`) restrict the
-  comparison to some kinds while a parser is incomplete. `-L corpus-fmt`
-  runs the option sets in `cmake/corpus.cmake` against the default runs
-  (`tagdiff --base`); `ctags_same_test` takes options for both runs.
+  `ctest -L corpus`, which holds three kinds: `corpus/llama` and
+  `corpus/llvm/TOPDIR` against Universal Ctags; `corpus-fmt/NAME/SET`
+  (label `corpus-fmt`), the option sets in `cmake/corpus.cmake` compared
+  by key with the default runs (`tagdiff --base`); and `same/NAME/MODE`
+  (label `same`), ours with and without `--_nofast` or `--jobs=1`, also
+  under a mode's options, which must be identical. `CTAGS_UNITS_ONLY` and
+  `CTAGS_CORPUS_ONLY` (e.g. `C:d,C++:d` or `Fortran:*`) restrict the
+  comparison to some kinds while a parser is incomplete.
 - `parallel_test` drives the test platform's scheduler: with `os->seed`
   set, `os_parallel` runs `workstep` on random live workers, so items
   spread as with threads. Its modes list takes one line per mode.
@@ -82,7 +91,8 @@ name:
 - `tags.cpp`: tag lines, patterns, escaping, anonymous names.
 - `walk.cpp`: discovery (exclusion, language detection) and the worker
   threads (a lock-free work stack).
-- `output.cpp`: per-worker sorting, merging, writing the tags file.
+- `output.cpp`: per-worker sorting, merging, and writing the tags file
+  or Emacs TAGS file, and appending (`-a`) to an old one.
 - `cxx.cpp`, `fortran.cpp`: the parsers, called by `parsefile` in
   `ctags.cpp`, which retries a failed first pass with the second pass's
   rules. `cxx.cpp` includes `cxxtoken.cpp` (tokens, chains, keywords),
@@ -98,8 +108,10 @@ name:
 Elsewhere:
 - `test/`: unit tests (`*_test.cpp`, included by `main_test.cpp`, one
   CTest per group listed in `CTAGS_TEST_GROUPS`), `vfs.cpp` (the test
-  platform), `tagdiff.cpp` (differential comparison), `ledger.txt`,
-  `plugins/` (the plugin tests' sample tree, kept byte for byte).
+  platform), `etagslint.cpp` (Emacs TAGS checks shared by both fuzzers),
+  `tagdiff.cpp` (differential comparison), `ledger.txt`, `imports.txt`,
+  `xp.sh`, and `plugins/` (the plugin tests' sample tree, kept byte for
+  byte).
 - `docs/spec.md`: Universal Ctags' rules in our words, with rule IDs, and
   our departures from it. Read the relevant section before porting a
   behavior.
