@@ -603,7 +603,7 @@ static void skipnumbers(Cxx *c)
     }
 
     if (stop) {
-        cppdrained(p);
+        cppdrained(p);  // while bytes remain, as reading them would
         advance(&p->in, stop);
         p->innum     = 0;
         p->prevident = 0;
