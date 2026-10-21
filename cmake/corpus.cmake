@@ -18,14 +18,15 @@ option(CTAGS_CORPUS_REUSE_REF
 # flags ctags_fmt_NAME_diff. Sets listed in ctags_fmt_sets run on
 # llama.cpp, those in ctags_fmt_llvm on llvm-project. A set with -e also
 # gets --tag-relative=no, so that TAGS paths start at the tree's root as
-# the base's do (ctags_keyedopts in caseopts.cmake). For example:
-#   set(ctags_fmt_sortno --sort=no)
-#   set(ctags_fmt_sortno_diff --ordered)
-#   list(APPEND ctags_fmt_sets sortno)
+# the base's do (ctags_keyedopts in caseopts.cmake).
 set(ctags_fmt_fields --fields=+iaSmlKzZEr)  # 1
 set(ctags_fmt_combine --excmd=combine)   # 2
-set(ctags_fmt_sets fields combine)
-set(ctags_fmt_llvm fields combine)
+set(ctags_fmt_sortno --sort=no)          # 3, in the walk's order
+set(ctags_fmt_sortno_diff --ordered)
+set(ctags_fmt_foldcase --sort=foldcase)  # 5, ours in folded order
+set(ctags_fmt_foldcase_diff --folded)
+set(ctags_fmt_sets fields combine sortno foldcase)
+set(ctags_fmt_llvm fields combine sortno)
 
 # A list as one argument of add_test
 function(ctags_listarg var)
@@ -109,17 +110,22 @@ function(ctags_same_test name root opts)
     LABELS "corpus;same" TIMEOUT 1800 PROCESSORS 8)
 endfunction()
 
-# Fields built from token runs (signatures, base classes) too
+# Fields built from token runs (signatures, base classes) too, and the
+# unsorted and folded orders, with any number of threads
 set(ctags_same_fields --fields=+iaSm)
 if(CTAGS_CORPUS_LLAMA)
   ctags_same_test(llama/nofast ${CTAGS_CORPUS_LLAMA} --_nofast)
   ctags_same_test(llama/jobs1  ${CTAGS_CORPUS_LLAMA} --jobs=1)
   ctags_same_test(llama/nofast-fields ${CTAGS_CORPUS_LLAMA} --_nofast
     ${ctags_same_fields})
+  ctags_same_test(llama/sortno ${CTAGS_CORPUS_LLAMA} --jobs=1 --sort=no)
+  ctags_same_test(llama/foldcase ${CTAGS_CORPUS_LLAMA} --jobs=1
+    --sort=foldcase)
 endif()
 if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast ${CTAGS_CORPUS_LLVM} --_nofast)
   ctags_same_test(llvm/jobs1  ${CTAGS_CORPUS_LLVM} --jobs=1)
   ctags_same_test(llvm/nofast-fields ${CTAGS_CORPUS_LLVM} --_nofast
     ${ctags_same_fields})
+  ctags_same_test(llvm/sortno ${CTAGS_CORPUS_LLVM} --jobs=1 --sort=no)
 endif()

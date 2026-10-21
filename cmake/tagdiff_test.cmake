@@ -186,6 +186,25 @@ check(order-gap 0 --ordered --ledger order.ledger --scope g
   order-ref.tags order-gap.tags MATCH "0 reordered")
 
 
+# --folded: ours in foldcase order, and the same lines as the reference
+fixture(fold-ref.tags
+  "a|x.c|/^a$/~|v|line:1"
+  "B|x.c|/^B$/~|v|line:2"
+  "_c|x.c|/^_c$/~|v|line:3")
+fixture(fold-ours.tags
+  "a|x.c|/^a$/~|v|line:1"
+  "B|x.c|/^B$/~|v|line:2"
+  "_c|x.c|/^_c$/~|v|line:3")
+fixture(fold-bytes.tags
+  "B|x.c|/^B$/~|v|line:2"
+  "_c|x.c|/^_c$/~|v|line:3"
+  "a|x.c|/^a$/~|v|line:1")
+check(fold-same 0 --folded fold-ref.tags fold-ours.tags MATCH "0 reordered")
+check(fold-bytes 1 --folded fold-ref.tags fold-bytes.tags
+  MATCH "not in foldcase order" "1 reordered")
+check(fold-ref 0 --folded fold-bytes.tags fold-ours.tags)
+
+
 # --base: only tags whose base lines agree are compared
 fixture(base-ref0.tags
   "f|x.c|/^f$/~|f|line:1"
