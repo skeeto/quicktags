@@ -154,6 +154,10 @@ fixture(order-dup.tags
   "a|x.c|/^a$/~|v|line:1"
   "b|x.c|/^b$/~|v|line:2"
   "c|y.c|/^c$/~|v|line:1")
+fixture(order-split.tags
+  "a|x.c|/^a$/~|v|line:1"
+  "c|y.c|/^c$/~|v|line:1"
+  "b|x.c|/^b$/~|v|line:2")
 fixture(order-gap.tags
   "a|x.c|/^a$/~|v|line:1"
   "c|y.c|/^c$/~|v|line:1")
@@ -171,6 +175,10 @@ check(order-files 1 --ordered order-ref.tags order-files.tags
   MATCH "x\\.c: files differ in order")
 check(order-files-ledger 0 --ordered --ledger order.ledger --scope o
   order-ref.tags order-files.tags)
+check(order-split 1 --ordered order-ref.tags order-split.tags
+  MATCH "x\\.c: files differ in order" "1 reordered")
+check(order-split-ledger 0 --ordered --ledger order.ledger --scope o
+  order-ref.tags order-split.tags)
 check(order-dup-sets 0 order-ref.tags order-dup.tags)
 check(order-dup 1 --ordered order-ref.tags order-dup.tags
   MATCH "\\+ a.x\\.c" "1 extra")

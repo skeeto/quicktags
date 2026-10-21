@@ -27,9 +27,11 @@
 //   --etags            REF and OURS are Emacs TAGS files
 //
 // Lines are compared as sorted sets, unless --ordered: then duplicates
-// count, and the lines in both files must also come in the same order,
-// within each file, and by file (by its first line). A file's first
-// divergence in order is one difference in it, for a "= N PATH" rule.
+// count, and the lines in both files must also come in the same order:
+// the same file for each in turn, and the same lines within each file.
+// A file's first divergence in order is one difference in it, for a
+// "= N PATH" rule, and so is the first line of another file, counted
+// toward the reference line's file.
 //
 // With --base, RB and OB are Universal Ctags' and our output for the same
 // inputs without the options under test, compared on their own. A tag's
@@ -961,24 +963,6 @@ static Slice<Str> marked(Arena *a, Slice<Str> lines, b32 *marks)
     return r;
 }
 
-// Files in the order of their first lines.
-static Slice<Str> fileorder(Arena *a, Slice<Str> lines)
-{
-    Map<b32>  *seen = 0;
-    Slice<Str> r    = {};
-    r.data = alloc<Str>(a, lines.len);
-    r.cap  = lines.len;
-    for (iz i = 0; i < lines.len; i++) {
-        Str  file = fileof(lines[i]);
-        b32 *dup  = upsert(&seen, file, a);
-        if (!*dup) {
-            *dup = 1;
-            r.data[r.len++] = file;
-        }
-    }
-    return r;
-}
-
 struct Placed {
     Str file;
     Str line;
@@ -1001,18 +985,18 @@ static Placed *byfile(Arena *a, Slice<Str> lines)
     return r;
 }
 
-// Compare the order of the same lines in each: by file, then by line
-// within each file, counting each file's first divergence.
+// Compare the order of the same lines in each: the file of each line in
+// turn, counting the first divergence toward the reference's file, then
+// the lines within each file, counting each file's first. Together they
+// require the same sequence.
 static void compareorder(Tally *t, Slice<Str> ref, Slice<Str> ours,
                          Arena scratch)
 {
     assert(ref.len == ours.len);
-    Slice<Str> rf = fileorder(&scratch, ref);
-    Slice<Str> of = fileorder(&scratch, ours);
-    assert(rf.len == of.len);
-    for (iz i = 0; i < rf.len; i++) {
-        if (!(rf[i] == of[i])) {
-            misorder(t, rf[i], "files differ in order", rf[i], of[i]);
+    for (iz i = 0; i < ref.len; i++) {
+        Str file = fileof(ref[i]);
+        if (!(file == fileof(ours[i]))) {
+            misorder(t, file, "files differ in order", ref[i], ours[i]);
             break;
         }
     }
