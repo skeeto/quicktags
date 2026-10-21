@@ -281,6 +281,35 @@ static TagCase ccases[] = {
      "m\tz.c\t/^struct s { int m; };$/;\"\tkind:m\tscope:struct:s\ttyperef:typename:int\tfile:\n"
      "s\tz.c\t/^struct s { int m; };$/;\"\tkind:s\tfile:\n",
      ""},
+    {SHARED, "FLD-7 FLD-8 FLD-10 access and signatures in C", "s.c",
+     "--fields=+aS --kinds-C=+p",
+     "#define MAX(a, b) ((a) > (b) ? (a) : (b))\n"
+     "#define LOG(fmt, args...) printf(fmt, args)\n"
+     "#define TRACE(...) 0\n"
+     "#define NONE( ) 0\n"
+     "#define OBJ 1\n"
+     "struct point { int x, y; };\n"
+     "enum color { RED, GREEN };\n"
+     "int area(struct point *p, int scale);\n"
+     "static int knr(a, b) int a; char *b; { return a; }\n"
+     "int main(int argc, char **argv) { int n; return 0; }\n"
+     "#define CUT(a, b\n",
+     "CUT\ts.c\t/^#define CUT(/;\"\td\tline:11\tfile:\n"
+     "GREEN\ts.c\t/^enum color { RED, GREEN };$/;\"\te\tline:7\tenum:color\tfile:\taccess:public\n"
+     "LOG\ts.c\t/^#define LOG(/;\"\td\tline:2\tfile:\tsignature:(fmt,args...)\n"
+     "MAX\ts.c\t/^#define MAX(/;\"\td\tline:1\tfile:\tsignature:(a,b)\n"
+     "NONE\ts.c\t/^#define NONE(/;\"\td\tline:4\tfile:\tsignature:()\n"
+     "OBJ\ts.c\t/^#define OBJ /;\"\td\tline:5\tfile:\n"
+     "RED\ts.c\t/^enum color { RED, GREEN };$/;\"\te\tline:7\tenum:color\tfile:\taccess:public\n"
+     "TRACE\ts.c\t/^#define TRACE(/;\"\td\tline:3\tfile:\tsignature:(...)\n"
+     "area\ts.c\t/^int area(struct point *p, int scale);$/;\"\tp\tline:8\ttyperef:typename:int\tfile:\tsignature:(struct point * p,int scale)\n"
+     "color\ts.c\t/^enum color { RED, GREEN };$/;\"\tg\tline:7\tfile:\n"
+     "knr\ts.c\t/^static int knr(a, b) int a; char *b; { return a; }$/;\"\tf\tline:9\tfile:\tsignature:(a,b)\n"
+     "main\ts.c\t/^int main(int argc, char **argv) { int n; return 0; }$/;\"\tf\tline:10\ttyperef:typename:int\tsignature:(int argc,char ** argv)\n"
+     "point\ts.c\t/^struct point { int x, y; };$/;\"\ts\tline:6\tfile:\n"
+     "x\ts.c\t/^struct point { int x, y; };$/;\"\tm\tline:6\tstruct:point\ttyperef:typename:int\tfile:\taccess:public\n"
+     "y\ts.c\t/^struct point { int x, y; };$/;\"\tm\tline:6\tstruct:point\ttyperef:typename:int\tfile:\taccess:public\n",
+     ""},
     {OURS, "FLD-5 end and nth write nothing here", "z.c", "--fields=+eo",
      "struct s { int m; };\n",
      "m\tz.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\ttyperef:typename:int\tfile:\n"
@@ -736,6 +765,89 @@ static TagCase cxxcases[] = {
      "}\n",
      "g2\tk.cpp\t/^namespace g2 = geo;$/\n"
      "geo\tk.cpp\t/^namespace geo {$/\n",
+     ""},
+    {SHARED, "FLD-7 access by scope", "a.cpp", "--fields=+a --kinds-C++=+pZ",
+     "class Shape {\n"
+     "    int id;\n"
+     "    enum Kind { Round, Square };\n"
+     "public:\n"
+     "    virtual double area() const = 0;\n"
+     "protected:\n"
+     "    struct Cache { int hits; };\n"
+     "    friend void dump(Shape &s) {}\n"
+     "};\n"
+     "template<class T> class Box { T value; };\n"
+     "struct Point { int x; class In {} in; };\n"
+     "namespace geo { int count; }\n"
+     "double Shape::area() const { int local; return 0; }\n",
+     "Box\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tc\tline:10\tfile:\n"
+     "Cache\ta.cpp\t/^    struct Cache { int hits; };$/;\"\ts\tline:7\tclass:Shape\tfile:\taccess:protected\n"
+     "In\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tc\tline:11\tstruct:Point\tfile:\taccess:public\n"
+     "Kind\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\tg\tline:3\tclass:Shape\tfile:\taccess:private\n"
+     "Point\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\ts\tline:11\tfile:\n"
+     "Round\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\te\tline:3\tenum:Shape::Kind\tfile:\taccess:public\n"
+     "Shape\ta.cpp\t/^class Shape {$/;\"\tc\tline:1\tfile:\n"
+     "Square\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\te\tline:3\tenum:Shape::Kind\tfile:\taccess:public\n"
+     "T\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tZ\tline:10\tclass:Box\ttyperef:meta:class\taccess:private\n"
+     "area\ta.cpp\t/^    virtual double area() const = 0;$/;\"\tp\tline:5\tclass:Shape\ttyperef:typename:double\tfile:\taccess:public\n"
+     "area\ta.cpp\t/^double Shape::area() const { int local; return 0; }$/;\"\tf\tline:13\tclass:Shape\ttyperef:typename:double\n"
+     "count\ta.cpp\t/^namespace geo { int count; }$/;\"\tv\tline:12\tnamespace:geo\ttyperef:typename:int\n"
+     "dump\ta.cpp\t/^    friend void dump(Shape &s) {}$/;\"\tf\tline:8\ttyperef:typename:void\tfile:\n"
+     "geo\ta.cpp\t/^namespace geo { int count; }$/;\"\tn\tline:12\tfile:\n"
+     "hits\ta.cpp\t/^    struct Cache { int hits; };$/;\"\tm\tline:7\tstruct:Shape::Cache\ttyperef:typename:int\tfile:\taccess:public\n"
+     "id\ta.cpp\t/^    int id;$/;\"\tm\tline:2\tclass:Shape\ttyperef:typename:int\tfile:\taccess:private\n"
+     "in\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tm\tline:11\tstruct:Point\ttyperef:class:Point::In\tfile:\taccess:public\n"
+     "value\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tm\tline:10\tclass:Box\ttyperef:typename:T\tfile:\taccess:private\n"
+     "x\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tm\tline:11\tstruct:Point\ttyperef:typename:int\tfile:\taccess:public\n",
+     ""},
+    {SHARED, "FLD-8 signatures of functions and lambdas", "s.cpp",
+     "--fields=+S --kinds-C++=+p",
+     "struct Vec {\n"
+     "    Vec(int x, int y);\n"
+     "    int dot(const Vec &o) const;\n"
+     "    int len() volatile noexcept;\n"
+     "    Vec &operator+=(const Vec &) &;\n"
+     "    virtual ~Vec() = default;\n"
+     "};\n"
+     "void apply(int (*fn)(int, char), unsigned long n = 3, ...) {}\n"
+     "template<typename T> T pick(T &&a, std::vector<T> const &v) { return a; }\n"
+     "auto add = [](int a, int b) { return a + b; };\n"
+     "auto none = []{ return 0; };\n"
+     "auto tight = [](int q){ return q; };\n",
+     "Vec\ts.cpp\t/^    Vec(int x, int y);$/;\"\tp\tline:2\tstruct:Vec\tfile:\tsignature:(int x,int y)\n"
+     "Vec\ts.cpp\t/^struct Vec {$/;\"\ts\tline:1\tfile:\n"
+     "__anon103aef890102\ts.cpp\t/^auto add = [](int a, int b) { return a + b; };$/;\"\tf\tline:10\tfile:\tsignature:(int a, int b) \n"
+     "__anon103aef890202\ts.cpp\t/^auto none = []{ return 0; };$/;\"\tf\tline:11\tfile:\n"
+     "__anon103aef890302\ts.cpp\t/^auto tight = [](int q){ return q; };$/;\"\tf\tline:12\tfile:\tsignature:(int q)\n"
+     "add\ts.cpp\t/^auto add = [](int a, int b) { return a + b; };$/;\"\tv\tline:10\ttyperef:typename:auto\n"
+     "apply\ts.cpp\t/^void apply(int (*fn)(int, char), unsigned long n = 3, ...) {}$/;\"\tf\tline:8\ttyperef:typename:void\tsignature:(int (* fn)(int,char),unsigned long n=3,...)\n"
+     "dot\ts.cpp\t/^    int dot(const Vec &o) const;$/;\"\tp\tline:3\tstruct:Vec\ttyperef:typename:int\tfile:\tsignature:(const Vec & o) const\n"
+     "len\ts.cpp\t/^    int len() volatile noexcept;$/;\"\tp\tline:4\tstruct:Vec\ttyperef:typename:int\tfile:\tsignature:()\n"
+     "none\ts.cpp\t/^auto none = []{ return 0; };$/;\"\tv\tline:11\ttyperef:typename:auto\n"
+     "operator +=\ts.cpp\t/^    Vec &operator+=(const Vec &) &;$/;\"\tp\tline:5\tstruct:Vec\ttyperef:typename:Vec &\tfile:\tsignature:(const Vec &)\n"
+     "pick\ts.cpp\t/^template<typename T> T pick(T &&a, std::vector<T> const &v) { return a; }$/;\"\tf\tline:9\ttyperef:typename:T\tsignature:(T && a,std::vector<T> const & v)\n"
+     "tight\ts.cpp\t/^auto tight = [](int q){ return q; };$/;\"\tv\tline:12\ttyperef:typename:auto\n"
+     "~Vec\ts.cpp\t/^    virtual ~Vec() = default;$/;\"\tp\tline:6\tstruct:Vec\tfile:\tsignature:()\n",
+     ""},
+    {SHARED, "FLD-9 base classes", "i.cpp", "--fields=+i",
+     "struct Base {};\n"
+     "class Derived : public Base, protected virtual Mixin, private Tmpl<unsigned int, 2> {};\n"
+     "struct Nested : ::ns::Outer<std::pair<int, int> > {};\n"
+     "class Odd : decltype(make()) {};\n"
+     "union U {};\n",
+     "Base\ti.cpp\t/^struct Base {};$/;\"\ts\tline:1\tfile:\n"
+     "Derived\ti.cpp\t/^class Derived : public Base, protected virtual Mixin, private Tmpl<unsigned int, 2> {};$/;\"\tc\tline:2\tfile:\tinherits:Base,Mixin,Tmpl<unsignedint,2>\n"
+     "Nested\ti.cpp\t/^struct Nested : ::ns::Outer<std::pair<int, int> > {};$/;\"\ts\tline:3\tfile:\tinherits:::ns::Outer<std::pair<int,int>>\n"
+     "Odd\ti.cpp\t/^class Odd : decltype(make()) {};$/;\"\tc\tline:4\tfile:\tinherits:decltype(make()) \n"
+     "U\ti.cpp\t/^union U {};$/;\"\tu\tline:5\tfile:\n",
+     ""},
+    {SHARED, "FLD-8 FLD-9 e-ctags signatures as they are", "e.cpp",
+     "--fields=+Si --output-format=e-ctags",
+     "void f(const char *s = \"x\\\\y\") {}\n"
+     "void g(const char *t = \"a\tb\") {}\n"
+     "class K : public X<\"a\\\\b\"> {};\n",
+     "K\te.cpp\t/^class K : public X<\"a\\\\\\\\b\"> {};$/;\"\tc\tline:3\tfile:\tinherits:X<\"a\\\\\\\\b\">\n"
+     "f\te.cpp\t/^void f(const char *s = \"x\\\\\\\\y\") {}$/;\"\tf\tline:1\ttyperef:typename:void\tsignature:(const char * s=\"x\\\\y\")\n",
      ""},
 };
 

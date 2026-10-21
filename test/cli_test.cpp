@@ -193,7 +193,6 @@ static void test_cli(Test *t)
         expect(t, xs[i].args, r.log, xs[i].log);
     }
 
-    Str notyet = "ctags: --fields=+S: not yet supported\n";
     Str fixedN = "ctags: Warning: Cannot disable fixed field: 'N'{name} in "
                  "ctags output mode\n";
     struct { Str args; i32 status; Str fields, log; } fs[] = {
@@ -220,12 +219,10 @@ static void test_cli(Test *t)
          "enabled\n"
          "ctags: Warning: enable the s field to make the Z/scope field "
          "printable\n"},
-        {"--fields=+a x.c",    ARGS_FATAL, "NFPTafknst C++:name",
-         "ctags: --fields=+a: not yet supported\n"},
-        {"--fields=+{inherits}m x.c", ARGS_FATAL, "NFPTfikmnst C++:name",
-         "ctags: --fields=+i: not yet supported\n"},
-        {"--fields=+{implementation} x.c", ARGS_FATAL, "NFPTfkmnst C++:name",
-         "ctags: --fields=+m: not yet supported\n"},
+        {"--fields=+a x.c",    ARGS_OK, "NFPTafknst C++:name", ""},
+        {"--fields=+{inherits}m x.c", ARGS_OK, "NFPTfikmnst C++:name", ""},
+        {"--fields=+{implementation}{signature} x.c", ARGS_OK,
+         "NFPSTfkmnst C++:name", ""},
         {"--fields=*-Saim x.c", ARGS_OK, "NFPCEKRTZefklnoprstxz C++:name", ""},
         {"--fields=+Q x.c",    ARGS_OK, "NFPTfknst C++:name",
          "ctags: Warning: Unsupported parameter 'Q' for \"fields\" option\n"},
@@ -233,8 +230,8 @@ static void test_cli(Test *t)
         {"--fields=-{line}+{line} x.c", ARGS_OK, "NFPTfknst C++:name", ""},
         {"--fields=+{line}{kind}{scope} x.c", ARGS_OK,
          "NFPTZfknstz C++:name", ""},
-        {"--fields=* x.c",     ARGS_FATAL,
-         "NFPCEKRSTZaefiklmnoprstxz C++:name", notyet},
+        {"--fields=* x.c",     ARGS_OK,
+         "NFPCEKRSTZaefiklmnoprstxz C++:name", ""},
         {"--fields=+{bogus} x.c", ARGS_FATAL, "NFPTfknst C++:name",
          "ctags: no such field: 'bogus'\n"},
         {"--fields=+{K} x.c",  ARGS_FATAL, "NFPTfknst C++:name",
@@ -792,8 +789,7 @@ static void test_cli(Test *t)
         {"--fields- a",            FATAL, "ctags: No language given in "
                                           "\"fields-\" option\n"},
         {"--fields-all= a",        OK,    ""},
-        {"--fields-all=* a",       FATAL, "ctags: --fields=+S: not yet "
-                                          "supported\n"},
+        {"--fields-all=* a",       OK,    ""},
     };
     for (iz i = 0; i < countof(gs); i++) {
         Arena  tmp = a;

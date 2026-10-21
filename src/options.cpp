@@ -1784,23 +1784,6 @@ static i32 notyet(Parse *p, Str option)
     return fatal(p, option, ": not yet supported");
 }
 
-// The first enabled field of those not yet written, as an option, or null.
-static Str laterfield(u64 bits)
-{
-    static struct { i32 field; Str option; } later[] = {
-        {FIELD_SIGNATURE, "--fields=+S"},
-        {FIELD_ACCESS,    "--fields=+a"},
-        {FIELD_INHERITS,  "--fields=+i"},
-        {FIELD_IMPL,      "--fields=+m"},
-    };
-    for (iz i = 0; i < countof(later); i++) {
-        if (fieldon(bits, later[i].field)) {
-            return later[i].option;
-        }
-    }
-    return {};
-}
-
 // Check and complete the options once all are parsed.
 static i32 parsefinish(Parse *p)
 {
@@ -1827,8 +1810,6 @@ static i32 parsefinish(Parse *p)
     // Parsed, but not yet implemented: each check goes when its
     // milestone lands
     b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
-    Str later    = laterfield(opt->fields);
-    if (later.data)                   return notyet(p, later);                     // M8
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
     if (opt->tagrelative != TREL_NO)  return notyet(p, "--tag-relative");          // M3b
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4

@@ -88,7 +88,7 @@ static void test_parallel(Test *t)
     Str modes[] = {
         "",
         "--extras=+q",
-        "--fields=+lKzZEr --extras=+q",
+        "--fields=+iaSmlKzZEr --extras=+q",
         "--excmd=combine --output-format=e-ctags",
     };
     for (iz m = 0; m < countof(modes); m++) {

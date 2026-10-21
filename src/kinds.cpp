@@ -274,7 +274,7 @@ static i32 countroles(i32 lang, u8 kind, Str name)
 
 // Universal Ctags' fields, in the order it lists them, one bit per table
 // index: the fixed fields, the others by letter, then the C and C++
-// parsers' own. Only the defaults are written for now.
+// parsers' own.
 enum : i32 {
     FIELD_NAME, FIELD_INPUT, FIELD_PATTERN, FIELD_COMPACT, FIELD_EXTRAS,
     FIELD_KINDLONG, FIELD_REFMARK, FIELD_SIGNATURE, FIELD_EPOCH,

@@ -112,13 +112,13 @@ static Lint lints[] = {
     {"",                                                EXCMD_MIXED,   0, 1, 0},
     {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1, 0},
     // One of the following too, in turn
-    {"--fields=*-Saim --extras=+q --kinds-C++=* ",      EXCMD_MIXED,   0, 0, 0},
+    {"--fields=* --extras=+q --kinds-C++=* ",           EXCMD_MIXED,   0, 0, 0},
     {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0, 0},
     {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1, 0},
     {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0, 0},
     {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0, 0},
-    {"--output-format=e-ctags --fields=+zE ",           EXCMD_MIXED,   0, 0, 0},
-    {"--fields=+lzZEr ",                                EXCMD_MIXED,   0, 0, 1},
+    {"--output-format=e-ctags --fields=+zES ",          EXCMD_MIXED,   0, 0, 0},
+    {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1},
 };
 
 // Universal Ctags' order of the fields written here (FLD-4), by key,
@@ -126,8 +126,8 @@ static Lint lints[] = {
 static i32 fieldrank(Str key)
 {
     static Str keys[] = {
-        "kind", "line", "language", "scope", "typeref", "file", "roles",
-        "extras", "name",
+        "kind", "line", "language", "scope", "typeref", "file", "inherits",
+        "access", "implementation", "signature", "roles", "extras", "name",
     };
     for (i32 i = 0; i < countof(keys); i++) {
         if (key == keys[i]) {
@@ -278,9 +278,10 @@ static Str fuzzlint(Str out, Str src, Lint *x)
     return {};
 }
 
-// Output with --fields=+lzZEr as the default options would write it:
-// each line without its language, roles, and extras fields, and without
-// the kind and scope keys, then sorted, each line once.
+// Output with --fields=+lzZEriaSm as the default options would write it:
+// each line without its language, inherits, access, implementation,
+// signature, roles, and extras fields, and without the kind and scope
+// keys, then sorted, each line once.
 static Str fuzzstrip(Arena *a, Str out)
 {
     Slice<Str> lines = {};
@@ -299,7 +300,9 @@ static Str fuzzstrip(Arena *a, Str out)
             f = cut(f.tail, '\t');
             Cut kv  = cut(f.head, ':');
             Str key = kv.ok ? kv.head : Str{};
-            if (key=="language" || key=="roles" || key=="extras") {
+            if (key=="language" || key=="inherits" || key=="access" ||
+                key=="implementation" || key=="signature" ||
+                key=="roles" || key=="extras") {
                 continue;
             }
             putbyte(&b, '\t');
