@@ -108,6 +108,36 @@ static Listing os_list(Os *, Arena *a, Str path)
     return r;
 }
 
+// Read a device or pipe to its end, keeping at most max bytes, as the
+// arena grows in place.
+static Read readstream(i32 fd, Arena *a, iz max)
+{
+    Read r = {};
+    r.data.data = (u8 *)a->beg;
+    while (r.data.len <= max) {
+        iz  want = max + 1 - r.data.len;
+        iz  n    = want<(1<<16) ? want : 1<<16;
+        u8 *buf  = allocbytes(a, n);
+        n = read(fd, buf, (uz)n);
+        if (n<0 && errno==EINTR) {
+            a->beg = (byte *)buf;
+            continue;
+        } else if (n < 0) {
+            r.err = oserr(errno);
+            n = 0;
+        }
+        a->beg = (byte *)(buf + n);
+        r.data.len += n;
+        if (!n) {
+            break;
+        }
+    }
+    r.size = r.data.len;
+    r.data.len = r.data.len<max ? r.data.len : max;
+    a->beg = (byte *)(r.data.data + r.data.len);
+    return r;
+}
+
 static Read os_read(Os *, Arena *a, Str path, iz max)
 {
     Read  r   = {};
@@ -118,9 +148,13 @@ static Read os_read(Os *, Arena *a, Str path, iz max)
         return r;
     }
     struct stat st = {};
-    if (fstat(fd, &st) || !S_ISREG(st.st_mode)) {
+    if (fstat(fd, &st) || S_ISDIR(st.st_mode)) {
         close(fd);
         r.err = S_ISDIR(st.st_mode) ? OSERR_ISDIR : OSERR_IO;
+        return r;
+    } else if (!S_ISREG(st.st_mode)) {
+        r = readstream(fd, a, max);
+        close(fd);
         return r;
     }
 

@@ -869,6 +869,17 @@ static TagCase fortrancases[] = {
      "end program\n",
      "main\tf.f90.in\t/^program main$/;\"\tp\tline:1\n",
      ""},
+    {SHARED, "LEX-14 -I is for C and C++", "f.f90", "-I integer=real,m=n,s+",
+     "module m\n"
+     "  integer :: a\n"
+     "contains\n"
+     "  subroutine s()\n"
+     "  end subroutine\n"
+     "end module\n",
+     "a\tf.f90\t/^  integer :: a$/;\"\tv\tline:2\tmodule:m\n"
+     "m\tf.f90\t/^module m$/;\"\tm\tline:1\n"
+     "s\tf.f90\t/^  subroutine s(/;\"\ts\tline:4\tmodule:m\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

@@ -207,6 +207,137 @@ static TagCase ccases[] = {
      "api\tf.c\t/^int api(void) { return 0; }$/;\"\tf\tline:6\ttyperef:typename:int\n"
      "total\tf.c\t/^int total;$/;\"\tv\tline:3\ttyperef:typename:int\n",
      ""},
+
+    // -I (LEX-14, OPT-17)
+    {SHARED, "-I kernel macros", "k.c",
+     "--kinds-C=+p -I __init,__read_mostly,EXPORT_SYMBOL+,__printf+",
+     "static int __init setup(void)\n"
+     "{\n"
+     "    return 0;\n"
+     "}\n"
+     "EXPORT_SYMBOL(setup)\n"
+     "int counter __read_mostly = 1;\n"
+     "void log_msg(const char *fmt, ...) __printf(1, 2);\n"
+     "void after(void) {}\n",
+     "after\tk.c\t/^void after(void) {}$/;\"\tf\tline:8\ttyperef:typename:void\n"
+     "counter\tk.c\t/^int counter __read_mostly = 1;$/;\"\tv\tline:6\ttyperef:typename:int\n"
+     "log_msg\tk.c\t/^void log_msg(const char *fmt, ...) __printf(1, 2);$/;\"\tp\tline:7\ttyperef:typename:void\tfile:\n"
+     "setup\tk.c\t/^static int __init setup(void)$/;\"\tf\tline:1\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "-I replacements", "r.c",
+     "-I DECL=int,ARRAY+=long,TYPE+=char,_Pragma=short",
+     "DECL x;\n"
+     "ARRAY(4) y;\n"
+     "TYPE (a,\n"
+     "  b) z;\n"
+     "DECL\n"
+     "w;\n"
+     "_Pragma q;\n",
+     "q\tr.c\t/^_Pragma q;$/;\"\tv\tline:7\ttyperef:typename:short\n"
+     "w\tr.c\t/^w;$/;\"\tv\tline:6\ttyperef:typename:int\n"
+     "x\tr.c\t/^DECL x;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "y\tr.c\t/^ARRAY(4) y;$/;\"\tv\tline:2\ttyperef:typename:long\n"
+     "z\tr.c\t/^  b) z;$/;\"\tv\tline:4\ttyperef:typename:char\n",
+     ""},
+    {IMPROVED, "X11 -I replacements end words", "j.c", "-I X+=int,TYPE+=char",
+     "TYPE v;\n"
+     "unsigned X(a)long t;\n"
+     "X(1)x;\n"
+     "X(1)*p;\n",
+     "p\tj.c\t/^X(1)*p;$/;\"\tv\tline:4\ttyperef:typename:int *\n"
+     "t\tj.c\t/^unsigned X(a)long t;$/;\"\tv\tline:2\ttyperef:typename:unsigned int long\n"
+     "v\tj.c\t/^TYPE v;$/;\"\tv\tline:1\ttyperef:typename:char\n"
+     "x\tj.c\t/^X(1)x;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     "p\tj.c\t/^X(1)*p;$/;\"\tv\tline:4\ttyperef:typename:int *\n"
+     "t\tj.c\t/^unsigned X(a)long t;$/;\"\tv\tline:2\ttyperef:typename:unsigned intlong\n"},
+    {SHARED, "-I in C, of C++ keywords", "kc.c", "-I class=long,final=char,int=short",
+     "class x;\n"
+     "final y;\n"
+     "int z;\n",
+     "x\tkc.c\t/^class x;$/;\"\tv\tline:1\ttyperef:typename:long\n"
+     "y\tkc.c\t/^final y;$/;\"\tv\tline:2\ttyperef:typename:char\n"
+     "z\tkc.c\t/^int z;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "-I with defines", "d.c", "-I __init,WRAP=int --kinds-C=+D",
+     "#define __init __attribute__((section(\".init\")))\n"
+     "#define WRAP(x) x\n"
+     "WRAP y;\n"
+     "int __init f(void) { return 0; }\n",
+     "WRAP\td.c\t/^#define WRAP(/;\"\td\tline:2\tfile:\n"
+     "__init\td.c\t/^#define __init /;\"\td\tline:1\tfile:\n"
+     "f\td.c\t/^int __init f(void) { return 0; }$/;\"\tf\tline:4\ttyperef:typename:int\n"
+     "x\td.c\t/^#define WRAP(x) x$/;\"\tD\tline:2\tmacro:WRAP\n"
+     "y\td.c\t/^WRAP y;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "-I loops", "lp.c", "-I a=b,b=a,x=x,p=q(p)",
+     "a x;\n"
+     "b y;\n"
+     "x z;\n"
+     "p w;\n",
+     "x\tlp.c\t/^a x;$/;\"\tv\tline:1\ttyperef:typename:a\n"
+     "y\tlp.c\t/^b y;$/;\"\tv\tline:2\ttyperef:typename:b\n"
+     "z\tlp.c\t/^x z;$/;\"\tv\tline:3\ttyperef:typename:x\n",
+     ""},
+    {SHARED, "-I replacements ending in hex digits", "hx.c", "-I X+=B,Y+=int*F,Z+=g",
+     "struct X\n"
+     "{ int m; };\n"  // B is read past, so it takes the line of '{'
+     "Y\n"
+     "\n"
+     "\n"
+     ";\n"
+     "int Z\n"  // g is not a hex digit
+     "(1)\n"
+     ";\n",
+     "B\thx.c\t/^{ int m; };$/;\"\ts\tline:2\tfile:\n"
+     "F\thx.c\t/^;$/;\"\tv\tline:6\ttyperef:typename:int *\n"
+     "g\thx.c\t/^int Z$/;\"\tv\tline:7\ttyperef:typename:int\n"
+     "m\thx.c\t/^{ int m; };$/;\"\tm\tline:2\tstruct:B\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "-I counts restart as the file is read", "rs.c", "-I DECL=int",
+     "DECL v1;\n"
+     "DECL v2;\n"
+     "DECL v3;\n"
+     "DECL v4;\n"
+     "DECL v5;\n"
+     "DECL v6;\n"
+     "DECL v7;\n"
+     "DECL v8;\n"
+     "DECL v9;\n"
+     "DECL v10;\n",
+     "v1\trs.c\t/^DECL v1;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "v10\trs.c\t/^DECL v10;$/;\"\tv\tline:10\ttyperef:typename:int\n"
+     "v2\trs.c\t/^DECL v2;$/;\"\tv\tline:2\ttyperef:typename:int\n"
+     "v3\trs.c\t/^DECL v3;$/;\"\tv\tline:3\ttyperef:typename:int\n"
+     "v4\trs.c\t/^DECL v4;$/;\"\tv\tline:4\ttyperef:typename:int\n"
+     "v5\trs.c\t/^DECL v5;$/;\"\tv\tline:5\ttyperef:typename:int\n"
+     "v6\trs.c\t/^DECL v6;$/;\"\tv\tline:6\ttyperef:typename:int\n"
+     "v7\trs.c\t/^DECL v7;$/;\"\tv\tline:7\ttyperef:typename:int\n"
+     "v8\trs.c\t/^DECL v8;$/;\"\tv\tline:8\ttyperef:typename:int\n"
+     "v9\trs.c\t/^DECL v9;$/;\"\tv\tline:9\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "-I replacements in a row", "pp.c", "-I P=*P",
+     "int P;\n",  // 8 times, then P stays
+     "P\tpp.c\t/^int P;$/;\"\tv\tline:1\ttyperef:typename:int ********\n",
+     ""},
+    // Universal Ctags never finishes these
+    {OURS, "X12 -I loops at the end, looking for a group", "le.c", "-I S+=;S",
+     "int a;\n"
+     "S\n",
+     "a\tle.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {OURS, "X12 -I loops at the end", "le.c", "-I T=int*v;T",
+     "int b;\n"
+     "T",
+     "b\tle.c\t/^int b;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "v\tle.c\t/^T/;\"\tv\tline:2\ttyperef:typename:int *\n",
+     ""},
+    {SHARED, "-I groups", "g.c", "-I M+,N+",
+     "int M(a[1], {b], <c) v;\n"
+     "int N(x) (y) u;\n"
+     "int M(\n",
+     "v\tg.c\t/^int M(a[1], {b], <c) v;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "y\tg.c\t/^int N(x) (y) u;$/;\"\tv\tline:2\ttyperef:typename:int ()\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -724,11 +855,121 @@ static TagCase cxxcases[] = {
      "int v;\n",
      "",
      ""},
+
+    // -I (LEX-14, OPT-17)
+    {SHARED, "-I Qt macros", "qt.cpp",
+     "--kinds-C++=+p -I Q_DECL_EXPORT,Q_OBJECT,Q_PROPERTY+,Q_SLOTS,Q_SIGNALS=public",
+     "class Q_DECL_EXPORT Widget : public QObject\n"
+     "{\n"
+     "    Q_OBJECT\n"
+     "    Q_PROPERTY(int size READ size NOTIFY resized)\n"
+     "public Q_SLOTS:\n"
+     "    void resize(int);\n"
+     "Q_SIGNALS:\n"
+     "    void resized();\n"
+     "private:\n"
+     "    int m_size;\n"
+     "};\n",
+     "Widget\tqt.cpp\t/^class Q_DECL_EXPORT Widget : public QObject$/;\"\tc\tline:1\tfile:\n"
+     "m_size\tqt.cpp\t/^    int m_size;$/;\"\tm\tline:10\tclass:Widget\ttyperef:typename:int\tfile:\n"
+     "resize\tqt.cpp\t/^    void resize(int);$/;\"\tp\tline:6\tclass:Widget\ttyperef:typename:void\tfile:\n"
+     "resized\tqt.cpp\t/^    void resized();$/;\"\tp\tline:8\tclass:Widget\ttyperef:typename:void\tfile:\n",
+     ""},
+    {SHARED, "-I keywords stay", "kw.h", "-I public=long,final=char,int=short,struct=union",
+     "struct S {\n"
+     "    public x;\n"
+     "    final y;\n"
+     "    int z;\n"
+     "};\n"
+     "class C final : B { };\n",
+     "C\tkw.h\t/^class C final : B { };$/;\"\tc\tline:6\n"
+     "S\tkw.h\t/^struct S {$/;\"\ts\tline:1\n"
+     "y\tkw.h\t/^    final y;$/;\"\tm\tline:3\tstruct:S\ttyperef:typename:final\n"
+     "z\tkw.h\t/^    int z;$/;\"\tm\tline:4\tstruct:S\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "-I replacement positions", "st.cpp", "--kinds-C++=+p -I X+=virtual,NAME=n,F+=var",
+     "struct A {\n"
+     "    X(1,\n"
+     "      2)~A();\n"  // ~ keeps its line, under the replacement
+     "    X(3,\n"
+     "      4)(*fp)(void);\n"
+     "    int NAME\n"
+     "      ;\n"
+     "};\n"
+     "int F(a,\n"
+     "      b) = 1;\n",
+     "A\tst.cpp\t/^struct A {$/;\"\ts\tline:1\tfile:\n"
+     "n\tst.cpp\t/^    int NAME$/;\"\tm\tline:6\tstruct:A\ttyperef:typename:int\tfile:\n"
+     "var\tst.cpp\t/^int F(a,$/;\"\tv\tline:9\ttyperef:typename:int\n"
+     "~A\tst.cpp\t/^      2)~A();$/;\"\tp\tline:3\tstruct:A\tfile:\n",
+     ""},
+    {SHARED, "-I parameter", "pi.cpp", "--param-CPreProcessor.ignore=a=int,b=char",
+     "a x;\n"
+     "b y;\n",
+     "y\tpi.cpp\t/^b y;$/;\"\tv\tline:2\ttyperef:typename:b\n",
+     ""},
 };
+
+// head, n spaces, then tail.
+static Str padded(Arena *a, Str head, iz n, Str tail)
+{
+    Buf b(a, head.len + n + tail.len);
+    print(&b, head);
+    for (iz i = 0; i < n; i++) {
+        putbyte(&b, ' ');
+    }
+    print(&b, tail);
+    return finish(&b);
+}
+
+// The limits on -I replacements (LEX-14), with inputs too large for tag
+// cases. Universal Ctags gives the same output.
+static void test_macrolimits(Test *t)
+{
+    Arena a  = t->perm;
+    Os   *os = newos(&a);
+    vfsfile(os, "m.c", "X\n");
+
+    // A replacement's buffer is 8 bytes longer than it, and none is made
+    // while the buffer being read has 65536 bytes, which a replacement
+    // nested in it does not change once read
+    struct { Str list; Str want; } bs[] = {
+        {padded(&a, "Y=int\nX=", 65523, "Y v;\n"),
+         "v\tm.c\t/^X$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+        {padded(&a, "Y=int\nX=", 65524, "Y v;\n"), ""},
+        {padded(&a, "Y=int\nZ=", 65540, "char\nX=Z Y v;\n"),
+         "v\tm.c\t/^X$/;\"\tv\tline:1\ttyperef:typename:char int\n"},
+    };
+    for (iz i = 0; i < countof(bs); i++) {
+        vfsfile(os, "list", bs[i].list);
+        Run r = run(os, a, "-I @list -f - m.c");
+        expect(t, "-I buffer size", r.out, bs[i].want);
+    }
+
+    // Nor is one made in a statement at the token limit, here one that
+    // would end it
+    Buf big(&a, 1<<16);
+    print(&big, "int v(");
+    for (i32 i = 0; i < 8200; i++) {
+        print(&big, "a, ");
+    }
+    print(&big, "X);\n");
+    vfsfile(os, "list", "X=0);int w;int u(0\n");
+    vfsfile(os, "s.c", "int v(a, X);\n");
+    vfsfile(os, "big.c", finish(&big));
+    Run r = run(os, a, "-I @list -f - s.c");
+    expect(t, "-I below the token limit", r.out,
+           "w\ts.c\t/^int v(a, X);$/;\"\tv\tline:1\ttyperef:typename:int\n");
+    r = run(os, a, "-I @list -f - big.c");
+    expect(t, "-I at the token limit", r.out, "");
+}
 
 static void test_c(Test *t)
 {
     runcases(t, ccases, countof(ccases));
+    if (!t->exportdir) {
+        test_macrolimits(t);
+    }
 }
 
 static void test_cxx(Test *t)
@@ -785,6 +1026,11 @@ static void test_fastpaths(Test *t)
         Run fast = run(os, a, "-f - big.c");
         Run slow = run(os, a, "--_nofast -f - big.c");
         expect(t, tables[i].name, fast.out, slow.out);
+
+        // Replacements leave the pushback for the fast path to drain
+        Run ifast = run(os, a, "-I ID+=1,x=0x2 -f - big.c");
+        Run islow = run(os, a, "-I ID+=1,x=0x2 --_nofast -f - big.c");
+        expect(t, tables[i].name, ifast.out, islow.out);
 
         Buf want(&a, 64);
         print(&want, "after\tbig.c\t/^int after;$/;\"\tv\tline:");

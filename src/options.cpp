@@ -26,6 +26,35 @@ struct LangMap {
     b32            upperc;  // C++'s own "C", before its extensions (D1)
 };
 
+// What a -I token makes of its identifier: drop it, and the group in
+// parentheses after it if parens, and replace them with repl if it has
+// one (OPT-17, LEX-14).
+struct Rule {
+    Str repl;  // null data for none
+    b32 parens;
+};
+
+// An identifier -I names for the C and C++ tokenizer. Universal Ctags
+// keeps every token in a hash table, which finds a name's latest token
+// unless the table has grown since, reversing the order of each name's
+// tokens. So rule is the token found, and other is the one at the other
+// end of that order.
+struct Macro {
+    Str  name;
+    Rule rule;
+    Rule other;
+    i32  index;  // in its table, for counts of its replacements
+};
+
+// The -I table, read-only once parsed, and the size Universal Ctags'
+// table would have.
+struct Macros {
+    Map<Macro>    *map;
+    Slice<Macro *> all;      // by index
+    i64            tokens;   // in Universal Ctags' table
+    i64            buckets;
+};
+
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
@@ -49,7 +78,7 @@ struct Options {
     Slice<Str>  headers;      // the extensions of header files
     Slice<Glob> excludes;     // --exclude patterns, the defaults first
     Slice<Glob> exceptions;   // --exclude-exception patterns
-    Slice<Str>  ignores;      // -I lists, as given
+    Macros      macros;       // -I
     Str         listfile;     // -L, null for none
     Str         print;        // for ARGS_EXIT: what to print
     b32         append;
@@ -74,6 +103,9 @@ static Str usage =
 "                          p: pseudo-tags (default: Fp)\n"
 "  --options=FILE|DIR      read options from FILE, one per line, or from\n"
 "                          the *.ctags files in DIR\n"
+"  -I LIST|@FILE|-         C and C++ macros to drop: X, or X+ with the\n"
+"                          (...) after it, or to replace, X=Y and X+=Y;\n"
+"                          comma-separated or one per line, - for none\n"
 "  --jobs=N                threads, 0 for one per processor (default: 0)\n"
 "  --list-languages, --list-kinds[=LANG], --list-kinds-full[=LANG],\n"
 "  --list-extras[=LANG], --list-fields[=LANG]\n"
@@ -264,6 +296,120 @@ static Slice<Str> splitlines(Arena *a, Str s, u32 flags)
         r = push(a, r, line);
     }
     return r;
+}
+
+
+// Macros, as -I names them
+
+// Add a token, NAME, NAME+, NAME=TEXT or NAME+=TEXT, to the table. The
+// name runs to the first '+' or '=', and the replacement is the text
+// after the first '='. A later token for a name replaces the earlier,
+// unless Universal Ctags' table has grown since (OPT-17).
+static void macrotoken(Parse *p, Str token)
+{
+    token = cut(token, 0).head;  // a C string in Universal Ctags
+    Rule r   = {};
+    iz   i   = 0;
+    iz   end = -1;  // of the name
+    for (; i<token.len && token[i]!='='; i++) {
+        if (token[i] == '+') {
+            end = end<0 ? i : end;
+            r.parens = 1;
+        }
+    }
+    end = end<0 ? i : end;
+    if (i+1 < token.len) {
+        r.repl = cuthead(token, i+1);
+    }
+    if (!end) {
+        return;
+    }
+
+    // Universal Ctags' table grows when 80% full, to the next of these
+    // sizes, which reverses the order of each name's tokens
+    static i64 const sizes[] = {
+        1361, 2729, 5471, 10949, 21911, 43853, 87719, 175447, 350899,
+        701819, 1403641, 2807303, 5614657, 11229331, 22458671, 44917381,
+        89834777, 179669557, 359339171, 718678369, 1437356741, 2874713497,
+    };
+    Macros *t = &p->opt->macros;
+    t->buckets = t->buckets ? t->buckets : 1024;
+    if (t->tokens*5 >= t->buckets*4) {
+        for (iz j = 0; j < countof(sizes); j++) {
+            if (sizes[j] > t->buckets) {
+                t->buckets = sizes[j];
+                for (iz k = 0; k < t->all.len; k++) {
+                    Macro *m = t->all[k];
+                    Rule   s = m->rule;
+                    m->rule  = m->other;
+                    m->other = s;
+                }
+                break;
+            }
+        }
+    }
+    t->tokens++;
+
+    Str    name = takehead(token, end);
+    Macro *m    = upsert(&t->map, name, p->perm);
+    if (!m->name.data) {
+        m->name  = name;
+        m->other = r;
+        m->index = (i32)t->all.len;
+        t->all   = push(p->perm, t->all, m);
+    }
+    m->rule = r;
+}
+
+static b32 macrosep(u8 c)
+{
+    return c==' ' || c=='\t' || c=='\n' || c==',';
+}
+
+// -I LIST|@FILE|-: tokens separated by spaces, tabs, newlines and
+// commas; a file of them, one to a line; or "-" to empty the table.
+static i32 macrosopt(Parse *p, Str list)
+{
+    u8  c    = list[0];
+    b32 path = c=='@' || c=='.' || c=='/' || c=='\\' ||
+               (p->opt->windows && list.len>1 && letter(c) && list[1]==':');
+    if (path) {
+        Str name = cuthead(list, c=='@');
+        if (!name.len) {
+            i32 why = p->opt->windows ? OSERR_INVAL : OSERR_NOENT;
+            return fatal(p, "cannot open \"\" : ", errstr(why));
+        }
+        Read r = os_read(p->os, p->perm, name, (iz)1<<30);
+        if (r.err) {
+            return fatal(p, "cannot open \"", name, "\" : ", errstr(r.err));
+        }
+        // Each line, to a NUL (departure X4) and without trailing
+        // whitespace, is a token. Read as text on Windows, the file ends
+        // at a Ctrl-Z.
+        Str data = p->opt->windows ? cut(r.data, 0x1a).head : r.data;
+        for (Str rest = data; rest.len;) {
+            Cut line  = cut(rest, '\n');
+            Str token = trimright(cut(line.head, 0).head);
+            if (token.len) {
+                macrotoken(p, token);
+            }
+            rest = line.tail;
+        }
+
+    } else if (list == "-") {
+        p->opt->macros = {};
+
+    } else {
+        for (iz i = 0; i < list.len;) {
+            iz beg = i;
+            for (; i<list.len && !macrosep(list[i]); i++) {}
+            if (i > beg) {
+                macrotoken(p, span(list.data+beg, list.data+i));
+            }
+            i += i < list.len;
+        }
+    }
+    return ARGS_OK;
 }
 
 
@@ -1050,7 +1196,7 @@ static i32 paramopt(Parse *p, Str name, Str value)
         return ARGS_OK;
     }
     if (param == "ignore") {
-        p->opt->ignores = push(p->perm, p->opt->ignores, value);
+        macrotoken(p, value);  // one token, unlike -I's list
         return ARGS_OK;
     } else if (param=="_expand" || param=="if0") {
         i32 b = parsebool(value);
@@ -1913,8 +2059,7 @@ static i32 shortopt(Parse *p, u8 c, Str param)
     }
 
     case 'I':
-        opt->ignores = push(p->perm, opt->ignores, param);
-        return ARGS_OK;
+        return macrosopt(p, param);
 
     case 'L':
         if (opt->listfile.data) {
@@ -2057,7 +2202,6 @@ static i32 parsefinish(Parse *p)
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
-    if (opt->ignores.len)             return notyet(p, "-I");                      // M9
 
     // Universal Ctags finds this once it is to tag a file (LANG-6)
     i32 force = opt->force;

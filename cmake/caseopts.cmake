@@ -23,24 +23,28 @@ function(ctags_nocase var regex)
   set(${var} "${r}" PARENT_SCOPE)
 endfunction()
 
-# Stripped: comments, and options for features not ported
+# Stripped: comments, and options for features not ported, but for the
+# C preprocessor's ignore parameter, which is -I's
 set(ctags_strip
   "^#" "^--fields-" "^--extras-" "^--param-" "^-D" "^--if0"
   "^--line-directives" "^--roles-" "^--langdef" "^--kinddef-"
   "^--regex-" "^--mline-regex-" "^--_")
+ctags_nocase(ctags_macroparam "^--param-cpreprocessor")
+string(APPEND ctags_macroparam "[.:]ignore=")
 # Also stripped: --map-L, --kinds-L and --language-force=L, where L is a
 # language other than these
 set(ctags_langs "c|c\\+\\+|fortran")
 
 # Kept by "args": --kinds-L, --L-kinds and --L-types (any case), --extras
-# without the reference (r) and guest (g) extras, and the options that
+# without the reference (r) and guest (g) extras, the options that
 # choose languages: --langmap, --map-L, --languages, --language-force=L
-# (others' already stripped) and -h
+# (others' already stripped) and -h, and -I
 set(ctags_kinds "kinds-(${ctags_langs})|(${ctags_langs})-(kinds|types)")
 ctags_nocase(ctags_kinds "^--(${ctags_kinds})=")
 ctags_nocase(ctags_maps "^--map-(${ctags_langs})=")
 set(ctags_args_keep "${ctags_kinds}" "^--extras?=" "${ctags_maps}"
-  "^--langmap=" "^--languages=" "^--language-force=" "^-h")
+  "^--langmap=" "^--languages=" "^--language-force=" "^-h"
+  "^-I" "${ctags_macroparam}")
 
 # Kept by "fmt"
 set(ctags_fmt_keep "")
@@ -60,6 +64,9 @@ function(ctags_stripped var opt)
       set(r ON)
     endif()
   endforeach()
+  if(opt MATCHES "${ctags_macroparam}")
+    set(r OFF)
+  endif()
   string(TOLOWER "${opt}" lower)
   set(lang "")
   if(lower MATCHES "^--(map|kinds)-([^=]*)=")

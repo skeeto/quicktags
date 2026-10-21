@@ -287,6 +287,7 @@ static Str errstr(i32 err)
     case OSERR_ACCES: return "Permission denied";
     case OSERR_EXIST: return "File exists";
     case OSERR_ISDIR: return "Is a directory";
+    case OSERR_INVAL: return "Invalid argument";
     }
     return "Input/output error";
 }
@@ -411,6 +412,7 @@ static void visitfile(Worker *w, Item *it)
     f.src    = &src;
     f.kinds  = &c->opt->kinds;
     f.extras = c->opt->extras;
+    f.macros = c->opt->macros.map ? &c->opt->macros : 0;
     f.out    = &w->tags;
     f.mark   = w->tags.len;
     f.nofast = c->opt->nofast;

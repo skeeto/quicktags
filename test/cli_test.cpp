@@ -54,6 +54,25 @@ static Str showfields(Arena *a, u64 bits)
     return finish(&b);
 }
 
+// The -I macro for a name as a token would give it, "NAME[+][=TEXT]",
+// or "" for none.
+static Str showmacro(Arena *a, Macros *t, Str name)
+{
+    Map<Macro> *map = t->map;
+    Macro      *m   = map ? upsert(&map, name, (Arena *)0) : 0;
+    if (!m) {
+        return "";
+    }
+    Buf b(a, 32);
+    print(&b, m->name);
+    print(&b, m->rule.parens ? Str("+") : Str(""));
+    if (m->rule.repl.data) {
+        putbyte(&b, '=');
+        print(&b, m->rule.repl);
+    }
+    return finish(&b);
+}
+
 struct Parsed {
     Options opt;
     Str     log;
@@ -352,7 +371,19 @@ static void test_cli(Test *t)
                                  "such file or directory\n"},
         {"-L -",          OK,    ""},
         {"-L- -R",        OK,    ""},
-        {"-I X a",        FATAL, "ctags: -I: not yet supported\n"},
+        {"-I X a",        OK,    ""},
+        {"-IX,Y+=Z -I - a", OK,  ""},
+        {"-I @nosuch a",  FATAL, "ctags: cannot open \"nosuch\" : No such "
+                                 "file or directory\n"},
+        {"-I ./nosuch a", FATAL, "ctags: cannot open \"./nosuch\" : No such "
+                                 "file or directory\n"},
+        {"-I /nosuch a",  FATAL, "ctags: cannot open \"/nosuch\" : No such "
+                                 "file or directory\n"},
+        {"-I \\nosuch a", FATAL, "ctags: cannot open \"\\nosuch\" : No such "
+                                 "file or directory\n"},
+        {"-I @ a",        FATAL, "ctags: cannot open \"\" : No such file or "
+                                 "directory\n"},
+        {"-I C:x a",      OK,    ""},  // a file only on Windows
         {"-h default a",  OK,    ""},
         {"-h .x a",       OK,    ""},
         {"-h+ a",         OK,    ""},
@@ -703,8 +734,9 @@ static void test_cli(Test *t)
          "ctags: no value is given for param-CPreProcessor.if0\n"},
         {"--param-CPreProcessor.define=X a", FATAL,
          "ctags: --param-CPreProcessor.define: not supported\n"},
-        {"--param-CPreProcessor.ignore=X a", FATAL,
-         "ctags: -I: not yet supported\n"},
+        {"--param-CPreProcessor.ignore=X a", OK, ""},
+        {"--param-CPreProcessor.ignore= a", FATAL,
+         "ctags: no value is given for param-CPreProcessor.ignore\n"},
         {"--param-CPreProcessor.bogus=1 a", FATAL,
          "ctags: no such parameter in CPreProcessor: bogus\n"},
 
@@ -847,6 +879,90 @@ static void test_cli(Test *t)
         expect(t, st[i].args, showkinds(&tmp, &r.opt.kinds), st[i].kinds);
         expect(t, st[i].args, showextras(&tmp, r.opt.extras), st[i].extras);
         expect(t, st[i].args, showfields(&tmp, r.opt.fields), st[i].fields);
+    }
+
+    // The -I table (OPT-17): macros by name, and how many there are. A
+    // NUL ends a line's token (X4), where Universal Ctags joins the next
+    // line on, to make the tokens nul#c and "sp last".
+    {
+        Os *os = newos(&a);
+        vfsfile(os, "m.txt", "  lead\nx+=int y\r\n\n z, w \t\nnul\0" "x=y\n"
+                             "#c\n" "sp \0" "junk\n" "last");
+        Str ls = "-I a,,b+\tc=d\ne+=f( a";
+        struct { Str args, name, want; } ms[] = {
+            {ls, "a", "a"},
+            {ls, "b", "b+"},
+            {ls, "c", "c=d"},
+            {ls, "e", "e+=f("},
+            {"-I x+junk=y+z a",  "x", "x+=y+z"},
+            {"-I x=,y+= a",      "x", "x"},
+            {"-I x=,y+= a",      "y", "y+"},
+            {"-I a=1 -I a=2 a",  "a", "a=2"},
+            {"-I a -I - -I b a", "a", ""},
+            {"-I a -I - -I b a", "b", "b"},
+            {"--param-CPreProcessor.ignore=a=b,c a", "a", "a=b,c"},
+            {"--param-CPreProcessor.ignore=a=b,c a", "c", ""},
+            {"-I @m.txt a",  "  lead", "  lead"},
+            {"-I @m.txt a",  "x",      "x+=int y"},
+            {"-I @m.txt a",  " z, w",  " z, w"},
+            {"-I @m.txt a",  "nul",    "nul"},
+            {"-I ./m.txt a", "#c",     "#c"},
+            {"-I ./m.txt a", "sp",     "sp"},
+            {"-I ./m.txt a", "last",   "last"},
+        };
+        for (iz i = 0; i < countof(ms); i++) {
+            Arena  tmp = a;
+            Parsed r   = parseos(&tmp, os, ms[i].args);
+            expect(t, ms[i].args, r.log, "");
+            expect(t, ms[i].args, showmacro(&tmp, &r.opt.macros, ms[i].name),
+                   ms[i].want);
+        }
+
+        struct { Str args; i32 len; } ns[] = {
+            {"a",                         0},
+            {"-I +x,=y,+=z a",            0},
+            {"-I a=1,b -I a=2 a",         2},
+            {"-I a,b -I - -I c a",        1},
+            {"-I @m.txt a",               7},
+        };
+        for (iz i = 0; i < countof(ns); i++) {
+            Arena  tmp = a;
+            Parsed r   = parseos(&tmp, os, ns[i].args);
+            expect(t, ns[i].args, num(&tmp, r.opt.macros.all.len),
+                   num(&tmp, ns[i].len));
+        }
+
+        // Of A=int, A=char and n more tokens, the table finds A=int
+        // after it grows at 821 tokens, until it grows again at 1090.
+        // Emptying it, after pre other tokens, starts the count again.
+        struct { i32 pre; i32 n; Str want; } gs[] = {
+            {   0,  818, "A=char"},
+            {   0,  819, "A=int"},
+            {   0, 1087, "A=int"},
+            {   0, 1088, "A=char"},
+            {1000,  100, "A=char"},
+        };
+        for (iz i = 0; i < countof(gs); i++) {
+            Arena tmp = a;
+            Buf   cmd(&tmp, 1<<14);
+            if (gs[i].pre) {
+                print(&cmd, "-I g");
+                for (i32 j = 1; j < gs[i].pre; j++) {
+                    print(&cmd, ",g");
+                    print(&cmd, (i64)j);
+                }
+                print(&cmd, " -I - ");
+            }
+            print(&cmd, "-I A=int,A=char");
+            for (i32 j = 0; j < gs[i].n; j++) {
+                print(&cmd, ",f");
+                print(&cmd, (i64)j);
+            }
+            print(&cmd, " a");
+            Parsed r = parseos(&tmp, os, finish(&cmd));
+            expect(t, num(&tmp, gs[i].n), showmacro(&tmp, &r.opt.macros, "A"),
+                   gs[i].want);
+        }
     }
 
     // The file kind, which every language shares, and which the inputFile

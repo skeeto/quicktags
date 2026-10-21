@@ -41,6 +41,14 @@ enum : i32 {
     CHAINMAX = 16384,  // tokens in one statement
     NESTMAX  = 1024,   // nested blocks and brackets
     PARAMMAX = 24,     // parameters described
+    USEMAX   = 8,      // replacements of one -I macro between file reads
+    BACKMAX  = 65536,  // Cpp.backsize that stops replacements
+};
+
+// Replacements of a macro -I names since reading last went to the file.
+struct Use {
+    i32 count;
+    i32 drains;  // Cpp.drains when counted
 };
 
 // Parameters (or template parameters) found in a list.
@@ -108,6 +116,7 @@ struct Cxx {
     Token *module;     // the current C++20 module
     b32    dryrun;     // tags are not written
     b32    skipnums;   // numbers and commas may be skipped (skipnumbers)
+    Use   *uses;       // of -I replacements, by Macro.index, or null
     Tag    tag;
 };
 
@@ -594,8 +603,8 @@ static void skipnumbers(Cxx *c)
     }
 
     if (stop) {
+        cppdrained(p);  // while bytes remain, as reading them would
         advance(&p->in, stop);
-        p->backlive  = 0;
         p->innum     = 0;
         p->prevident = 0;
         p->accept    = 0;
@@ -679,11 +688,83 @@ static b32 dropcxx11attribute(Cxx *c)
     return cxxnext(c);
 }
 
-// Read the next token onto the statement. Returns 0 at the end.
-static b32 cxxnext(Cxx *c)
+// Macros -I names (LEX-14)
+
+enum : i32 { DROPPED = 2 };  // readtoken: read another in its place
+
+// A macro's replacements since reading last went back to the file.
+static Use *uses(Cxx *c, Macro *m)
 {
-    Pool *p = &c->pool;
-    if (c->chain->count >= CHAINMAX) {
+    if (!c->uses) {
+        c->uses = alloc<Use>(c->pool.a, c->f->macros->all.len);
+    }
+    Use *u = c->uses + m->index;
+    if (u->drains != c->cpp.drains) {
+        u->count  = 0;
+        u->drains = c->cpp.drains;
+    }
+    return u;
+}
+
+// The macro -I names a word that is not a keyword, unless it was
+// replaced too often in a row, which ends a loop of replacements.
+static Macro *findmacro(Cxx *c, Str w)
+{
+    Map<Macro> *map = c->f->macros ? c->f->macros->map : 0;
+    Macro      *m   = map ? upsert(&map, w, (Arena *)0) : 0;
+    if (m && m->rule.repl.data && uses(c, m)->count>=USEMAX) {
+        return 0;
+    }
+    return m;
+}
+
+// Drop the statement's last token, a macro -I names, and the group in
+// parentheses after it if the macro takes one, then push back its
+// replacement, if any, to be read in their place. The statement held
+// initial tokens before it. Returns DROPPED, or 0 at the end.
+static i32 dropmacro(Cxx *c, Macro *m, iz initial)
+{
+    Pool *p    = &c->pool;
+    Str   repl = m->rule.repl;
+    i32   line = c->tok->line;
+    iz    pos  = c->tok->linepos;
+    destroylast(p, c->chain);
+
+    Token *group = 0;
+    if (m->rule.parens) {
+        while (cppspace(c->ch)) {
+            nextchar(c);
+        }
+        if (c->ch == '(') {
+            if (!cxxnext(c) || !condensesubchain(c, T_LPAREN, 0, 0)) {
+                return 0;
+            }
+            group = chaintakelast(c->chain);
+        }
+    }
+
+    // Unless replacements may be running away
+    b32 room = c->nesting<NESTMAX && initial<CHAINMAX &&
+               c->cpp.backsize<BACKMAX;
+    if (repl.data && room) {
+        unget(&c->cpp, c->ch);
+        if (cppident(repl[repl.len-1]) && cppident(c->ch)) {
+            unget(&c->cpp, ' ');  // departure X11: words stay apart
+        }
+        ungetat(&c->cpp, repl, line, pos);
+        uses(c, m)->count++;
+        nextchar(c);
+    }
+    freetoken(p, group);
+    return DROPPED;
+}
+
+// Read a token onto the statement: 0 at the end, 1, or DROPPED.
+static i32 readtoken(Cxx *c)
+{
+    Pool *p       = &c->pool;
+    iz    initial = c->chain->count;
+    if (initial >= CHAINMAX) {
         destroylast(p, c->chain);
     }
 
@@ -746,8 +827,9 @@ static b32 cxxnext(Cxx *c)
             nextchar(c);
         }
 
-        Str w  = wordstr(t);
-        i32 kw = kwlookup(w, c->lang);
+        Str    w  = wordstr(t);
+        i32    kw = kwlookup(w, c->lang);
+        Macro *m  = kw<0 ? findmacro(c, w) : 0;
         if (kw >= 0) {
             if (!kwdisabled(c, kw)) {
                 t->type = T_KEYWORD;
@@ -756,6 +838,8 @@ static b32 cxxnext(Cxx *c)
                     return dropattribute(c);
                 }
             }
+        } else if (m) {
+            return dropmacro(c, m, initial);
         } else if (w=="_Pragma" || w=="__pragma") {
             return dropattribute(c);  // departure: dropped like attributes
         }
@@ -883,6 +967,21 @@ static b32 cxxnext(Cxx *c)
     nextchar(c);
     t->space = cppspace(c->ch);
     return 1;
+}
+
+// Read the next token onto the statement. Returns 0 at the end. Each
+// identifier -I drops is a level of nesting while the next is read, as
+// Universal Ctags reads it by recursion.
+static b32 cxxnext(Cxx *c)
+{
+    i32 levels = 0;
+    i32 r      = 0;
+    while ((r = readtoken(c)) == DROPPED) {
+        c->nesting++;
+        levels++;
+    }
+    c->nesting -= levels;
+    return r;
 }
 
 // Return the last token to be read again. If one is already waiting,

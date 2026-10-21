@@ -82,6 +82,12 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
     set_tests_properties(unit/${group} PROPERTIES LABELS unit)
   endforeach()
 
+  # The platform layer reads files as Universal Ctags does
+  add_test(NAME platform COMMAND ${CMAKE_COMMAND}
+    -DCTAGS=$<TARGET_FILE:ctags> -DWORK=${PROJECT_BINARY_DIR}/work/platform
+    -DWINDOWS=${WIN32} -P ${PROJECT_SOURCE_DIR}/cmake/platform.cmake)
+  set_tests_properties(platform PROPERTIES LABELS unit)
+
   if(WIN32)
     # The program imports exactly test/imports.txt from KERNEL32.dll
     find_program(CTAGS_OBJDUMP NAMES objdump)

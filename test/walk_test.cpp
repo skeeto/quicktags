@@ -837,6 +837,42 @@ static void test_walk(Test *t)
     }
 
     {
+        // -I files, a token to a line (OPT-17), named on Windows also
+        // by a drive letter
+        Os *os = newos(&a);
+        vfsfile(os, "m.c", "DECL x;\nWRAP(1) y;\n");
+        vfsfile(os, "list", "DECL=int\r\n  \nWRAP+=long \n");
+        vfsfile(os, "C:list", "DECL=char\n");
+        Str x = "x\tm.c\t/^DECL x;$/;\"\tv\tline:1\ttyperef:typename:";
+        Str y = "y\tm.c\t/^WRAP(1) y;$/;\"\tv\tline:2\ttyperef:typename:";
+        Run r = run(os, a, "-f - -I @list m.c");
+        expect(t, "-I @list err", r.err, "");
+        expect(t, "-I @list out", r.out,
+               concat(&a, concat(&a, concat(&a, x, "int\n"), y), "long\n"));
+        r = run(os, a, "-f - -I C:list m.c");
+        expect(t, "-I C:list out", r.out, concat(&a, x, "DECL\n"));
+        os->windows = 1;
+        r = run(os, a, "-f - -I C:list m.c");
+        expect(t, "-I C:list windows out", r.out, concat(&a, x, "char\n"));
+        r = run(os, a, "-f - -I @ m.c");
+        expect(t, "-I @ windows err", r.err,
+               "ctags: cannot open \"\" : Invalid argument\n");
+
+        // Read as text on Windows, a list ends at a Ctrl-Z
+        vfsfile(os, "z.c", "FOO int a;\nBAZ int b;\n");
+        vfsfile(os, "z.txt", "FOO\x1a" "BAR+\n\x1a" "BAZ\n");
+        Str za = "a\tz.c\t/^FOO int a;$/;\"\tv\tline:1\ttyperef:typename:";
+        Str zb = "b\tz.c\t/^BAZ int b;$/;\"\tv\tline:2\ttyperef:typename:BAZ int\n";
+        r = run(os, a, "-f - -I @z.txt z.c");
+        expect(t, "-I Ctrl-Z windows", r.out,
+               concat(&a, concat(&a, za, "int\n"), zb));
+        os->windows = 0;
+        r = run(os, a, "-f - -I @z.txt z.c");
+        expect(t, "-I Ctrl-Z", r.out,
+               concat(&a, concat(&a, za, "FOO int\n"), zb));
+    }
+
+    {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-f - b.c a.c c.c");

@@ -18,6 +18,7 @@ struct File {
     Source *src;
     Kinds  *kinds;
     u32     extras;
+    Macros *macros;  // -I, null for none
     Buf    *out;
     iz      mark;   // where this file's lines begin in out
     iz      ntags;

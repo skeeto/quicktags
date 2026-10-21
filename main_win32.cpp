@@ -13,6 +13,7 @@ enum : i32 {
     CREATE_NEW                    = 1,
     ERROR_ACCESS_DENIED           = 5,
     ERROR_ALREADY_EXISTS          = 183,
+    ERROR_BROKEN_PIPE             = 109,
     ERROR_DIRECTORY               = 267,
     ERROR_FILE_EXISTS             = 80,
     ERROR_FILE_NOT_FOUND          = 2,
@@ -26,7 +27,9 @@ enum : i32 {
     FILE_ATTRIBUTE_NORMAL         = 0x80,
     FILE_ATTRIBUTE_REPARSE_POINT  = 0x400,
     FILE_SHARE_ALL                = 7,
+    FILE_TYPE_CHAR                = 2,
     FILE_TYPE_DISK                = 1,
+    FILE_TYPE_PIPE                = 3,
     FIND_FIRST_EX_LARGE_FETCH     = 2,
     FindExInfoBasic               = 1,
     FindExInfoStandard            = 0,
@@ -350,6 +353,48 @@ static Listing os_list(Os *os, Arena *a, Str path)
     return r;
 }
 
+// The reason the C runtime gives for a file it cannot open, which
+// Universal Ctags reports for option and -I files.
+static i32 openerr(i32 err)
+{
+    switch (err) {
+    case 2: case 3: case 15: case 18: case 53: case 67: case 161: case 206:
+        return OSERR_NOENT;  // not found, bad drive, bad path or name
+    case 5: case 16: case 65: case 82: case 83: case 108: case 132:
+    case 158: case 167:
+        return OSERR_ACCES;  // denied, locked, or a directory
+    case 80: case 183:
+        return OSERR_EXIST;
+    }
+    return err>=19 && err<=36 ? OSERR_ACCES : OSERR_INVAL;
+}
+
+// Read a device or pipe to its end, keeping at most max bytes, as the
+// arena grows in place.
+static Read readstream(uz h, Arena *a, iz max)
+{
+    Read r = {};
+    r.data.data = (u8 *)a->beg;
+    while (r.data.len <= max) {
+        iz  want = max + 1 - r.data.len;
+        i32 n    = want<(1<<16) ? (i32)want : 1<<16;
+        u8 *buf  = allocbytes(a, n);
+        if (!ReadFile(h, buf, n, &n, 0)) {
+            r.err = GetLastError()==ERROR_BROKEN_PIPE ? 0 : OSERR_IO;
+            n = 0;
+        }
+        a->beg = (byte *)(buf + n);
+        r.data.len += n;
+        if (!n) {
+            break;
+        }
+    }
+    r.size = r.data.len;
+    r.data.len = r.data.len<max ? r.data.len : max;
+    a->beg = (byte *)(r.data.data + r.data.len);
+    return r;
+}
+
 static Read os_read(Os *, Arena *a, Str path, iz max)
 {
     Read  r   = {};
@@ -359,10 +404,22 @@ static Read os_read(Os *, Arena *a, Str path, iz max)
         OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
     );
     if (h == INVALID_HANDLE_VALUE) {
-        r.err = oserr(GetLastError());
-        return r;
+        // Also as the C runtime would open it, for the same reasons
+        h = CreateFileW(
+            towide(&tmp, path).data, GENERIC_READ, FILE_SHARE_ALL, 0,
+            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
+        );
+        if (h == INVALID_HANDLE_VALUE) {
+            r.err = openerr(GetLastError());
+            return r;
+        }
     }
-    if (GetFileType(h)!=FILE_TYPE_DISK || !GetFileSizeEx(h, &r.size)) {
+    i32 type = GetFileType(h);
+    if (type==FILE_TYPE_CHAR || type==FILE_TYPE_PIPE) {
+        r = readstream(h, a, max);
+        CloseHandle(h);
+        return r;
+    } else if (type!=FILE_TYPE_DISK || !GetFileSizeEx(h, &r.size)) {
         CloseHandle(h);
         r.err = OSERR_IO;
         return r;

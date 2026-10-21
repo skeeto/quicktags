@@ -184,7 +184,9 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
     iz len = r.size<max ? (iz)r.size : max;
     r.data.data = allocbytes(a, len);
     r.data.len  = len;
-    copybytes(r.data.data, n->data.data, len);
+    // A move: inlined into the option parser, where max is 1<<30, GCC
+    // cannot tell the arenas apart and warns of overlap (-Wrestrict)
+    if (len) __builtin_memmove(r.data.data, n->data.data, (uz)len);
     return r;
 }
 

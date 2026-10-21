@@ -39,6 +39,7 @@ enum : i32 {
     OSERR_EXIST,
     OSERR_ISDIR,
     OSERR_IO,
+    OSERR_INVAL,
 };
 
 struct Stat    { i32 type; i64 size; i32 err; b32 islink; };
@@ -52,7 +53,8 @@ static Stat    os_stat(Os *, Arena, Str path);
 // links and junctions to directories. Links to files are listed.
 static Listing os_list(Os *, Arena *, Str path);
 // Read at most max bytes of a regular file into the arena, not zeroed.
-// The size is the whole file's: size > max means the data was cut.
+// The size is the whole file's: size > max means the data was cut. A
+// device or pipe is read to its end.
 static Read    os_read(Os *, Arena *, Str path, iz max);
 // Read standard input to its end into the arena: empty if it is closed
 // or unreadable, and cut short by an error.
