@@ -109,6 +109,9 @@ static Str readfile(Arena *a, Str path)
         }
     }
     fclose(f);
+    if ((byte *)(b.data+b.cap) == a->beg) {
+        a->beg = (byte *)(b.data+b.len);  // release the spare capacity
+    }
     Str r = finish(&b);
     if (!r.data) {
         r.data = (u8 *)"";
@@ -825,32 +828,55 @@ struct Keys {
     Map<i32> *map;       // KEY_*, absent for clean keys not yet seen
     iz        compared;  // clean keys seen
     iz        skipped;   // dirty keys seen
+    iz        bad;       // malformed TAGS sections and entries in the bases
 };
 
-// Mark the keys whose lines differ between the base files.
-static Keys dirtykeys(Arena *a, Slice<Str> rb, Slice<Str> ob)
+// Read the base files and mark the keys whose lines differ between them.
+// Only the marks stay in perm: the files are read in scratch above them,
+// then released, so that a large tree's four files are never all held.
+static Keys readbase(Arena *perm, Str rbpath, Str obpath, Str only,
+                     u32 rewrites, b32 ordered)
 {
-    Keys   k = {};
-    Keyed *r = bykey(a, rb);
-    Keyed *o = bykey(a, ob);
-    iz     i = 0;
-    iz     j = 0;
-    while (i<rb.len || j<ob.len) {
-        b32 takeref = j==ob.len || (i<rb.len && compare(r[i].key, o[j].key)<=0);
+    Arena  scratch = *perm;
+    i32    any     = FORMAT_ANY;  // tags or TAGS
+    Input  rb      = readinput(&scratch, rbpath, any, only, rewrites, ordered);
+    Input  ob      = readinput(&scratch, obpath, any, only, 0, ordered);
+    iz     rlen    = rb.lines.len;
+    iz     olen    = ob.lines.len;
+    Keyed *r       = bykey(&scratch, rb.lines);
+    Keyed *o       = bykey(&scratch, ob.lines);
+    Buf    dirty(&scratch);  // one key per line
+    iz     i       = 0;
+    iz     j       = 0;
+    while (i<rlen || j<olen) {
+        b32 takeref = j==olen || (i<rlen && compare(r[i].key, o[j].key)<=0);
         Str key     = takeref ? r[i].key : o[j].key;
         iz  iend    = i;
         iz  jend    = j;
-        for (; iend<rb.len && r[iend].key==key; iend++) {}
-        for (; jend<ob.len && o[jend].key==key; jend++) {}
+        for (; iend<rlen && r[iend].key==key; iend++) {}
+        for (; jend<olen && o[jend].key==key; jend++) {}
         b32 same = iend-i == jend-j;
         for (iz n = 0; same && n < iend-i; n++) {
             same = r[i+n].line == o[j+n].line;
         }
         if (!same) {
-            *upsert(&k.map, key, a) = KEY_DIRTY;
+            print(&dirty, key);
+            putbyte(&dirty, '\n');
         }
         i = iend;
         j = jend;
+    }
+
+    // Move the dirty keys down to perm's front, over the released files
+    Str keys = finish(&dirty);
+    u8 *dst  = allocbytes(perm, keys.len);
+    __builtin_memmove(dst, keys.data, (uz)keys.len);
+    keys.data = dst;
+
+    Keys k = {};
+    k.bad = rb.bad + ob.bad;
+    for (Cut c = cut(keys, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        *upsert(&k.map, c.head, perm) = KEY_DIRTY;
     }
     return k;
 }
@@ -1121,18 +1147,18 @@ int main(int argc, char **argv)
         rewrites |= e->rewrites;
     }
 
+    // Only the tags on which the base runs agree, read first to release
+    // their memory before the others are read
+    Keys keys = {};
+    if (bases[0].data) {
+        keys = readbase(&a, bases[0], bases[1], only, rewrites, ordered);
+    }
+
     i32   format = etags ? FORMAT_ETAGS : FORMAT_TAGS;
     Input ref    = readinput(&a, files[0], format, only, rewrites, ordered);
     Input ours   = readinput(&a, files[1], format, only, 0, ordered);
-    iz    bad    = ref.bad + ours.bad;
-
-    // Only the tags on which the base runs agree
-    Keys keys = {};
+    iz    bad    = ref.bad + ours.bad + keys.bad;
     if (bases[0].data) {
-        Input rb = readinput(&a, bases[0], FORMAT_ANY, only, rewrites, ordered);
-        Input ob = readinput(&a, bases[1], FORMAT_ANY, only, 0, ordered);
-        bad       += rb.bad + ob.bad;
-        keys       = dirtykeys(&a, rb.lines, ob.lines);
         ref.lines  = keepclean(&a, &keys, ref.lines);
         ours.lines = keepclean(&a, &keys, ours.lines);
     }
