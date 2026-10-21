@@ -110,5 +110,30 @@ static void test_parallel(Test *t)
             }
         }
     }
+
+    // Arguments, more than there are workers, which the workers then
+    // examine: missing ones are reported in their order
+    Buf list(&a, 1<<10);
+    print(&list, "src/zz.c\n");
+    for (i32 i = 0; i < 40; i++) {
+        print(&list, "src/gen/d");
+        print(&list, (i64)(i%4));
+        print(&list, i%3 ? Str("/") : Str("/sub/"));
+        print(&list, "f");
+        print(&list, (i64)i);
+        print(&list, ".c\n");
+    }
+    print(&list, "src/aa.c\nsrc/main.c\nsrc/util.h\nsrc/lib\nsrc/num\n");
+    vfsfile(os, "list", finish(&list));
+    Str missing = "ctags: Warning: cannot open input file \"src/zz.c\" : "
+                  "No such file or directory\n"
+                  "ctags: Warning: cannot open input file \"src/aa.c\" : "
+                  "No such file or directory\n";
+    for (u64 seed = 0; seed <= 8; seed++) {
+        os->seed = seed;
+        Run r = run(os, a, "--jobs=3 -L list -f -");
+        expect(t, "list", r.out, first.out);
+        expect(t, "list", r.err, missing);
+    }
     os->seed = 0;
 }
