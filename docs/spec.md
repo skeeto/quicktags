@@ -417,7 +417,7 @@ depends on how far the walk had read when the label was seen. Our
 **Fields and patterns**
 - **FTN-7 Scope and `file:`** [V]:
   - The scope is the innermost enclosing unit that was tagged (its kind enabled or not) and whose name is an identifier: `<kind>:<name>`, unqualified. Scope kinds: `module`, `submodule`, `program`, `subroutine`, `function`, `prototype`, `interface`, `type`, `enum`, `blockData`.
-  - Operator interfaces and **subprograms named by a keyword** (`function sequence`) do not serve as scopes, though they still decide entity kinds (FTN-6) and prototypes (FTN-19).
+  - Operator interfaces and **subprograms named by a keyword** (`function sequence`; we depart, F6) do not serve as scopes, though they still decide entity kinds (FTN-6) and prototypes (FTN-19).
   - A label takes the scope current when it is read: the first label of a subroutine is outside it (FTN-19), and one on the line after an END that ends a unit is inside that unit.
   - `file:` only on `l` and `L`. No typeref.
 - **FTN-8 Patterns and excmd** [V]:
@@ -709,3 +709,5 @@ Fortran (section 1.6 marks where each departs):
 
 - **F3** A name may start with `_` (FTN-4), as flang's runtime modules
   do (`module __fortran_builtins`), so they are tagged and give scope.
+- **F6** A subprogram named by a keyword (`function sequence`,
+  `subroutine inline`) is the scope of its contents (FTN-7).

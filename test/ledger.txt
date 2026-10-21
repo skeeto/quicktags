@@ -726,3 +726,9 @@
 - y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x, y$/;"	v	line:226
 - y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:211
 - y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:216
+
+@ corpus/llvm/flang: F6, a subprogram named by a keyword (subroutine inline) is the scope of what it contains.
++ f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113	subroutine:inline
++ g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118	subroutine:inline
+- f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113
+- g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118

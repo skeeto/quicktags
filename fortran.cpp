@@ -1542,7 +1542,9 @@ static void ftnunit(Ftn *p, i32 kind)
 {
     ftnnext(p);
     if (ftnis(p, FT_IDENT) || ftnis(p, FT_KEYWORD)) {
-        FtnName name = ftntake(p);  // a keyword name stays a keyword
+        // Unlike Universal Ctags, a keyword name is a scope too (F6)
+        FtnName name = ftntake(p);
+        name.type = FT_IDENT;
         if (kind==F_SUBROUTINE || kind==F_PROTOTYPE) {
             ftnnext(p);
             if (ftnis(p, FT_LPAREN)) {

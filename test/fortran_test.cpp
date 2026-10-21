@@ -548,17 +548,28 @@ static TagCase fortrancases[] = {
      "x\tx.f90\t/^    real :: x$/;\"\tL\tline:5\tfunction:f\tfile:\n"
      "y\tx.f90\t/^      integer :: y$/;\"\tL\tline:8\tsubroutine:g\tfile:\n",
      ""},
-    {SHARED, "FTN-7 a subprogram named by a keyword is not a scope", "x.f90", "--kinds-Fortran=*",
+    {IMPROVED, "F6 a subprogram named by a keyword is a scope", "x.f90", "--kinds-Fortran=*",
      "module m\n"
      "contains\n"
      "  function sequence(n)\n"
      "    integer :: n\n"
      "  end function\n"
+     "  subroutine inline\n"
+     "  contains\n"
+     "    subroutine g\n"
+     "    end subroutine\n"
+     "  end subroutine\n"
      "end module\n",
+     "g\tx.f90\t/^    subroutine g$/;\"\ts\tline:8\tsubroutine:inline\n"
+     "inline\tx.f90\t/^  subroutine inline$/;\"\ts\tline:6\tmodule:m\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "n\tx.f90\t/^    integer :: n$/;\"\tL\tline:4\tfunction:sequence\tfile:\n"
+     "sequence\tx.f90\t/^  function sequence(/;\"\tf\tline:3\tmodule:m\n",
+     "g\tx.f90\t/^    subroutine g$/;\"\ts\tline:8\tmodule:m\n"
+     "inline\tx.f90\t/^  subroutine inline$/;\"\ts\tline:6\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
      "n\tx.f90\t/^    integer :: n$/;\"\tL\tline:4\tmodule:m\tfile:\n"
-     "sequence\tx.f90\t/^  function sequence(/;\"\tf\tline:3\tmodule:m\n",
-     ""},
+     "sequence\tx.f90\t/^  function sequence(/;\"\tf\tline:3\tmodule:m\n"},
     {SHARED, "FTN-7 a subroutine's first label is outside it", "x.f90", "",
      "subroutine s(a)\n"
      "10 continue\n"
