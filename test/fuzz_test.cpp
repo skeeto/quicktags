@@ -157,8 +157,10 @@ static void test_fuzz(Test *t)
     TagCase *sets[]  = {ccases, cxxcases, fortrancases};
     iz       sizes[] = {countof(ccases), countof(cxxcases), countof(fortrancases)};
 
-    u64 rng   = 1;
-    iz  ntags = 0;
+    // On i686 Windows, GCC gives a u64 local only 4-byte alignment,
+    // short of its alignof, which UBSan checks through the pointer
+    alignas(8) u64 rng   = 1;
+    iz             ntags = 0;
     for (i32 i = 0; i < FUZZRUNS; i++) {
         Arena a   = t->perm;
         i32   ext = (i32)(rand32(&rng) % countof(fuzzexts));
