@@ -133,6 +133,24 @@ extern "C" void *memcpy(void *dst, void const *src, uz len)
     return r;
 }
 
+// Backward when dst starts inside src, which copying forward would
+// overwrite before reading.
+extern "C" void *memmove(void *dst, void const *src, uz len)
+{
+    void *r = dst;
+    if ((uz)dst-(uz)src >= len) {
+        __asm volatile ("rep movsb" : "+D"(dst), "+S"(src), "+c"(len) : : "memory");
+    } else {
+        dst = (u8 *)dst + len - 1;
+        src = (u8 *)src + len - 1;
+        __asm volatile (
+            "std; rep movsb; cld"
+            : "+D"(dst), "+S"(src), "+c"(len) : : "memory"
+        );
+    }
+    return r;
+}
+
 extern "C" void *memset(void *dst, i32 c, uz len)
 {
     void *r = dst;
