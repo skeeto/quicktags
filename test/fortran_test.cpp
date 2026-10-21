@@ -841,7 +841,70 @@ static TagCase fortrancases[] = {
      "t\tx.f90\t/^  subroutine t$/;\"\ts\tline:12\n"},
 };
 
+// Subroutine i of the nested ones in deepcase, as a tag line.
+static Str deepline(Arena *a, i32 i)
+{
+    Buf b(a, 96);
+    print(&b, "s");
+    print(&b, (i64)i);
+    print(&b, "\tx.f90\t/^subroutine s");
+    print(&b, (i64)i);
+    print(&b, "$/;\"\ts\tline:");
+    print(&b, (i64)(2*i + 1));
+    if (i) {
+        print(&b, "\tsubroutine:s");
+        print(&b, (i64)(i - 1));
+    }
+    return finish(&b);
+}
+
+// Sorted tag lines for the first n nested subroutines.
+static Str deeptags(Arena *a, i32 n)
+{
+    Slice<Str> lines = {};
+    for (i32 i = 0; i < n; i++) {
+        lines = push(a, lines, deepline(a, i));
+    }
+    sort(lines.data, lines.len, strless, *a);
+    Buf b(a, 1<<16);
+    for (iz i = 0; i < lines.len; i++) {
+        print(&b, lines[i]);
+        putbyte(&b, '\n');
+    }
+    return finish(&b);
+}
+
+// R1: subroutines nested deeper than the limit, which is too much to
+// write out. Universal Ctags follows them all, until its stack runs out
+// at about 20000 levels.
+static TagCase deepcase(Arena *a, i32 depth)
+{
+    Buf src(a, 1<<16);
+    for (i32 i = 0; i < depth; i++) {
+        print(&src, "subroutine s");
+        print(&src, (i64)i);
+        print(&src, "\ncontains\n");
+    }
+    for (i32 i = 0; i < depth; i++) {
+        print(&src, "end subroutine\n");
+    }
+    TagCase r = {};
+    r.kind   = IMPROVED;
+    r.name   = "R1 nesting stops at FTN_DEPTHMAX";
+    r.file   = "x.f90";
+    r.args   = "";
+    r.src    = finish(&src);
+    r.want   = deeptags(a, FTN_DEPTHMAX);
+    r.uctags = deeptags(a, depth);
+    return r;
+}
+
 static void test_fortran(Test *t)
 {
     runcases(t, fortrancases, countof(fortrancases));
+
+    Arena   save = t->perm;
+    TagCase deep = deepcase(&t->perm, FTN_DEPTHMAX+6);
+    runcases(t, &deep, 1);
+    t->perm = save;
 }

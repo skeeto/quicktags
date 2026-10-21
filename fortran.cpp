@@ -11,6 +11,9 @@
 
 enum : i32 { FTN_EOF = -1 };
 
+// Nested units, types, structures, and unions, at most (R1)
+enum : i32 { FTN_DEPTHMAX = 1024 };
+
 // Fixed-form lines, by their first six columns
 enum : i32 {
     FL_INVALID,    // not fixed form
@@ -111,6 +114,7 @@ struct Ftn {
     Str     src;
     b32     freeform;
     i32     quiet;     // looking ahead: no tags
+    i32     depth;     // nesting, up to FTN_DEPTHMAX
     FtnIn   in;
     FtnTok  tok;
     FtnTok  aux;       // reading secondary tokens
@@ -682,6 +686,22 @@ static void ftnpop(Ftn *p)
     p->scopes.len--;
 }
 
+// Enter a nested construct, unless it is too deep. Universal Ctags has
+// no limit, and overflows its stack on deep nesting (R1).
+static b32 ftnenter(Ftn *p)
+{
+    if (p->depth == FTN_DEPTHMAX) {
+        return 0;
+    }
+    p->depth++;
+    return 1;
+}
+
+static void ftnleave(Ftn *p)
+{
+    p->depth--;
+}
+
 static b32 ftninterfaced(Ftn *p)
 {
     for (iz i = 0; i < p->scopes.len; i++) {
@@ -1136,18 +1156,27 @@ static void ftnmap(Ftn *p)
 // The maps of a DEC union, through its END.
 static void ftnunion(Ftn *p)
 {
+    if (!ftnenter(p)) {
+        ftnskipstmt(p);
+        return;
+    }
     ftnskipstmt(p);
     while (p->tok.word == FW_MAP) {
         ftnmap(p);
     }
     ftnsub(p);
     ftnskipstmt(p);
+    ftnleave(p);
 }
 
 // A DEC structure, "STRUCTURE [/name/] [fields]", a type named after it
 // (or anonymous), with the field names that follow as components.
 static void ftnstructure(Ftn *p)
 {
+    if (!ftnenter(p)) {
+        ftnskipstmt(p);
+        return;
+    }
     FtnName name  = {};
     b32     named = 0;
     ftnnext(p);
@@ -1179,6 +1208,7 @@ static void ftnstructure(Ftn *p)
     ftnsub(p);
     ftnskipstmt(p);
     ftnpop(p);
+    ftnleave(p);
 }
 
 // Specification statements beyond type declarations, or 0.
@@ -1248,6 +1278,10 @@ static void ftncomponent(Ftn *p)
 // its components, through its END, which stays the current token.
 static void ftnderived(Ftn *p)
 {
+    if (!ftnenter(p)) {
+        ftnskipto(p, FT_EOS);
+        return;
+    }
     if (ftnis(p, FT_COMMA)) {
         ftnattrs(p);
     }
@@ -1273,6 +1307,7 @@ static void ftnderived(Ftn *p)
     ftnsub(p);
     ftnskipto(p, FT_EOS);
     ftnpop(p);
+    ftnleave(p);
 }
 
 static void ftnsubprogram(Ftn *);
@@ -1655,6 +1690,10 @@ static b32 ftnexec(Ftn *p)
 // it is tagged, a function's after.
 static void ftnunit(Ftn *p, i32 kind)
 {
+    if (!ftnenter(p)) {
+        ftnskipstmt(p);
+        return;
+    }
     ftnnext(p);
     if (ftnis(p, FT_IDENT) || ftnis(p, FT_KEYWORD)) {
         // Unlike Universal Ctags, a keyword name is a scope too (F6)
@@ -1680,6 +1719,7 @@ static void ftnunit(Ftn *p, i32 kind)
     ftnsub(p);
     ftnskipstmt(p);
     ftnpop(p);
+    ftnleave(p);
 }
 
 // A function or subroutine, a prototype inside an interface.
@@ -1748,6 +1788,7 @@ static b32 ftntags(File *f, b32 freeform, Arena scratch)
         p->in.back    = f->carry - 2;
     }
     ftnunits(p);
+    assert(!p->depth);
     f->carry = p->in.hasback ? p->in.back+2 : 0;
     return freeform || !p->in.freefound;
 }

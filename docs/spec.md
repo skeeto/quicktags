@@ -744,3 +744,8 @@ Fortran (section 1.6 marks where each departs):
   `::` or a name are skipped without ending the specification part
   (FTN-12), which made the unit skip its later declarations and the
   subprograms it contains, up to the first END.
+- **R1** Subprograms, derived types, DEC structures and unions nest at
+  most 1024 deep, together; a deeper one's header statement is skipped,
+  and what it contains is read as part of the enclosing construct.
+  Universal Ctags has no limit and runs out of stack (it crashes at
+  about 20000 nested subroutines).
