@@ -145,6 +145,55 @@ static b32 inlist(Slice<Str> list, Str s)
     return 0;
 }
 
+// Whether a name sorts before another, ignoring case, as strcasecmp()
+// orders them.
+static b32 lessfold(Str a, Str b)
+{
+    for (iz i = 0; i<a.len && i<b.len; i++) {
+        u8 x = lowercase(a[i]);
+        u8 y = lowercase(b[i]);
+        if (x != y) {
+            return x < y;
+        }
+    }
+    return a.len < b.len;
+}
+
+// Whether a map takes a name: in the first pass by a pattern, in the
+// second by its extension, ignoring case.
+static b32 maptakes(Slice<Str> globs, Slice<Str> exts, Str name, Str ext,
+                    i32 pass, b32 windows)
+{
+    if (pass) {
+        return inlist(exts, ext);
+    }
+    for (iz i = 0; i < globs.len; i++) {
+        if (globmatch(globs[i], name, windows)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// The languages that take a name, gathered: how many, the first by
+// name, and whether any lacks the selector C and C++ share (LANG-2).
+struct Candidates {
+    iz  count;
+    Str name;
+    i32 lang;    // LANG_*, LANG_FOREIGN for one from --langdef
+    b32 others;  // neither C nor C++
+};
+
+static void nominate(Candidates *c, i32 lang, Str name)
+{
+    if (!c->count || lessfold(name, c->name)) {
+        c->name = name;
+        c->lang = lang;
+    }
+    c->count++;
+    c->others |= lang!=LANG_C && lang!=LANG_CXX;
+}
+
 // A language chosen for a name, or, of several that took it with none
 // chosen, a fallback (LANG-2).
 struct Pick {
@@ -152,66 +201,66 @@ struct Pick {
     i32 fallback;
 };
 
-// Which of the enabled languages take a base name: those with a pattern
-// that matches it, else those with its extension, ignoring case, but for
-// C++'s own "C", which takes only ".C", and first (D1). Of several, C
-// and C++ choose the first by name, as their shared selector does, and
-// with Fortran among them none is chosen: the first is a fallback.
+// Which of the enabled languages, ours and those from --langdef, take a
+// base name: those with a pattern that matches it, else those with its
+// extension, ignoring case, but for C++'s own "C", which takes only
+// ".C", and first (D1). Of several, C and C++ choose the first by name,
+// as their shared selector does, and with any other among them none is
+// chosen: the first is a fallback.
 static Pick matchlang(Options *opt, Str name)
 {
-    Pick     r     = {};
-    LangMap *m     = &opt->map;
-    u32      taken = 0;
-    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
-        for (iz i = 0; opt->langs>>lang&1 && i<m->globs[lang].len; i++) {
-            if (globmatch(m->globs[lang][i], name, opt->windows)) {
-                taken |= 1u << lang;
-                break;
-            }
-        }
-    }
-    if (!taken) {
-        Str ext = extension(name);
-        if (ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
+    Pick       r   = {};
+    LangMap   *m   = &opt->map;
+    Candidates c   = {};
+    Str        ext = extension(name);
+    for (i32 pass = 0; pass<2 && !c.count; pass++) {
+        if (pass && ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
             r.lang = LANG_CXX;
             return r;
         }
         for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
-            if (opt->langs>>lang&1 && inlist(m->exts[lang], ext)) {
-                taken |= 1u << lang;
+            if (opt->langs>>lang&1 && maptakes(m->globs[lang], m->exts[lang],
+                                               name, ext, pass, opt->windows)) {
+                nominate(&c, lang, langnames[lang]);
+            }
+        }
+        for (iz i = 0; i < m->langdefs.len; i++) {
+            Langdef *d = &m->langdefs[i];
+            if (d->on && maptakes(d->globs, d->exts, name, ext, pass,
+                                  opt->windows)) {
+                nominate(&c, LANG_FOREIGN, d->name);
             }
         }
     }
-    i32 first = taken ? __builtin_ctz(taken) : LANG_NONE;
-    b32 tie   = taken&(taken-1) && taken>>LANG_FORTRAN&1;
-    if (tie) {
-        r.fallback = first;
+    if (c.count>1 && c.others) {
+        r.fallback = c.lang;
     } else {
-        r.lang = first;
+        r.lang = c.lang;
     }
     return r;
 }
 
 // Choose a file's language by its base name, then without a final
 // ".in", unless one is forced, and say whether it is a header by the
-// name without ".in", whatever the language (LANG-2, LANG-5, D2).
+// name without ".in", whatever the language (LANG-2, LANG-5, D2). One
+// this program does not parse is no language here.
 static Lang detectlang(Options *opt, Str path)
 {
     Lang r    = {};
     Str  base = basename(path, opt->windows);
     b32  in   = base.len>=3 && equalsfold(taketail(base, 3), ".in");
     Str  bare = in ? cuttail(base, 3) : base;
-    if (opt->force) {
-        r.lang = opt->force==LANG_FOREIGN ? LANG_NONE : opt->force;
-    } else {
+    i32  lang = opt->force;
+    if (!lang) {
         Pick p = matchlang(opt, base);
         if (!p.lang && in) {
             Pick t = matchlang(opt, bare);
             p.lang     = t.lang;
             p.fallback = p.fallback ? p.fallback : t.fallback;
         }
-        r.lang = p.lang ? p.lang : p.fallback;
+        lang = p.lang ? p.lang : p.fallback;
     }
+    r.lang   = lang!=LANG_FOREIGN ? lang : LANG_NONE;
     r.header = r.lang && inlist(opt->headers, extension(bare));
     return r;
 }

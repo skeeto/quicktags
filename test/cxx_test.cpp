@@ -697,6 +697,16 @@ static TagCase cxxcases[] = {
      "Thing\tk.in\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
      "v\tk.in\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
      ""},
+    {SHARED, "an extension taken by a defined language first by name", "k.c",
+     "--langdef=Aaa --map-Aaa=+.c",
+     "int v;\n",
+     "",
+     ""},
+    {SHARED, "an extension shared with a defined language, C first", "k.c",
+     "--langdef=Zzz --map-Zzz=+.c",
+     "int v;\n",
+     "v\tk.c\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
     {IMPROVED, "D1 C++'s own C without C's", "k.C", "--map-C=-.c",
      "class Thing { int v; };\n",
      "Thing\tk.C\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"

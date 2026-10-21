@@ -7,12 +7,23 @@ enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
 enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
 enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 
+// A language defined by --langdef, which this program does not parse,
+// but whose map takes files from ours as another language's would.
+struct Langdef {
+    Str        name;
+    Slice<Str> exts;
+    Slice<Str> globs;
+    b32        on;     // enabled
+    b32        based;  // a subparser that our parsers run on their files
+};
+
 // The extensions and file name patterns that name each of our languages'
-// files, by LANG_* (LANG-1).
+// files, by LANG_* (LANG-1), and the languages defined by --langdef.
 struct LangMap {
-    Slice<Str> exts[LANG_FOREIGN];
-    Slice<Str> globs[LANG_FOREIGN];
-    b32        upperc;  // C++'s own "C", before its extensions (D1)
+    Slice<Str>     exts[LANG_FOREIGN];
+    Slice<Str>     globs[LANG_FOREIGN];
+    Slice<Langdef> langdefs;
+    b32            upperc;  // C++'s own "C", before its extensions (D1)
 };
 
 // Every option is parsed into its value here. Some are not acted on yet,
@@ -78,23 +89,16 @@ enum : i32 {
     ARGS_FATAL,  // printed the problem, exit 1
 };
 
-// A language defined by --langdef.
-struct Langdef {
-    Str name;
-    b32 based;  // a subparser that our parsers run on their files
-};
-
 // The state of parsing, shared by the arguments and the option files.
 struct Parse {
-    Options       *opt;
-    Os            *os;
-    Arena         *perm;
-    Buf           *log;
-    Str            optfile;   // the option file being read, null for arguments
-    Map<b32>      *read;      // option files read, by path
-    i32            depth;     // option files being read
-    Slice<Langdef> langdefs;
-    b32            seenf;     // -f or -o given
+    Options  *opt;
+    Os       *os;
+    Arena    *perm;
+    Buf      *log;
+    Str       optfile;   // the option file being read, null for arguments
+    Map<b32> *read;      // option files read, by path
+    i32       depth;     // option files being read
+    b32       seenf;     // -f or -o given
 };
 
 enum : i32 { OPTFILEDEPTH = 16 };
@@ -295,9 +299,9 @@ static Str foreignlangs[] = {
 };
 
 struct Named {
-    i32 lang;   // LANG_*
-    Str name;   // as Universal Ctags spells it, or as given if unknown
-    b32 based;  // LANG_FOREIGN, but tagging our files (Langdef)
+    i32      lang;  // LANG_*
+    Str      name;  // as Universal Ctags spells it, or as given if unknown
+    Langdef *def;   // LANG_FOREIGN, defined by --langdef
 };
 
 // Find a language by name, ignoring case: ours, one we don't parse
@@ -320,16 +324,23 @@ static Named langnamed(Parse *p, Str name)
             return r;
         }
     }
-    for (iz i = 0; i < p->langdefs.len; i++) {
-        Langdef *d = &p->langdefs[i];
-        if (equalsfold(name, d->name)) {
-            r.lang  = LANG_FOREIGN;
-            r.name  = d->name;
-            r.based = d->based;
+    Slice<Langdef> defs = p->opt->map.langdefs;
+    for (iz i = 0; i < defs.len; i++) {
+        if (equalsfold(name, defs[i].name)) {
+            r.lang = LANG_FOREIGN;
+            r.name = defs[i].name;
+            r.def  = &defs[i];
             return r;
         }
     }
     return r;
+}
+
+// Whether a language tags our files though we don't parse it: one from
+// --langdef that is a subparser of ours (OPT-12).
+static b32 based(Named lang)
+{
+    return lang.def && lang.def->based;
 }
 
 // The language named after an option's prefix, up to a '.' or ':', as in
@@ -352,12 +363,28 @@ static i32 unknownlang(Parse *p, Str lang, Str option)
                  "\" option");
 }
 
-// Empty a language's map.
-static void clearmap(LangMap *m, i32 lang)
+// A language's extensions or patterns: ours, or those of one from
+// --langdef, or null for another language, which has none here.
+static Slice<Str> *maplist(LangMap *m, Named lang, b32 pattern)
 {
-    m->exts[lang]  = {};
-    m->globs[lang] = {};
-    m->upperc     &= lang != LANG_CXX;
+    if (lang.def) {
+        return pattern ? &lang.def->globs : &lang.def->exts;
+    } else if (lang.lang == LANG_FOREIGN) {
+        return 0;
+    }
+    return (pattern ? m->globs : m->exts) + lang.lang;
+}
+
+// Empty a language's map.
+static void clearmap(LangMap *m, Named lang)
+{
+    Slice<Str> *exts  = maplist(m, lang, 0);
+    Slice<Str> *globs = maplist(m, lang, 1);
+    if (exts) {
+        *exts  = {};
+        *globs = {};
+    }
+    m->upperc &= lang.lang != LANG_CXX;
 }
 
 // Restore a language's map to its defaults (LANG-1): this build's, and
@@ -375,7 +402,8 @@ static void defaultmap(LangMap *m, i32 lang, Arena *perm)
     struct { Str *exts; iz len; } maps[] = {
         {0, 0}, {c, countof(c)}, {cxx, countof(cxx)}, {ftn, countof(ftn)},
     };
-    clearmap(m, lang);
+    m->exts[lang]  = {};
+    m->globs[lang] = {};
     for (iz i = 0; i < maps[lang].len; i++) {
         m->exts[lang] = push(perm, m->exts[lang], maps[lang].exts[i]);
     }
@@ -466,13 +494,17 @@ static i32 badmap(Parse *p, i32 err, Named lang)
 
 // --langmap=LANG:[+]MAPS[,LANG:...], each item taken from every language
 // before it is added, or default for all or for one language (LANG-6).
-// Only our languages' maps are kept.
+// Only the maps of our languages and of those from --langdef are kept.
 static i32 langmapopt(Parse *p, Str name, Str value)
 {
     LangMap *m = &p->opt->map;
     if (value == "default") {
         for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
             defaultmap(m, lang, p->perm);
+        }
+        for (iz i = 0; i < m->langdefs.len; i++) {
+            m->langdefs[i].exts  = {};
+            m->langdefs[i].globs = {};
         }
         return ARGS_OK;
     }
@@ -490,25 +522,30 @@ static i32 langmapopt(Parse *p, Str name, Str value)
         list = cuthead(list, add);
         Str first = cut(list, ',').head;
         if (equalsfold(first, "default")) {
+            clearmap(m, lang);
             if (ours) {
                 defaultmap(m, ours, p->perm);
             }
             list = cuthead(list, first.len);
         } else {
-            if (ours && !add) {
-                clearmap(m, ours);
+            if (!add) {
+                clearmap(m, lang);
             }
             while (list.len && list[0]!=',') {
                 MapItem it = mapitem(list);
                 if (it.err) {
                     return badmap(p, it.err, lang);
                 }
-                Slice<Str> *lists = it.pattern ? m->globs : m->exts;
                 for (i32 i = LANG_C; i <= LANG_FORTRAN; i++) {
                     unmap(m, i, it.item, it.pattern);
                 }
-                if (ours) {
-                    lists[ours] = push(p->perm, lists[ours], it.item);
+                for (iz i = 0; i < m->langdefs.len; i++) {
+                    Langdef *d = &m->langdefs[i];
+                    removeitem(it.pattern ? &d->globs : &d->exts, it.item);
+                }
+                Slice<Str> *dst = maplist(m, lang, it.pattern);
+                if (dst) {
+                    *dst = push(p->perm, *dst, it.item);
                 }
                 list = it.tail;
             }
@@ -532,16 +569,18 @@ static i32 mapopt(Parse *p, Str name, Str value)
     MapItem it = mapitem(cuthead(value, op!=0));
     if (it.err) {
         return badmap(p, it.err, lang);
-    } else if (lang.lang == LANG_FOREIGN) {
-        return ARGS_OK;
     }
 
     LangMap    *m    = &p->opt->map;
-    Slice<Str> *list = (it.pattern ? m->globs : m->exts) + lang.lang;
-    if (!op) {
-        clearmap(m, lang.lang);
+    Slice<Str> *list = maplist(m, lang, it.pattern);
+    if (!list) {
+        return ARGS_OK;
+    } else if (!op) {
+        clearmap(m, lang);
     }
-    if (op == '-') {
+    if (op == '-' && lang.def) {
+        removeitem(list, it.item);
+    } else if (op == '-') {
         unmap(m, lang.lang, it.item, it.pattern);
     } else {
         *list = push(p->perm, *list, it.item);
@@ -553,9 +592,10 @@ static i32 mapopt(Parse *p, Str name, Str value)
 // languages, the mode carrying on through the list.
 static i32 languagesopt(Parse *p, Str name, Str value)
 {
-    u32 *langs = &p->opt->langs;
-    u8   mode  = 0;  // 0 to replace
-    Cut  c     = {};
+    u32           *langs = &p->opt->langs;
+    Slice<Langdef> defs  = p->opt->map.langdefs;
+    u8             mode  = 0;  // 0 to replace
+    Cut            c     = {};
     c.tail = value;
     do {
         c = cut(c.tail, ',');
@@ -566,17 +606,25 @@ static i32 languagesopt(Parse *p, Str name, Str value)
         }
         if (!mode) {
             *langs = 0;
+            for (iz i = 0; i < defs.len; i++) {
+                defs[i].on = 0;
+            }
         }
         if (!lang.len) {
             continue;
         }
         if (lang == "all") {
             *langs = mode=='-' ? 0u : (u32)LANGS_ALL;
+            for (iz i = 0; i < defs.len; i++) {
+                defs[i].on = mode != '-';
+            }
         } else {
             Named l = langnamed(p, lang);
             if (!l.lang) {
                 warning(p, "Unknown language \"", lang, "\" in \"", name,
                         "\" option");
+            } else if (l.def) {
+                l.def->on = mode != '-';
             } else if (l.lang != LANG_FOREIGN) {
                 *langs &= ~(1u << l.lang);
                 *langs |= (u32)(mode!='-') << l.lang;
@@ -654,11 +702,12 @@ static b32 langdefbased(Parse *p, Str flags)
         warning(p, "Ignore the direction of subparser because \"{base=}\" is "
                 "not given");
     }
-    return shared && (base.based || (base.lang && base.lang!=LANG_FOREIGN));
+    return shared && (based(base) || (base.lang && base.lang!=LANG_FOREIGN));
 }
 
 // --langdef=NAME[{flags}] defines a language, which this program does
-// not parse, so that options may name it.
+// not parse, so that options may name it, enabled, and with an empty map
+// that may come to take files from ours (LANG-6).
 static i32 langdefopt(Parse *p, Str name, Str value)
 {
     Str lang = cut(value, '{').head;
@@ -681,10 +730,12 @@ static i32 langdefopt(Parse *p, Str name, Str value)
                          lang, ")");
         }
     }
-    Langdef d = {};
+    LangMap *m = &p->opt->map;
+    Langdef  d = {};
     d.name  = lang;
+    d.on    = 1;
     d.based = langdefbased(p, cuthead(value, lang.len));
-    p->langdefs = push(p->perm, p->langdefs, d);
+    m->langdefs = push(p->perm, m->langdefs, d);
     return ARGS_OK;
 }
 
@@ -1553,7 +1604,7 @@ static i32 langopt(Parse *p, i32 family, Str name, Str value)
         if (!lang.lang) {
             return unknownlang(p, lang.name, name);
         }
-        b32 ours = lang.lang!=LANG_FOREIGN || lang.based;
+        b32 ours = lang.lang!=LANG_FOREIGN || based(lang);
         return ours ? unsupported(p, "--", name) : ARGS_OK;
     }
     }
