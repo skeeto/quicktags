@@ -125,58 +125,92 @@ struct Lang {
     b32 header;
 };
 
-static b32 anyfold(Str s, Str *set, iz len)
+// A name's extension: after its last '.', or empty without one.
+static Str extension(Str name)
 {
-    for (iz i = 0; i < len; i++) {
-        if (equalsfold(s, set[i])) {
+    iz dot = name.len;
+    for (; dot>0 && name[dot-1]!='.'; dot--) {}
+    return dot ? cuthead(name, dot) : Str("");
+}
+
+// Whether a list holds a string, ignoring case or not.
+static b32 inlist(Slice<Str> list, Str s, b32 fold)
+{
+    for (iz i = 0; i < list.len; i++) {
+        if (fold ? equalsfold(list[i], s) : list[i]==s) {
             return 1;
         }
     }
     return 0;
 }
 
-// Choose a language by the file name's extension, ignoring case, after
-// stripping a ".in" suffix. Unlike Universal Ctags on Windows, ".C" is
-// C++, and ".inl" and ".hp" count as headers.
-static Lang detectlang(Str path, b32 windows)
+static b32 hascapital(Str s)
 {
-    static Str c[]   = {"c"};
-    static Str cxx[] = {
-        "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp",
-        "hxx", "inl",
-    };
-    static Str ftn[] = {
-        "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08", "f15",
-    };
-    static Str hdr[] = {
-        "h", "hh", "hpp", "hxx", "h++", "inc", "def", "inl", "hp",
-    };
-
-    Lang r    = {};
-    Str  base = basename(path, windows);
-    for (i32 tries = 0; tries < 2; tries++) {
-        iz dot = base.len - 1;
-        for (; dot>=0 && base[dot]!='.'; dot--) {}
-        if (dot < 0) {
-            break;
+    for (iz i = 0; i < s.len; i++) {
+        if (s[i]>='A' && s[i]<='Z') {
+            return 1;
         }
-        Str ext = cuthead(base, dot+1);
-        if (!tries && equalsfold(ext, "in")) {
-            base = takehead(base, dot);
-            continue;
-        }
-        if (ext == "C") {
-            r.lang = LANG_CXX;
-        } else if (anyfold(ext, c, countof(c))) {
-            r.lang = LANG_C;
-        } else if (anyfold(ext, cxx, countof(cxx))) {
-            r.lang = LANG_CXX;
-        } else if (anyfold(ext, ftn, countof(ftn))) {
-            r.lang = LANG_FORTRAN;
-        }
-        r.header = r.lang && anyfold(ext, hdr, countof(hdr));
-        break;
     }
+    return 0;
+}
+
+// Whether a map's extensions take one: exactly, or in a second pass,
+// ignoring case, but for those with capitals, like C++'s "C" (D1).
+static b32 mapext(Slice<Str> exts, Str ext, b32 fold)
+{
+    if (!fold) {
+        return inlist(exts, ext, 0);
+    }
+    for (iz i = 0; i < exts.len; i++) {
+        if (equalsfold(exts[i], ext) && !hascapital(exts[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// The first enabled language in name order whose map takes a base name:
+// by a pattern, else by its extension, exactly before ignoring case,
+// so that ".C" is C++ (LANG-2, D1).
+static i32 matchlang(Options *opt, Str name)
+{
+    LangMap *m = &opt->map;
+    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+        if (opt->langs>>lang & 1) {
+            for (iz i = 0; i < m->globs[lang].len; i++) {
+                if (globmatch(m->globs[lang][i], name, opt->windows)) {
+                    return lang;
+                }
+            }
+        }
+    }
+    Str ext = extension(name);
+    for (b32 fold = 0; fold < 2; fold++) {
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            if (opt->langs>>lang&1 && mapext(m->exts[lang], ext, fold)) {
+                return lang;
+            }
+        }
+    }
+    return LANG_NONE;
+}
+
+// Choose a file's language by its base name, then without a final
+// ".in", unless one is forced, and say whether it is a header by the
+// name without ".in", whatever the language (LANG-2, LANG-5, D2).
+static Lang detectlang(Options *opt, Str path)
+{
+    Lang r    = {};
+    Str  base = basename(path, opt->windows);
+    b32  in   = base.len>=3 && equalsfold(taketail(base, 3), ".in");
+    Str  bare = in ? cuttail(base, 3) : base;
+    if (opt->force) {
+        r.lang = opt->force==LANG_FOREIGN ? LANG_NONE : opt->force;
+    } else {
+        r.lang = matchlang(opt, base);
+        r.lang = !r.lang && in ? matchlang(opt, bare) : r.lang;
+    }
+    r.header = r.lang && inlist(opt->headers, extension(bare), 1);
     return r;
 }
 
@@ -265,7 +299,7 @@ static void visitdir(Worker *w, Item *it)
             dirs    = n;
             if (!dlast) dlast = n;
         } else {
-            Lang lang = detectlang(path, windows);
+            Lang lang = detectlang(c->opt, path);
             if (!lang.lang) {
                 w->perm.beg = mark;
                 continue;

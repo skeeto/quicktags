@@ -142,7 +142,7 @@ apply.
   2. their extensions, against the text after the last `.` of the name, which is empty without one, so the empty extension (mapped by `.`) takes the names without a `.` [V].
 
   The first step that matches any language decides, and of several languages, the first by name ignoring case: C, C++, Fortran (or, with ObjectiveC enabled, a `.h` it claims, LANG-4). If neither step matches and the name ends in `.in`, exactly, they are tried again on the name without it: `config.h.in` is C++, but `--map-C++=+.in` makes `x.c.in` C++.
-  - Here extensions are compared exactly before ignoring case, across all the languages, so `.C` is C++, and `.in` ends a name ignoring case (D1).
+  - Here extensions are compared exactly, across all the languages, before they are compared ignoring case, which those with capitals, like C++'s `C`, never are; so `.C` is C++ and `.c` C, and with C disabled, `.c` is no language (D1). A name ends in `.in` ignoring case (D2).
 - **LANG-3 [V]** There is no content sniffing without `-G`. Extension-less files, including libc++'s `vector`, and `.inc .def .ipp .tcc .cppm .ixx .cuf .fpp .f18` are not tagged.
 - **LANG-4 [V]** Under the parity target, every `.h` is C++, never C or ObjC. [I] Every `.f` is Fortran.
   - Under default languages:
@@ -845,9 +845,11 @@ Decided for this program, deliberately different from Universal Ctags.
   renamed), so Vim never sees a partial file, and no temporary files leak.
 - **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). Here an
   extension is compared exactly, for every language, before it is
-  compared ignoring case, and C++'s map ends with `C` (LANG-1, LANG-2).
-  So with `--map-C=+.H`, `.H` is C but `.h` stays C++, where Universal
-  Ctags on Windows makes both C.
+  compared ignoring case, which a map's extensions with capitals never
+  are, and C++'s map ends with `C` (LANG-1, LANG-2), as where file names
+  have case. So with `--map-C=+.H`, `.H` is C but `.h` stays C++, and
+  `--langmap=c:.X` takes `.X` but not `.x`, where Universal Ctags on
+  Windows makes both C.
 - **D2** `.inl` and `.hp` are headers, and `X.h.in` is tested by the
   extension of `X.h` (no spurious `file:` fields), whatever the
   language, forced or not. A final `.in` is recognized ignoring case, so
@@ -884,7 +886,9 @@ Decided for this program, deliberately different from Universal Ctags.
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
   `--file-scope`, `--file-tags`), `--options`, `--exclude`,
-  `--exclude-exception`, `-L`, `--links`, the listings (OPT-15), `--version`,
+  `--exclude-exception`, `-L`, `--links`, `--languages`,
+  `--language-force` (and `--lang`, `--language`), `--langmap`,
+  `--map-LANG`, `-h`, the listings (OPT-15), `--version`,
   `--help`, and this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported

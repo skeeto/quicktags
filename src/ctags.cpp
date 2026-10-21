@@ -206,7 +206,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         Str path = dot ? Str(".") : opt.files[i];
         Str base = basename(path, opt.windows);
         if (dot || !excluded(&opt, path, base)) {
-            Lang  lang = detectlang(path, opt.windows);
+            Lang  lang = detectlang(&opt, path);
             Item *it   = roots + nroots++;
             it->path   = path;
             it->type   = ITEM_ARG;

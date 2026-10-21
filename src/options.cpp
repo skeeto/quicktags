@@ -7,6 +7,13 @@ enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
 enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
 enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 
+// The extensions and file name patterns that name each of our languages'
+// files, by LANG_* (LANG-1).
+struct LangMap {
+    Slice<Str> exts[LANG_FOREIGN];
+    Slice<Str> globs[LANG_FOREIGN];
+};
+
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
@@ -26,6 +33,8 @@ struct Options {
     i32         tagrelative;  // TREL_*
     i32         force;        // forced language, LANG_NONE for none
     u32         langs;        // enabled languages, one bit per LANG_*
+    LangMap     map;
+    Slice<Str>  headers;      // the extensions of header files
     Slice<Glob> excludes;     // --exclude patterns, the defaults first
     Slice<Glob> exceptions;   // --exclude-exception patterns
     Slice<Str>  ignores;      // -I lists, as given
@@ -34,8 +43,6 @@ struct Options {
     b32         append;
     b32         recurse;
     b32         nolinks;      // --links=no
-    b32         mapped;       // --langmap or --map-LANG changed our maps
-    b32         headers;      // -h changed the header extensions
     b32         fieldsreset;  // --fields reset them: no fixed-field warnings
     b32         stats;
     b32         nofast;
@@ -344,20 +351,53 @@ static i32 unknownlang(Parse *p, Str lang, Str option)
                  "\" option");
 }
 
-// Whether an extension, ignoring case, is one of our languages', which
-// a map for another language would take (an approximation until the
-// maps are ours to edit).
-static b32 ourext(Str ext)
+// Restore a language's map to its defaults (LANG-1): this build's, but
+// with C++'s "C" last (D1).
+static void defaultmap(LangMap *m, i32 lang, Arena *perm)
+{
+    static Str c[]   = {"c"};
+    static Str cxx[] = {
+        "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp", "hxx",
+        "inl", "C",
+    };
+    static Str ftn[] = {
+        "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08", "f15",
+    };
+    struct { Str *exts; iz len; } maps[] = {
+        {0, 0}, {c, countof(c)}, {cxx, countof(cxx)}, {ftn, countof(ftn)},
+    };
+    m->exts[lang]  = {};
+    m->globs[lang] = {};
+    for (iz i = 0; i < maps[lang].len; i++) {
+        m->exts[lang] = push(perm, m->exts[lang], maps[lang].exts[i]);
+    }
+}
+
+// The header extensions by default (LANG-5), with "inl" and "hp" (D2).
+static Slice<Str> defaultheaders(Arena *perm)
 {
     static Str exts[] = {
-        "c", "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp",
-        "hxx", "inl", "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08",
-        "f15", "in",
+        "h", "hh", "hpp", "hxx", "h++", "inc", "def", "inl", "hp",
     };
+    Slice<Str> r = {};
     for (iz i = 0; i < countof(exts); i++) {
-        if (equalsfold(ext, exts[i])) return 1;
+        r = push(perm, r, exts[i]);
     }
-    return 0;
+    return r;
+}
+
+// Remove the first item equal to one, ignoring case, from a list.
+static void removeitem(Slice<Str> *list, Str item)
+{
+    for (iz i = 0; i < list->len; i++) {
+        if (equalsfold((*list)[i], item)) {
+            for (iz j = i+1; j < list->len; j++) {
+                (*list)[j-1] = (*list)[j];
+            }
+            list->len--;
+            return;
+        }
+    }
 }
 
 enum : i32 { MAP_OK, MAP_BADLY, MAP_UNTERMINATED };
@@ -404,18 +444,16 @@ static i32 badmap(Parse *p, i32 err, Named lang)
     return fatal(p, msg, lang.name, " language");
 }
 
-// Note whether mapping an item to a language would change ours.
-static void mapchange(Parse *p, Named lang, MapItem m)
-{
-    p->opt->mapped |= lang.lang!=LANG_FOREIGN || m.pattern || ourext(m.item);
-}
-
-// --langmap=LANG:[+]MAPS[,LANG:...], each item taken from every other
-// language, or default for all or for one language.
+// --langmap=LANG:[+]MAPS[,LANG:...], each item taken from every language
+// before it is added, or default for all or for one language (LANG-6).
+// Only our languages' maps are kept.
 static i32 langmapopt(Parse *p, Str name, Str value)
 {
+    LangMap *m = &p->opt->map;
     if (value == "default") {
-        p->opt->mapped = 0;
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            defaultmap(m, lang, p->perm);
+        }
         return ARGS_OK;
     }
     for (Str maps = value; maps.len;) {
@@ -426,21 +464,34 @@ static i32 langmapopt(Parse *p, Str name, Str value)
                     "\" option");
             return ARGS_OK;
         }
+        i32 ours = lang.lang!=LANG_FOREIGN ? lang.lang : LANG_NONE;
         Str list = c.tail;
         b32 add  = startswith(list, "+");
         list = cuthead(list, add);
         Str first = cut(list, ',').head;
         if (equalsfold(first, "default")) {
+            if (ours) {
+                defaultmap(m, ours, p->perm);
+            }
             list = cuthead(list, first.len);
         } else {
-            p->opt->mapped |= lang.lang!=LANG_FOREIGN && !add;
+            if (ours && !add) {
+                m->exts[ours]  = {};
+                m->globs[ours] = {};
+            }
             while (list.len && list[0]!=',') {
-                MapItem m = mapitem(list);
-                if (m.err) {
-                    return badmap(p, m.err, lang);
+                MapItem it = mapitem(list);
+                if (it.err) {
+                    return badmap(p, it.err, lang);
                 }
-                mapchange(p, lang, m);
-                list = m.tail;
+                Slice<Str> *lists = it.pattern ? m->globs : m->exts;
+                for (i32 i = LANG_C; i <= LANG_FORTRAN; i++) {
+                    removeitem(lists+i, it.item);
+                }
+                if (ours) {
+                    lists[ours] = push(p->perm, lists[ours], it.item);
+                }
+                list = it.tail;
             }
         }
         maps = cuthead(list, startswith(list, ","));
@@ -448,7 +499,8 @@ static i32 langmapopt(Parse *p, Str name, Str value)
     return ARGS_OK;
 }
 
-// --map-LANG=[+|-]MAP: one item added, removed, or made the whole map.
+// --map-LANG=[+|-]MAP: one item added, removed, or made the whole map,
+// for that language alone (LANG-6).
 static i32 mapopt(Parse *p, Str name, Str value)
 {
     Named lang = langpart(p, name, 4);
@@ -457,15 +509,25 @@ static i32 mapopt(Parse *p, Str name, Str value)
     } else if (!value.len) {
         return fatal(p, "no parameter is given for ", name);
     }
-    b32     remove = value[0] == '-';
-    MapItem m      = mapitem(cuthead(value, remove || value[0]=='+'));
-    if (m.err) {
-        return badmap(p, m.err, lang);
+    u8      op = value[0]=='+' || value[0]=='-' ? value[0] : 0;
+    MapItem it = mapitem(cuthead(value, op!=0));
+    if (it.err) {
+        return badmap(p, it.err, lang);
+    } else if (lang.lang == LANG_FOREIGN) {
+        return ARGS_OK;
     }
-    if (!remove) {
-        mapchange(p, lang, m);
+
+    LangMap    *m    = &p->opt->map;
+    Slice<Str> *list = (it.pattern ? m->globs : m->exts) + lang.lang;
+    if (!op) {
+        m->exts[lang.lang]  = {};
+        m->globs[lang.lang] = {};
     }
-    p->opt->mapped |= lang.lang != LANG_FOREIGN;
+    if (op == '-') {
+        removeitem(list, it.item);
+    } else {
+        *list = push(p->perm, *list, it.item);
+    }
     return ARGS_OK;
 }
 
@@ -1756,13 +1818,30 @@ static i32 shortopt(Parse *p, u8 c, Str param)
     case 'o':
         return setoutput(p, c, param);
 
-    case 'h':
+    case 'h': {
         // A list that names a file is likely a mistake, "-h *.h"
         if (os_stat(p->os, *p->perm, param).type != STAT_NONE) {
             return fatal(p, "-h: Invalid list");
+        } else if (param == "default") {
+            opt->headers = defaultheaders(p->perm);
+            return ARGS_OK;
         }
-        opt->headers = param != "default";
+        // Extensions separated by '.', after an optional '.' (LANG-6)
+        b32 add  = param[0] == '+';
+        Str list = cuthead(param, add);
+        if (!add) {
+            opt->headers = {};
+        }
+        if (list.len) {
+            Cut c = {};
+            c.tail = cuthead(list, list[0]=='.');
+            do {
+                c = cut(c.tail, '.');
+                opt->headers = push(p->perm, opt->headers, c.head);
+            } while (c.ok);
+        }
         return ARGS_OK;
+    }
 
     case 'I':
         opt->ignores = push(p->perm, opt->ignores, param);
@@ -1794,6 +1873,10 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     opt->format = 2;
     opt->patmax = 96;  // as Universal Ctags
     opt->langs  = LANGS_ALL;
+    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+        defaultmap(&opt->map, lang, perm);
+    }
+    opt->headers = defaultheaders(perm);
     for (iz i = 0; i < countof(defaultexcludes); i++) {
         opt->excludes = push(perm, opt->excludes, newglob(defaultexcludes[i]));
     }
@@ -1903,11 +1986,14 @@ static i32 parsefinish(Parse *p)
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
-    if (opt->langs != LANGS_ALL)      return notyet(p, "--languages");             // M2b
-    if (opt->force)                   return notyet(p, "--language-force");        // M2b
-    if (opt->mapped)                  return notyet(p, "--langmap");               // M2b
-    if (opt->headers)                 return notyet(p, "-h");                      // M2b
     if (opt->ignores.len)             return notyet(p, "-I");                      // M9
+
+    // Universal Ctags finds this once it is to tag a file (LANG-6)
+    i32 force = opt->force;
+    if (force && force!=LANG_FOREIGN && !(opt->langs>>force & 1)) {
+        return fatal(p, langnames[force], " parser specified with "
+                     "--language-force is disabled");
+    }
     return ARGS_OK;
 }
 

@@ -189,34 +189,124 @@ static void test_walk(Test *t)
                num(&tmp, excl[i].want));
     }
 
-    struct { Str path; i32 lang; b32 header; } langs[] = {
-        {"a.c",         LANG_C,       0},
-        {"a.C",         LANG_CXX,     0},  // u-ctags on Windows: C
-        {"a.CPP",       LANG_CXX,     0},
-        {"a.cc",        LANG_CXX,     0},
-        {"a.h",         LANG_CXX,     1},
-        {"a.H",         LANG_CXX,     1},
-        {"a.hpp",       LANG_CXX,     1},
-        {"a.inl",       LANG_CXX,     1},  // u-ctags: not a header
-        {"a.hp",        LANG_CXX,     1},  // u-ctags: not a header
-        {"a.f",         LANG_FORTRAN, 0},
-        {"A.F90",       LANG_FORTRAN, 0},
-        {"a.f08",       LANG_FORTRAN, 0},
-        {"config.h.in", LANG_CXX,     1},
-        {"x.c.in",      LANG_C,       0},
-        {"x.in",        LANG_NONE,    0},
-        {"x.inc",       LANG_NONE,    0},
-        {"x.cu",        LANG_NONE,    0},
-        {"Makefile",    LANG_NONE,    0},
-        {"vector",      LANG_NONE,    0},
-        {".c",          LANG_C,       0},
-        {"dir.c/x",     LANG_NONE,    0},
-        {"d/x.cpp",     LANG_CXX,     0},
+    // Languages by name, with options, as Universal Ctags 6.2.1 on
+    // Windows chooses them, but where noted (LANG-2, LANG-5, LANG-6)
+    i32 C   = LANG_C;
+    i32 CXX = LANG_CXX;
+    i32 FTN = LANG_FORTRAN;
+    i32 NO  = LANG_NONE;
+    struct { Str args, path; i32 lang; b32 header, windows; } langs[] = {
+        {"", "a.c",         C,   0, 1},
+        {"", "a.C",         CXX, 0, 1},  // D1, u-ctags: C
+        {"", "a.C",         CXX, 0, 0},
+        {"", "a.CPP",       CXX, 0, 1},
+        {"", "a.cc",        CXX, 0, 1},
+        {"", "a.h",         CXX, 1, 1},
+        {"", "a.H",         CXX, 1, 1},
+        {"", "a.hpp",       CXX, 1, 1},
+        {"", "a.inl",       CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "a.hp",        CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "a.f",         FTN, 0, 1},
+        {"", "A.F90",       FTN, 0, 1},
+        {"", "a.f08",       FTN, 0, 1},
+        {"", "config.h.in", CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "x.c.in",      C,   0, 1},
+        {"", "x.c.IN",      C,   0, 1},  // D2, u-ctags: none
+        {"", "x.in",        NO,  0, 1},
+        {"", "x.inc",       NO,  0, 1},
+        {"", "x.cu",        NO,  0, 1},
+        {"", "Makefile",    NO,  0, 1},
+        {"", "vector",      NO,  0, 1},
+        {"", ".c",          C,   0, 1},
+        {"", "dir.c/x",     NO,  0, 1},
+        {"", "d/x.cpp",     CXX, 0, 1},
+        {"", "d\\x.cpp",    CXX, 0, 1},
+
+        {"--langmap=c:.h",                      "a.h",    C,   1, 1},
+        {"--langmap=c:.h",                      "a.c",    NO,  0, 1},
+        {"--langmap=c:+.h",                     "a.c",    C,   0, 1},
+        {"--langmap=c:+.h",                     "a.h",    C,   1, 1},
+        {"--langmap=c++:+.xyz",                 "x.xyz",  CXX, 0, 1},
+        {"--langmap=c++:+(no*)",                "noext",  CXX, 0, 1},
+        {"--langmap=c++:+.",                    "noext",  CXX, 0, 1},
+        {"--langmap=c++:+.",                    "d/q",    CXX, 0, 1},
+        {"--langmap=c++:+.",                    "d/q.",   CXX, 0, 1},
+        {"--map-C=+.h",                         "b.h",    C,   1, 1},
+        {"--map-C++=-.h",                       "b.h",    NO,  0, 1},
+        {"--map-C++=-.H",                       "b.h",    NO,  0, 1},
+        {"--map-C=.xyz",                        "a.c",    NO,  0, 1},
+        {"--map-C=.xyz",                        "x.xyz",  C,   0, 1},
+        {"--map-C=+.H",                         "b.H",    C,   1, 1},
+        {"--map-C=+.H",                         "b.h",    CXX, 1, 1},  // D1, u-ctags: C
+        {"--map-C=+(*.h)",                      "z.h",    C,   1, 1},
+        {"--map-C=+(*.H)",                      "z.h",    C,   1, 1},
+        {"--map-C=+(*.H)",                      "z.h",    CXX, 1, 0},
+        {"--langmap=c:+(*.x) --langmap=c++:+(*.X)", "p.x", CXX, 0, 1},
+        {"--map-C=+(*.x) --map-c++=+(*.x)",     "p.x",    C,   0, 1},
+        {"--map-Fortran=+.x --map-c++=+.x",     "p.x",    CXX, 0, 1},
+        {"--map-Fortran=+(*.x) --map-c++=+.x",  "p.x",    FTN, 0, 1},
+        {"--langmap=C:.X",                      "q.X",    C,   0, 1},
+        {"--langmap=C:.X",                      "p.x",    NO,  0, 1},  // D1, u-ctags: C
+        {"--langmap=c++:+.in",                  "y.c.in", CXX, 0, 1},
+        {"--langmap=c++:+.in",                  "r.in",   CXX, 0, 1},
+        {"--langmap=c:(*.c.in)",                "y.c.in", C,   0, 1},
+        {"--langmap=c:(*.c.in) --langmap=c++:+(*.C.IN)", "y.c.in", CXX, 0, 1},
+        {"--map-C=+.c.in",                      "y.c.in", C,   0, 1},
+        {"--map-C=.c.h",                        "z.h",    CXX, 1, 1},
+        {"--map-C=(x)y",                        "z.h",    CXX, 1, 1},
+        {"--map-C=(x)y",                        "x",      C,   0, 1},
+        {"--langmap=C++:.cpp",                  "z.h",    NO,  0, 1},
+        {"--langmap=C++:+.cpp.h",               "z.h",    CXX, 1, 1},
+        {"--langmap=C++:.cpp --langmap=default", "z.h",   CXX, 1, 1},
+        {"--langmap=c++:default,c:.h",          "b.h",    C,   1, 1},
+        {"--langmap=c:.h --langmap=c:default",  "b.h",    NO,  0, 1},
+        {"--langmap=c:.h --langmap=c:default",  "a.c",    C,   0, 1},
+        {"--langmap=fortran:.c",                "a.c",    FTN, 0, 1},
+        {"--langmap=python:.c",                 "a.c",    NO,  0, 1},
+        {"--langmap=python:+.h,c:+.x",          "a.h",    NO,  0, 1},
+        {"--langmap=python:+.h,c:+.x",          "a.x",    C,   0, 1},
+        {"--map-python=+.c",                    "a.c",    C,   0, 1},
+        {"--map-C=+.c --map-C=+.c --langmap=c++:+.c", "a.c", C, 0, 1},
+        {"--languages=-C",                      "a.c",    NO,  0, 1},
+        {"--languages=-C",                      "a.C",    CXX, 0, 1},
+        {"--languages=-C++",                    "a.C",    C,   0, 1},
+        {"--languages=",                        "a.c",    NO,  0, 1},
+        {"--languages=Python,C++",              "a.h",    CXX, 1, 1},
+        {"--languages=-C++ --map-C=+(z*)",      "z.h",    C,   1, 1},
+        {"--language-force=C++",                "x.xyz",  CXX, 0, 1},
+        {"--language-force=c",                  "z.h",    C,   1, 1},
+        {"--language-force=c",                  "Makefile", C, 0, 1},
+        {"--language-force=Fortran",            "a.c",    FTN, 0, 1},
+        {"--language-force=python",             "a.c",    NO,  0, 1},
+        {"--language-force=c --language-force=auto", "a.f", FTN, 0, 1},
+        {"-h .x --language-force=C++",          "p.x",    CXX, 1, 1},
+        {"-h .x --language-force=C++",          "p.x.in", CXX, 1, 1},  // D2
+        {"-h .xyz --langmap=c:+.xyz",           "x.xyz",  C,   1, 1},
+        {"-h .xyz",                             "b.h",    CXX, 0, 1},
+        {"-h +.xyz --langmap=c:+.xyz",          "b.h",    CXX, 1, 1},
+        {"-h .c",                               "a.c",    C,   1, 1},
+        {"-h .C",                               "a.c",    C,   1, 1},
+        {"-h default",                          "b.h",    CXX, 1, 1},
+        {"-h DEFAULT",                          "b.h",    CXX, 0, 1},
+        {"-h h..c --map-C=+.",                  "noext",  C,   1, 1},
+        {"-h c. --map-C=+.",                    "noext",  C,   1, 1},
+        {"-h c --map-C=+.",                     "noext",  C,   0, 1},
+        {"-h +",                                "b.h",    CXX, 1, 1},
+        {"-h .x -h +.y",                        "a.h",    CXX, 0, 1},
+        {"-h .x -h +.h",                        "a.h",    CXX, 1, 1},
     };
     for (iz i = 0; i < countof(langs); i++) {
-        Lang l = detectlang(langs[i].path, 1);
-        expect(t, langs[i].path, num(&a, l.lang), num(&a, langs[i].lang));
-        expect(t, langs[i].path, num(&a, l.header), num(&a, langs[i].header));
+        Arena tmp = a;
+        Os   *os  = newos(&tmp);
+        os->windows = langs[i].windows;
+        Str    args = concat(&tmp, langs[i].args, " x");
+        Parsed r    = parseos(&tmp, os, args);
+        Str    name = concat(&tmp, concat(&tmp, args, ": "), langs[i].path);
+        name = concat(&tmp, name, langs[i].windows ? Str("") : Str(" (posix)"));
+        Lang   l    = detectlang(&r.opt, langs[i].path);
+        expect(t, name, r.log, "");
+        expect(t, name, num(&tmp, l.lang), num(&tmp, langs[i].lang));
+        expect(t, name, num(&tmp, l.header), num(&tmp, langs[i].header));
     }
 
     // Whole runs
@@ -583,6 +673,68 @@ static void test_walk(Test *t)
         }
         Run r = run(os, a, "-L list4");
         expect(t, "-L list4", r.out, "ctags 0.1\n");
+    }
+
+    {
+        // Languages in whole runs (LANG-6): forced on every input, walked
+        // or given, disabled, mapped, and -h deciding which are headers
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",   "static int sa;\n");
+        vfsfile(os, "b.h",   "static int sb;\n");
+        vfsfile(os, "noext", "static int sn;\n");
+        vfsfile(os, "x.o",   "static int so;\n");
+        vfsfile(os, "d/q",   "static int sq;\n");
+        vfsfile(os, "f.f90", "module m\nend module\n");
+        Str off = "ctags: C parser specified with --language-force is "
+                  "disabled\n";
+        struct { Str args; i32 status; Str names, err; } cases[] = {
+            {"-R",                            0, "m sa sb",        ""},
+            {"-R --language-force=C",         0, "sa sb sn sq",    ""},
+            {"--language-force=C f.f90 d",    0, "sq",             ""},
+            {"-R --language-force=Python",    0, "",               ""},
+            {"-R --languages=-C",             0, "m sb",           ""},
+            {"-R --languages=Fortran",        0, "m",              ""},
+            {"-R --languages=",               0, "",               ""},
+            {"-R --langmap=c:+.",             0, "m sa sb sn sq",  ""},
+            {"-R --langmap=fortran:+.h.c",    0, "m",              ""},
+            {"--languages=-C --language-force=C a.c", 1, "", off},
+            {"--language-force=C --languages=-C nosuch.c", 1, "", off},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), num(&a, cases[i].status));
+            expect(t, args, tagnames(&a, r.out), cases[i].names);
+            expect(t, args, r.err, cases[i].err);
+        }
+
+        // Only headers' static variables lack file: (LANG-5)
+        Str sa = "sa\ta.c\t/^static int sa;$/;\"\tv\tline:1\t"
+                 "typeref:typename:int";
+        Str sb = "sb\tb.h\t/^static int sb;$/;\"\tv\tline:1\t"
+                 "typeref:typename:int";
+        struct { Str args, out; } hs[] = {
+            {"a.c b.h",              "%a\tfile:\n%b\n"},
+            {"-h .c a.c b.h",        "%a\n%b\tfile:\n"},
+            {"-h +.c a.c b.h",       "%a\n%b\n"},
+            {"-h c.H a.c b.h",       "%a\n%b\n"},
+            {"-h x -h default a.c",  "%a\tfile:\n"},
+        };
+        for (iz i = 0; i < countof(hs); i++) {
+            Buf want(&a, 256);
+            for (iz j = 0; j < hs[i].out.len; j++) {
+                u8 c = hs[i].out[j];
+                if (c == '%') {
+                    print(&want, hs[i].out[++j]=='a' ? sa : sb);
+                } else {
+                    putbyte(&want, c);
+                }
+            }
+            Str args = concat(&a, "-f - ", hs[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, r.out, finish(&want));
+            expect(t, args, r.err, "");
+        }
     }
 
     {
