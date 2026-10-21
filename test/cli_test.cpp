@@ -358,7 +358,7 @@ static void test_cli(Test *t)
         {"--guess-language-eagerly=no a", OK, ""},
         {"--guess-language-eagerly=x a", FATAL,
          "ctags: Invalid value for \"guess-language-eagerly\" option\n"},
-        {"-a a",          FATAL, "ctags: --append: not yet supported\n"},
+        {"-a a",          OK,    ""},
         {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
                                  "tags to stdout\n"},
         {"-e a",          FATAL, "ctags: -e: not yet supported\n"},
@@ -480,7 +480,10 @@ static void test_cli(Test *t)
         {"--quiet=x a",        FATAL, "ctags: Invalid value for \"quiet\" "
                                       "option\n"},
         {"--append=no a",      OK,    ""},
-        {"--append a",         FATAL, "ctags: --append: not yet supported\n"},
+        {"--append a",         OK,    ""},
+        {"--append=yes -f x a", OK,   ""},
+        {"--append=yes -f - a", FATAL, "ctags: append mode is not compatible "
+                                       "with tags to stdout\n"},
         {"--append=x a",       FATAL, "ctags: Invalid value for \"append\" "
                                       "option\n"},
         {"--links a",          OK,    ""},

@@ -605,6 +605,143 @@ static void test_walk(Test *t)
         }
     }
     {
+        // Appending (OPT-20): the old lines merged with the new, read as
+        // text, blank ones dropped, no pseudo-tags added, and the sorted
+        // flag among the leading ones made the mode's if 0 or 1
+        Str pseudo = takehead(header, find(header, "\nx\t")+1);
+        Str y      = "y\tb.c\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n";
+        Str uctags =  // as Universal Ctags writes them, abridged
+            "!_TAG_EXTRA_DESCRIPTION\tanonymous\t/Include tags for non-named objects like lambda/\r\n"
+            "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\r\n"
+            "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\r\n"
+            "!_TAG_KIND_DESCRIPTION!C\tv,variable\t/variable definitions/\r\n"
+            "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\r\n"
+            "!_TAG_PROC_CWD\tC:/src/\t//\r\n"
+            "!_TAG_PROGRAM_AUTHOR\tUniversal Ctags Team\t//\r\n"
+            "!_TAG_PROGRAM_VERSION\t6.2.1\t/v6.2.1/\r\n"
+            "w\tq.c\t/^int w;$/;\"\tv\tline:1\ttyperef:typename:int\r\n"
+            "z\tq.c\t/^int z;$/;\"\tv\tline:2\ttyperef:typename:int\r\n";
+        Str ulf =
+            "!_TAG_EXTRA_DESCRIPTION\tanonymous\t/Include tags for non-named objects like lambda/\n"
+            "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
+            "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+            "!_TAG_KIND_DESCRIPTION!C\tv,variable\t/variable definitions/\n"
+            "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\n"
+            "!_TAG_PROC_CWD\tC:/src/\t//\n"
+            "!_TAG_PROGRAM_AUTHOR\tUniversal Ctags Team\t//\n"
+            "!_TAG_PROGRAM_VERSION\t6.2.1\t/v6.2.1/\n"
+            "w\tq.c\t/^int w;$/;\"\tv\tline:1\ttyperef:typename:int\n";
+        Str uz = "z\tq.c\t/^int z;$/;\"\tv\tline:2\ttyperef:typename:int\n";
+        Str ufold = concat(&a, concat(&a, takehead(ulf, find(ulf, "\t1\t/0=")),
+                                      "\t2"),
+                           cuthead(ulf, find(ulf, "\t1\t/0=")+2));
+
+        struct { Str old; Str args; Str want; } cases[] = {
+            // Ours, sorted, merged as read; a line already there once
+            {concat(&a, pseudo, x), "-a b.c", concat(&a, concat(&a, pseudo, x), y)},
+            {concat(&a, concat(&a, pseudo, x), y), "-a b.c",
+             concat(&a, concat(&a, pseudo, x), y)},
+
+            // Out of order: sorted, and a flag after the leading
+            // pseudo-tags is left as it is
+            {"zz\tq.c\t1\naa\tq.c\t2\n!_TAG_FILE_SORTED\t0\t/x/\n", "-a a.c",
+             concat(&a, "!_TAG_FILE_SORTED\t0\t/x/\naa\tq.c\t2\n",
+                    concat(&a, x, "zz\tq.c\t1\n"))},
+
+            // CRLF, blank lines, a lone CR, no final line end
+            {"!_TAG_FILE_SORTED\t0\t/x/\r\nzz\tq.c\t1\r\n\r\naa\tq.c\t2\r\n",
+             "-a a.c", concat(&a, "!_TAG_FILE_SORTED\t1\t/x/\naa\tq.c\t2\n",
+                              concat(&a, x, "zz\tq.c\t1\n"))},
+            {"bb\tq.c\t3\raa\tq.c\t2", "-a a.c",
+             concat(&a, "aa\tq.c\t2\nbb\tq.c\t3\n", x)},
+            {"!_TAG_FILE_FORMAT\t2\t/x/\r\n\r\n!_TAG_FILE_SORTED\t0\t/x/\n\n",
+             "-a a.c", concat(&a, "!_TAG_FILE_FORMAT\t2\t/x/\n"
+                                  "!_TAG_FILE_SORTED\t1\t/x/\n", x)},
+
+            // Folded, the old lines in strcmp() order resorted; a 2 is
+            // left under --sort=yes, and the lines resorted
+            {"!_TAG_FILE_SORTED\t1\t/x/\r\nB\tq.c\t1\r\n_c\tq.c\t1\r\n"
+             "a\tq.c\t1\r\n", "--sort=foldcase -a a.c",
+             concat(&a, "!_TAG_FILE_SORTED\t2\t/x/\na\tq.c\t1\nB\tq.c\t1\n",
+                    concat(&a, x, "_c\tq.c\t1\n"))},
+            {"!_TAG_FILE_SORTED\t2\t/x/\na\tq.c\t1\nB\tq.c\t1\n", "-a a.c",
+             concat(&a, "!_TAG_FILE_SORTED\t2\t/x/\nB\tq.c\t1\na\tq.c\t1\n", x)},
+
+            // Universal Ctags' own, in both orders
+            {uctags, "-a a.c", concat(&a, concat(&a, ulf, x), uz)},
+            {uctags, "--sort=foldcase -a a.c",
+             concat(&a, concat(&a, ufold, x), uz)},
+
+            // Unsorted: the old lines first, as they were, then the new
+            // in the walk's order
+            {"!_TAG_FILE_SORTED\t1\t/x/\nzz\tq.c\t1\n\naa\tq.c\t2\n",
+             "-u -a b.c a.c",
+             concat(&a, "!_TAG_FILE_SORTED\t0\t/x/\nzz\tq.c\t1\naa\tq.c\t2\n",
+                    concat(&a, y, x))},
+            {uctags, "--sort=no -a a.c",
+             concat(&a, concat(&a, concat(&a,
+                    takehead(ulf, find(ulf, "\t1\t/0=")), "\t0"),
+                    cuthead(ulf, find(ulf, "\t1\t/0=")+2)), concat(&a, uz, x))},
+
+            // Empty or missing: written as new
+            {"", "-a a.c", concat(&a, pseudo, x)},
+            {{}, "-a a.c", concat(&a, pseudo, x)},
+            {{}, "--extras=-p --append a.c", x},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Os *os = newos(&a);
+            vfsfile(os, "a.c", "int x;\n");
+            vfsfile(os, "b.c", "int y;\n");
+            if (cases[i].old.data) {
+                vfsfile(os, "tags", cases[i].old);
+            }
+            Str name = concat(&a, cases[i].args, ": case ");
+            name = concat(&a, name, num(&a, i));
+            for (u64 seed = 0; seed <= 2; seed++) {
+                os->seed = seed;
+                Str args = concat(&a, "--jobs=2 ", cases[i].args);
+                if (seed) {
+                    vfsfind(os, "tags", 0)->data = cases[i].old;
+                    if (!cases[i].old.data) {
+                        vfsunlink(os, "tags");
+                    }
+                }
+                Run r = run(os, a, args);
+                expect(t, name, num(&a, r.status), "0");
+                expect(t, name, r.err, "");
+                expect(t, name, vfsfind(os, "tags", 0)->data, cases[i].want);
+                expect(t, name, num(&a, !!vfsfind(os, "tags.tmp0", 0)), "0");
+            }
+        }
+
+        // Refused: to standard output, a file that cannot be read, or
+        // one that is not a tags file, each left as it was
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int x;\n");
+        Run r = run(os, a, "-a -f - a.c");
+        expect(t, "append stdout", num(&a, r.status), "1");
+        expect(t, "append stdout", r.err, "ctags: append mode is not "
+                                          "compatible with tags to stdout\n");
+        expect(t, "append stdout", r.out, "");
+
+        vfsfile(os, "tags", x);
+        vfsfind(os, "tags", 0)->err = OSERR_ACCES;
+        r = run(os, a, "-a a.c");
+        expect(t, "append unreadable", num(&a, r.status), "1");
+        expect(t, "append unreadable", r.err, "ctags: cannot open tag file "
+                                              "\"tags\" : Permission denied\n");
+        expect(t, "append unreadable", vfsfind(os, "tags", 0)->data, x);
+
+        vfsfile(os, "tags", "hello\n");
+        vfsfind(os, "tags", 0)->err = 0;
+        r = run(os, a, "-a a.c");
+        expect(t, "append refuse", num(&a, r.status), "1");
+        expect(t, "append refuse", r.err,
+               "ctags: \"tags\" doesn't look like a tag file; "
+               "I refuse to overwrite it.\n");
+        expect(t, "append refuse", vfsfind(os, "tags", 0)->data, "hello\n");
+    }
+    {
         Os *os = newos(&a);
         Run r = run(os, a, "--help");
         Str s = r.out.len ? r.out : r.err;

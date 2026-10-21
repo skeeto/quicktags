@@ -130,10 +130,35 @@ static void print(Out *o, Str s)
 
 // Merging
 
+// Lines in order: a span of an index, or a cursor over text, which
+// reads it a line at a time into cur, where beg then points.
 struct Stream {
     Line *beg;
     Line *end;
+    Line  cur;
+    u8   *next;  // a cursor's text yet to read, up to stop, ending in LF
+    u8   *stop;
 };
+
+// Move an empty cursor to its next line that is not blank, if any.
+template<b32 fold>
+static void refill(Stream *s)
+{
+    while (s->next < s->stop) {
+        u8 *beg = s->next;
+        u8 *end = beg;
+        for (; *end != '\n'; end++) {}
+        s->next = end + 1;
+        if (end > beg) {
+            s->cur.data = beg;
+            s->cur.len  = end - beg;
+            s->cur.key  = linekey<fold>(beg, end-beg);
+            s->beg      = &s->cur;
+            s->end      = &s->cur + 1;
+            return;
+        }
+    }
+}
 
 template<b32 fold>
 static b32 streamless(Stream *s, i32 a, i32 b)
@@ -167,6 +192,9 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
     i32 *heap = alloc<i32>(&scratch, n);
     i32  len  = 0;
     for (i32 i = 0; i < n; i++) {
+        if (s[i].beg == s[i].end) {
+            refill<fold>(s+i);
+        }
         if (s[i].beg < s[i].end) {
             heap[len++] = i;
         }
@@ -175,18 +203,21 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
         siftdown<fold>(heap, len, i, s);
     }
 
-    iz    count = 0;
-    Line *prev  = 0;
+    iz   count = 0;
+    Line prev  = {};  // a copy, as a cursor reuses its line
     while (len) {
         Stream *top = s + heap[0];
         Line   *l   = top->beg++;
-        if (!prev || !lineequal(prev, l)) {
+        if (!count || !lineequal(&prev, l)) {
             print(o, {l->data, l->len+1});  // with its newline
-            prev = l;
+            prev = *l;
             count++;
         }
         if (top->beg == top->end) {
-            heap[0] = heap[--len];
+            refill<fold>(top);
+            if (top->beg == top->end) {
+                heap[0] = heap[--len];
+            }
         }
         siftdown<fold>(heap, len, 0, s);
     }
@@ -221,6 +252,107 @@ static iz writechunks(Out *o, Worker *ws, i32 n, Arena scratch)
         count += all[i]->ntags;
     }
     return count;
+}
+
+
+// Appending (OPT-20)
+
+// The tags file to append to, read whole.
+struct Old {
+    Str   text;    // CRs made LFs, then a sentinel LF; null data: none
+    Line *lines;   // if out of order: its lines but blank ones, sorted
+    iz    nlines;
+};
+
+// In one pass over the old lines, rewrite the sorted flag among the
+// leading pseudo-tags, and check the order unless unsorted; then if
+// they are out of order, index and sort them.
+template<b32 fold>
+static void scanold(Old *old, i32 mode, Arena *mem)
+{
+    Str  flag   = "!_TAG_FILE_SORTED\t";
+    u8  *p      = old->text.data;
+    u8  *stop   = p + old->text.len;
+    b32  head   = 1;  // among the leading lines starting with '!'
+    b32  sorted = 1;
+    iz   count  = 0;
+    Line prev   = {};
+    for (u8 *beg = p; beg < stop;) {
+        u8 *end = beg;
+        for (; *end != '\n'; end++) {}
+        Str line = span(beg, end);
+        beg = end + 1;
+        if (!line.len) {
+            continue;
+        }
+        head &= line[0] == '!';
+        if (head && line.len>flag.len && startswith(line, flag)) {
+            u8 *c = &line[flag.len];
+            *c = *c=='0' || *c=='1' ? (u8)('0' + mode) : *c;
+        }
+        if (mode != SORT_NO) {
+            Line l = {linekey<fold>(line.data, line.len), line.data, line.len};
+            sorted &= !count || !lineless<fold>(&l, &prev);
+            prev = l;
+        }
+        count++;
+    }
+    if (sorted) {
+        return;  // read as a cursor
+    }
+
+    Stream s = {};
+    s.next = p;
+    s.stop = stop;
+    old->lines  = alloc<Line>(mem, count);
+    old->nlines = count;
+    for (iz i = 0; i < count; i++) {
+        refill<fold>(&s);
+        old->lines[i] = s.cur;
+    }
+    sort(old->lines, count, lineless<fold>, *mem);
+}
+
+// Read the tags file to append to, if it exists and is not empty, into
+// the arena, then prepare its lines for merging. False on failure.
+static b32 loadold(Old *old, Os *os, Options *opt, Arena *mem, Buf *log)
+{
+    *old = {};
+    Stat s = os_stat(os, *mem, opt->output);
+    if (s.type!=STAT_FILE || !s.size) {
+        return 1;  // a new file
+    }
+
+    iz   max = arenasize(*mem) - 1;  // room for the sentinel
+    Read r   = os_read(os, mem, opt->output, max);
+    if (r.err) {
+        print(log, "ctags: cannot open tag file \"");
+        print(log, opt->output);
+        print(log, "\" : ");
+        print(log, errstr(r.err));
+        putbyte(log, '\n');
+        return 0;
+    } else if (r.size > max) {
+        os_oom();
+    } else if (!r.data.len) {
+        return 1;
+    }
+
+    u8 *sentinel = allocbytes(mem, 1);
+    assert(sentinel == r.data.data+r.data.len);
+    *sentinel = '\n';
+    old->text = {r.data.data, r.data.len+1};
+    for (iz i = 0; i < r.data.len; i++) {
+        u8 *c = &old->text[i];
+        *c = *c=='\r' ? '\n' : *c;
+    }
+
+    if (opt->sort == SORT_FOLD) {
+        scanold<1>(old, opt->sort, mem);
+    } else {
+        scanold<0>(old, opt->sort, mem);
+    }
+    return 1;
 }
 
 
@@ -368,32 +500,55 @@ static b32 checkoutput(Os *os, Str path, Arena scratch, Buf *log)
     return 1;
 }
 
-// Write the workers' lines in the order the options ask, and return
-// how many.
-static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Arena scratch)
+// Write the workers' lines, and those of a tags file appended to, in
+// the order the options ask, and return how many.
+static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
+                     Arena scratch)
 {
-    if (opt->sort == SORT_NO) {
-        return writechunks(o, ws, n, scratch);
+    Stream *s  = alloc<Stream>(&scratch, n+1);
+    i32     ns = n;
+    if (old->text.data) {
+        Stream *t = s + ns++;
+        if (old->lines) {
+            t->beg = old->lines;
+            t->end = old->lines + old->nlines;
+        } else {
+            t->next = old->text.data;
+            t->stop = old->text.data + old->text.len;
+        }
     }
-    Stream *s = alloc<Stream>(&scratch, n);
+
+    if (opt->sort == SORT_NO) {
+        iz count = 0;
+        if (ns > n) {
+            // The old lines first, in their order
+            Stream *t = s + n;
+            for (refill<0>(t); t->beg < t->end; t->beg++, refill<0>(t)) {
+                print(o, {t->cur.data, t->cur.len+1});
+                count++;
+            }
+        }
+        return count + writechunks(o, ws, n, scratch);
+    }
+
     for (i32 i = 0; i < n; i++) {
         s[i].beg = ws[i].lines;
         s[i].end = ws[i].lines + ws[i].nlines;
     }
     if (opt->sort == SORT_FOLD) {
-        return mergelines<1>(o, s, n, scratch);
+        return mergelines<1>(o, s, ns, scratch);
     }
-    return mergelines<0>(o, s, n, scratch);
+    return mergelines<0>(o, s, ns, scratch);
 }
 
 // Write the merged lines to standard output, or to a new file that
 // then replaces the tags file, so that Vim never reads a partial one.
-static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
-                     Arena scratch, Buf *log)
+static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, Old *old,
+                     iz *count, Arena scratch, Buf *log)
 {
     if (opt->output == "-") {
         Out *o = newout(os, &scratch, 1);
-        *count = writelines(o, opt, ws, n, scratch);
+        *count = writelines(o, opt, ws, n, old, scratch);
         flush(o);
         if (o->err) {
             print(log, "ctags: error writing output\n");
@@ -424,10 +579,10 @@ static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
     }
 
     Out *o = newout(os, &scratch, 3);
-    if (opt->extras & EXTRA_PSEUDO) {
+    if (opt->extras&EXTRA_PSEUDO && !old->text.data) {
         print(o, pseudotags(os, opt, &scratch, log));
     }
-    *count = writelines(o, opt, ws, n, scratch);
+    *count = writelines(o, opt, ws, n, old, scratch);
     flush(o);
     b32 ok = !o->err;
     ok &= os_close(os, 3);
