@@ -36,6 +36,24 @@ static Str showextras(Arena *a, u32 bits)
     return finish(&b);
 }
 
+// Enabled fields: common letters, then the parsers', e.g.
+// "NFPTfknst C++:name".
+static Str showfields(Arena *a, u64 bits)
+{
+    Buf b(a, 64);
+    for (i32 i = 0; i < NFIELDS; i++) {
+        if (fieldon(bits, i)) {
+            if (i < NCOMMONFIELDS) {
+                putbyte(&b, fields[i].letter);
+            } else {
+                print(&b, i<FIELD_CXX ? Str(" C:") : Str(" C++:"));
+                print(&b, fields[i].name);
+            }
+        }
+    }
+    return finish(&b);
+}
+
 struct Parsed {
     Options opt;
     Str     log;
@@ -119,6 +137,15 @@ static void test_cli(Test *t)
         {"--kinds-cpp=+p x.c",
          "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
          "ctags: Warning: Unknown language \"cpp\" in \"kinds-cpp\" option\n"},
+        {"--kinds-C={x x.c", "C: C++:cnMP F:bceEfiklmMnNpstvS", ""},
+        {"--kinds-C=+p{x x.c",
+         "C:defghmpstuv C++:defghmpstuvcnMP F:bceEfiklmMnNpstvS", ""},
+        {"--kinds-C=+{} x.c",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
+         "ctags: Warning: Unsupported kind: '' for --kinds-C option\n"},
+        {"--kinds-C=F x.c", "C: C++:cnMP F:bceEfiklmMnNpstvS", ""},
+        {"--kinds-Fortran=+F-{file} x.c",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS", ""},
     };
     for (iz i = 0; i < countof(kinds); i++) {
         Arena  tmp = a;
@@ -149,6 +176,8 @@ static void test_cli(Test *t)
          "ctags: Warning: Unsupported parameter 'Q' for \"extra\" option\n"},
         {"--extras=+{bogus} x.c",  "{anonymous}Fps",
          "ctags: Warning: Unsupported parameter '{bogus}' for \"extras\" option\n"},
+        {"--extras=+{} x.c",       "{anonymous}Fps",
+         "ctags: Warning: Unsupported parameter '{}' for \"extras\" option\n"},
         {"--file-scope=no x.c",    "{anonymous}ps",
          "ctags: Warning: \"--file-scope\" option is obsolete; "
          "use \"--extras=-F\" instead\n"},
@@ -162,6 +191,62 @@ static void test_cli(Test *t)
         expect(t, xs[i].args, num(&tmp, r.status), num(&tmp, ARGS_OK));
         expect(t, xs[i].args, showextras(&tmp, r.opt.extras), xs[i].extras);
         expect(t, xs[i].args, r.log, xs[i].log);
+    }
+
+    Str notyet = "ctags: --fields: not yet supported\n";
+    Str fixedN = "ctags: Warning: Cannot disable fixed field: 'N'{name} in "
+                 "ctags output mode\n";
+    struct { Str args; i32 status; Str fields, log; } fs[] = {
+        {"x.c",                ARGS_OK, "NFPTfknst C++:name", ""},
+        {"--fields=+n x.c",    ARGS_OK, "NFPTfknst C++:name", ""},
+        {"--fields=-N x.c",    ARGS_OK, "NFPTfknst C++:name", fixedN},
+        {"--fields=-NFP x.c",  ARGS_OK, "NFPTfknst C++:name",
+         "ctags: Warning: Cannot disable fixed field: 'N'{name} in "
+         "ctags output mode\n"
+         "ctags: Warning: Cannot disable fixed field: 'F'{input} in "
+         "ctags output mode\n"
+         "ctags: Warning: Cannot disable fixed field: 'P'{pattern} in "
+         "ctags output mode\n"},
+        {"--fields=-N --fields=+N x.c", ARGS_OK, "NFPTfknst C++:name", ""},
+        {"--fields=k x.c",     ARGS_FATAL, "NFPk C++:name", notyet},
+        {"--fields=k --fields=-N x.c", ARGS_FATAL, "NFPk C++:name", notyet},
+        {"--fields=+z-k-K x.c", ARGS_FATAL, "NFPKTfnstz C++:name",
+         "ctags: Warning: though z/kind field is enabled, neither k nor K "
+         "field is not enabled\n"
+         "ctags: Warning: enable the K field to make the z/kind field "
+         "printable\n"
+         "ctags: --fields: not yet supported\n"},
+        {"--fields=+Z-s x.c",  ARGS_FATAL, "NFPTZfknst C++:name",
+         "ctags: Warning: though Z/scope field is enabled, s field is not "
+         "enabled\n"
+         "ctags: Warning: enable the s field to make the Z/scope field "
+         "printable\n"
+         "ctags: --fields: not yet supported\n"},
+        {"--fields=+Q x.c",    ARGS_OK, "NFPTfknst C++:name",
+         "ctags: Warning: Unsupported parameter 'Q' for \"fields\" option\n"},
+        {"--fields=+{name x.c", ARGS_OK, "NFPTfknst C++:name", ""},
+        {"--fields=-{line}+{line} x.c", ARGS_OK, "NFPTfknst C++:name", ""},
+        {"--fields=+{line}{kind}{scope} x.c", ARGS_FATAL,
+         "NFPTZfknstz C++:name", notyet},
+        {"--fields=* x.c",     ARGS_FATAL,
+         "NFPCEKRSTZaefiklmnoprstxz C++:name", notyet},
+        {"--fields=+{bogus} x.c", ARGS_FATAL, "NFPTfknst C++:name",
+         "ctags: no such field: 'bogus'\n"},
+        {"--fields=+{K} x.c",  ARGS_FATAL, "NFPTfknst C++:name",
+         "ctags: no such field: 'K'\n"},
+        {"--fields=+{} x.c",   ARGS_FATAL, "NFPTfknst C++:name",
+         "ctags: no such field: ''\n"},
+        {"--fields=+} x.c",    ARGS_FATAL, "NFPTfknst C++:name",
+         "ctags: unexpected character in field specification: '}'\n"},
+        {"--fields=+{a{b} x.c", ARGS_FATAL, "NFPTfknst C++:name",
+         "ctags: unexpected character in field specification: '{'\n"},
+    };
+    for (iz i = 0; i < countof(fs); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, fs[i].args);
+        expect(t, fs[i].args, num(&tmp, r.status), num(&tmp, fs[i].status));
+        expect(t, fs[i].args, showfields(&tmp, r.opt.fields), fs[i].fields);
+        expect(t, fs[i].args, r.log, fs[i].log);
     }
 
     struct { Str args; i32 status; Str output, files, log; } opts[] = {
@@ -197,8 +282,10 @@ static void test_cli(Test *t)
         {"--=x a",           ARGS_FATAL, "", "", "ctags: Unknown option: --\n"},
         {"--foo-bar-kinds=x a", ARGS_FATAL, "", "",
          "ctags: Unknown option: --foo-bar-kinds\n"},
-        {"--kinds-C={x a",   ARGS_FATAL, "", "",
-         "ctags: unexpected character in kind specification\n"},
+        {"--kinds-C=+} a",   ARGS_FATAL, "", "",
+         "ctags: unexpected character in kind specification: '}'\n"},
+        {"--kinds-C=+{a{b} a", ARGS_FATAL, "", "",
+         "ctags: unexpected character in kind specification: '{'\n"},
         {"--extras=+} a",    ARGS_FATAL, "", "",
          "ctags: unexpected character in extra specification: '}'\n"},
         {"--extras=+{a{b} a", ARGS_FATAL, "", "",

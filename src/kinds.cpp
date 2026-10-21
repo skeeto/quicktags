@@ -1,13 +1,16 @@
-// Tag kinds and extras: their tables, and the --kinds-<LANG> and
-// --extras options
+// Tag kinds, extras, and fields: their tables, and the grammar of the
+// options that enable them
 // This is free and unencumbered software released into the public domain.
 
 enum : i32 { LANG_NONE, LANG_C, LANG_CXX, LANG_FORTRAN };
 
+// An entry of a table of kinds, extras, or fields, as Universal Ctags
+// lists it.
 struct Kind {
-    u8  letter;
-    Str name;
-    b32 on;  // enabled by default
+    u8  letter;  // 0 for none
+    Str name;    // null for none
+    b32 on;      // enabled by default
+    Str desc;
 };
 
 // C and C++ share the first NCKINDS kinds, including whether each is
@@ -24,30 +27,31 @@ enum : i32 {
 };
 
 static Kind cxxkinds[NCXXKINDS] = {
-    {'d', "macro",      1},
-    {'e', "enumerator", 1},
-    {'f', "function",   1},
-    {'g', "enum",       1},
-    {'h', "header",     1},  // reference tags only, never written
-    {'l', "local",      0},
-    {'m', "member",     1},
-    {'p', "prototype",  0},
-    {'s', "struct",     1},
-    {'t', "typedef",    1},
-    {'u', "union",      1},
-    {'v', "variable",   1},
-    {'x', "externvar",  0},
-    {'z', "parameter",  0},
-    {'L', "label",      0},
-    {'D', "macroparam", 0},
-    {'c', "class",      1},
-    {'n', "namespace",  1},
-    {'A', "alias",      0},
-    {'N', "name",       0},
-    {'U', "using",      0},
-    {'Z', "tparam",     0},
-    {'M', "module",     1},
-    {'P', "partition",  1},
+    {'d', "macro",      1, "macro definitions"},
+    {'e', "enumerator", 1, "enumerators (values inside an enumeration)"},
+    {'f', "function",   1, "function definitions"},
+    {'g', "enum",       1, "enumeration names"},
+    {'h', "header",     1, "included header files"},  // never written
+    {'l', "local",      0, "local variables"},
+    {'m', "member",     1, "class, struct, and union members"},
+    {'p', "prototype",  0, "function prototypes"},
+    {'s', "struct",     1, "structure names"},
+    {'t', "typedef",    1, "typedefs"},
+    {'u', "union",      1, "union names"},
+    {'v', "variable",   1, "variable definitions"},
+    {'x', "externvar",  0, "external and forward variable declarations"},
+    {'z', "parameter",  0, "function parameters inside function or "
+                           "prototype definitions"},
+    {'L', "label",      0, "goto labels"},
+    {'D', "macroparam", 0, "parameters inside macro definitions"},
+    {'c', "class",      1, "classes"},
+    {'n', "namespace",  1, "namespaces"},
+    {'A', "alias",      0, "namespace aliases"},
+    {'N', "name",       0, "names imported via using scope::symbol"},
+    {'U', "using",      0, "using namespace statements"},
+    {'Z', "tparam",     0, "template parameters"},
+    {'M', "module",     1, "modules"},
+    {'P', "partition",  1, "partitions"},
 };
 
 enum : i32 {
@@ -59,25 +63,25 @@ enum : i32 {
 };
 
 static Kind ftnkinds[NFKINDS] = {
-    {'b', "blockData",  1},
-    {'c', "common",     1},
-    {'e', "entry",      1},
-    {'E', "enum",       1},
-    {'f', "function",   1},
-    {'i', "interface",  1},
-    {'k', "component",  1},
-    {'l', "label",      1},
-    {'L', "local",      0},
-    {'m', "module",     1},
-    {'M', "method",     1},
-    {'n', "namelist",   1},
-    {'N', "enumerator", 1},
-    {'p', "program",    1},
-    {'P', "prototype",  0},
-    {'s', "subroutine", 1},
-    {'t', "type",       1},
-    {'v', "variable",   1},
-    {'S', "submodule",  1},
+    {'b', "blockData",  1, "block data"},
+    {'c', "common",     1, "common blocks"},
+    {'e', "entry",      1, "entry points"},
+    {'E', "enum",       1, "enumerations"},
+    {'f', "function",   1, "functions"},
+    {'i', "interface",  1, "interface contents, generic names, and operators"},
+    {'k', "component",  1, "type and structure components"},
+    {'l', "label",      1, "labels"},
+    {'L', "local",      0, "local, common block, and namelist variables"},
+    {'m', "module",     1, "modules"},
+    {'M', "method",     1, "type bound procedures"},
+    {'n', "namelist",   1, "namelists"},
+    {'N', "enumerator", 1, "enumeration values"},
+    {'p', "program",    1, "programs"},
+    {'P', "prototype",  0, "subprogram prototypes"},
+    {'s', "subroutine", 1, "subroutines"},
+    {'t', "type",       1, "derived types and structures"},
+    {'v', "variable",   1, "program (global) and module variables"},
+    {'S', "submodule",  1, "submodules"},
 };
 
 // Enabled kinds, one bit per table index.
@@ -177,72 +181,6 @@ static void printkinds(Buf *b)
     }
 }
 
-// Apply a --kinds-<LANG> specification as Universal Ctags does: a
-// leading "*" enables every kind and a leading letter first disables
-// them all, "+" and "-" switch between enabling and disabling the
-// letters that follow, and "{name}" names a kind in full. Unknown kinds
-// are reported to the log and ignored.
-static b32 kindspec(Kinds *k, i32 lang, Str spec, Str option, Buf *log)
-{
-    KindTable t   = kindtable(k, lang);
-    u32       all = (u32)(((u64)1 << t.len) - 1);
-    iz        i   = 0;
-    if (i<spec.len && spec[i]=='*') {
-        *t.bits |= all;
-        i++;
-    } else if (i==spec.len || (spec[i]!='+' && spec[i]!='-')) {
-        *t.bits &= ~all;
-    }
-
-    b32 on = 1;
-    for (; i < spec.len; i++) {
-        u8  c    = spec[i];
-        Str name = {};
-        if (c == '+') {
-            on = 1;
-            continue;
-        } else if (c == '-') {
-            on = 0;
-            continue;
-        } else if (c == '{') {
-            iz end = i + 1;
-            for (; end<spec.len && spec[end]!='}' && spec[end]!='{'; end++) {}
-            if (end==spec.len || spec[end]=='{') {
-                print(log, "ctags: unexpected character in kind specification\n");
-                return 0;
-            }
-            name = span(spec.data+i+1, spec.data+end);
-            i = end;
-        } else if (c == '}') {
-            print(log, "ctags: unexpected character in kind specification\n");
-            return 0;
-        }
-
-        i32 kind = -1;
-        for (i32 j = 0; j<t.len && kind<0; j++) {
-            if (name.data ? t.kinds[j].name==name : t.kinds[j].letter==c) {
-                kind = j;
-            }
-        }
-        if (kind < 0) {
-            print(log, "ctags: Warning: Unsupported kind: '");
-            if (name.data) {
-                print(log, name);
-            } else {
-                putbyte(log, c);
-            }
-            print(log, "' for --");
-            print(log, option);
-            print(log, " option\n");
-        } else if (on) {
-            *t.bits |= (u32)1 << kind;
-        } else {
-            *t.bits &= ~((u32)1 << kind);
-        }
-    }
-    return 1;
-}
-
 
 // Extras
 
@@ -262,15 +200,17 @@ enum : u32 {
 };
 
 static Kind extras[] = {
-    {0,   "anonymous", 1},  // named only in full
-    {'F', "fileScope", 1},
-    {'f', "inputFile", 0},
-    {'g', "guest",     0},
-    {'p', "pseudo",    1},
-    {'q', "qualified", 0},
-    {'r', "reference", 0},
-    {'s', "subparser", 1},
-    {'z', "nulltag",   0},
+    {0,   "anonymous", 1, "Include tags for non-named objects like lambda"},
+    {'F', "fileScope", 1, "Include tags of file scope"},
+    {'f', "inputFile", 0, "Include an entry for the base file name of "
+                          "every input file"},
+    {'g', "guest",     0, "Include tags generated by guest parsers"},
+    {'p', "pseudo",    1, "Include pseudo tags"},
+    {'q', "qualified", 0, "Include an extra class-qualified tag entry for "
+                          "each tag"},
+    {'r', "reference", 0, "Include reference tags"},
+    {'s', "subparser", 1, "Include tags generated by subparsers"},
+    {'z', "nulltag",   0, "Include tags with empty strings as their names"},
 };
 
 static u32 defaultextras()
@@ -282,38 +222,163 @@ static u32 defaultextras()
     return r;
 }
 
-static b32 badextra(Buf *log, u8 c)
+
+// Fields
+
+// Universal Ctags' fields, in the order it lists them, one bit per table
+// index: the fixed fields, the others by letter, then the C and C++
+// parsers' own. Only the defaults are written for now.
+enum : i32 {
+    FIELD_NAME, FIELD_INPUT, FIELD_PATTERN, FIELD_COMPACT, FIELD_EXTRAS,
+    FIELD_KINDLONG, FIELD_REFMARK, FIELD_SIGNATURE, FIELD_EPOCH,
+    FIELD_SCOPEKEY, FIELD_ACCESS, FIELD_END, FIELD_FILE, FIELD_INHERITS,
+    FIELD_KIND, FIELD_LANGUAGE, FIELD_IMPL, FIELD_LINE, FIELD_NTH,
+    FIELD_SCOPEKIND, FIELD_ROLES, FIELD_SCOPE, FIELD_TYPEREF, FIELD_XPATH,
+    FIELD_KINDKEY,
+    NCOMMONFIELDS,
+    FIELD_C = NCOMMONFIELDS,  // C: alias, macrodef, properties, section
+    FIELD_CXX = FIELD_C + 4,
+    FIELD_CXXNAME = FIELD_CXX + 3,
+    NFIELDS = FIELD_CXX + 8,
+};
+
+static Kind fields[NFIELDS] = {
+    {'N', "name",           1, "tag name"},
+    {'F', "input",          1, "input file"},
+    {'P', "pattern",        1, "pattern"},
+    {'C', "compact",        0, "compact input line (used only in xref output)"},
+    {'E', "extras",         0, "Extra tag type information"},
+    {'K', {},               0, "Kind of tag in long-name form"},
+    {'R', {},               0, "Marker (R or D) representing whether tag is "
+                               "definition or reference"},
+    {'S', "signature",      0, "Signature of routine (e.g. prototype or "
+                               "parameter list)"},
+    {'T', "epoch",          1, "the last modified time of the input file "
+                               "(only for F/file kind tag)"},
+    {'Z', "scope",          0, "[tags output] prepend \"scope:\" key to "
+                               "s/scope field output, [xref and json output] "
+                               "the same as s/ field"},
+    {'a', "access",         0, "Access (or export) of class members"},
+    {'e', "end",            0, "end lines of various items"},
+    {'f', "file",           1, "File-restricted scoping"},
+    {'i', "inherits",       0, "Inheritance information"},
+    {'k', {},               1, "Kind of tag in one-letter form"},
+    {'l', "language",       0, "Language of input file containing tag"},
+    {'m', "implementation", 0, "Implementation information"},
+    {'n', "line",           1, "Line number of tag definition"},  // on here
+    {'o', "nth",            0, "the order in the parent scope"},
+    {'p', "scopeKind",      0, "[tags output] no effect, [xref and json "
+                               "output] kind of scope in long-name form"},
+    {'r', "roles",          0, "Roles"},
+    {'s', {},               1, "[tags output] scope (kind:name) of tag "
+                               "definition, [xref and json output] name of "
+                               "scope"},
+    {'t', "typeref",        1, "Type and name of a variable or typedef"},
+    {'x', "xpath",          0, "xpath for the tag"},
+    {'z', "kind",           0, "[tags output] prepend \"kind:\" to k/ (or "
+                               "K/) field output, [xref and json output] "
+                               "kind in long-name form"},
+
+    {0, "alias",          0, "the name of the alias target specified in "
+                             "__attribute__((alias(...)))"},
+    {0, "macrodef",       0, "macro definition"},
+    {0, "properties",     0, "properties (static, inline, mutable, "
+                             "export,...)"},
+    {0, "section",        0, "the place where the object is placed"},
+
+    {0, "alias",          0, "the name of the alias target specified in "
+                             "__attribute__((alias(...)))"},
+    {0, "captures",       0, "lambda capture list"},
+    {0, "macrodef",       0, "macro definition"},
+    {0, "name",           1, "aliased names"},
+    {0, "properties",     0, "properties (static, inline, mutable, "
+                             "export,...)"},
+    {0, "section",        0, "the place where the object is placed"},
+    {0, "specialization", 0, "template specialization parameters"},
+    {0, "template",       0, "template parameters"},
+};
+
+static u64 defaultfields()
 {
-    print(log, "ctags: unexpected character in extra specification: '");
-    putbyte(log, c);
-    print(log, "'\n");
-    return 0;
+    u64 r = 0;
+    for (i32 i = 0; i < NFIELDS; i++) {
+        r |= (u64)fields[i].on << i;
+    }
+    return r;
 }
 
-// Apply an --extras specification, which has the kinds grammar with
-// small differences, as in Universal Ctags: "+" and "-" within braces
-// are part of the name, an unclosed name is ignored, and the messages
-// differ. The option names itself in warnings, "extras" or "extra".
-static b32 extraspec(u32 *bits, Str spec, Str option, Buf *log)
+static b32 fieldon(u64 bits, i32 field)
 {
-    u32 all = ((u32)1 << countof(extras)) - 1;
-    iz  i   = 0;
+    return bits>>field & 1;
+}
+
+
+// Specifications
+
+enum : i32 {
+    SPEC_KINDS,       // --kinds-LANG
+    SPEC_EXTRAS,      // --extras
+    SPEC_FIELDS,      // --fields
+    SPEC_LANGEXTRAS,  // --extras-LANG, by {name} only
+    SPEC_LANGFIELDS,  // --fields-LANG, by {name} only
+};
+
+struct Spec {
+    b32 ok;
+    b32 reset;  // all were first disabled
+};
+
+static Spec badspec(Buf *log, Str what, u8 c)
+{
+    print(log, "ctags: unexpected character in ");
+    print(log, what);
+    print(log, " specification: '");
+    putbyte(log, c);
+    print(log, "'\n");
+    return {};
+}
+
+// Apply a specification of kinds, extras, or fields to a table's bits,
+// as Universal Ctags parses each: a leading "*" enables every entry and
+// any other first character but "+" or "-" disables them all, "+" and
+// "-" switch between enabling and disabling the entries that follow,
+// named by letter or by {name}, and an unclosed {name is ignored. The
+// dialects differ in their messages, in which unknown entries are fatal,
+// and in the per-language forms taking names only. A name sets every
+// entry with that name. The file kind, F or {file}, is accepted and does
+// nothing.
+static Spec flagspec(u64 *bits, Kind *table, i32 len, Str spec, i32 dialect,
+                     Str option, Buf *log)
+{
+    Spec r      = {};
+    u64  all    = len<64 ? ((u64)1<<len) - 1 : ~(u64)0;
+    b32  bylang = dialect >= SPEC_LANGEXTRAS;
+    Str  what   = dialect==SPEC_KINDS ? Str("kind") :
+                  dialect==SPEC_EXTRAS || dialect==SPEC_LANGEXTRAS ? Str("extra") :
+                  Str("field");
+
+    iz i = 0;
     if (i<spec.len && spec[i]=='*') {
         *bits |= all;
         i++;
-    } else if (i==spec.len || (spec[i]!='+' && spec[i]!='-')) {
+    } else if (i==spec.len || spec[i]=='{' ||
+               (!bylang && spec[i]!='+' && spec[i]!='-')) {
         *bits &= ~all;
+        r.reset = 1;
+    } else if (bylang && spec[i]!='+' && spec[i]!='-') {
+        print(log, "ctags: Warning: Wrong per language ");
+        print(log, what);
+        print(log, " specification: ");
+        print(log, spec);
+        putbyte(log, '\n');
     }
 
     b32 on = 1;
     for (; i < spec.len; i++) {
         u8  c    = spec[i];
         Str name = {};
-        if (c == '+') {
-            on = 1;
-            continue;
-        } else if (c == '-') {
-            on = 0;
+        if (c=='+' || c=='-') {
+            on = c == '+';
             continue;
         } else if (c == '{') {
             iz end = i + 1;
@@ -321,21 +386,52 @@ static b32 extraspec(u32 *bits, Str spec, Str option, Buf *log)
             if (end == spec.len) {
                 break;
             } else if (spec[end] == '{') {
-                return badextra(log, '{');
+                return badspec(log, what, '{');
             }
             name = span(spec.data+i+1, spec.data+end);
             i = end;
         } else if (c == '}') {
-            return badextra(log, c);
+            return badspec(log, what, c);
+        } else if (bylang) {
+            print(log, "ctags: only long name can be used in per language ");
+            print(log, what);
+            print(log, " spec: '");
+            putbyte(log, c);
+            print(log, "'\n");
+            return r;
         }
 
-        i32 extra = -1;
-        for (i32 j = 0; j<countof(extras) && extra<0; j++) {
-            if (name.data ? extras[j].name==name : extras[j].letter==c) {
-                extra = j;
+        b32 found = 0;
+        for (i32 j = 0; j < len; j++) {
+            Kind *k     = table + j;
+            b32   match = name.data ? k->name.data && k->name==name
+                                    : k->letter && k->letter==c;
+            if (match) {
+                found = 1;
+                *bits &= ~((u64)1 << j);
+                *bits |= (u64)on << j;
             }
         }
-        if (extra < 0) {
+        if (found || (dialect==SPEC_KINDS && (name.data ? name=="file" : c=='F'))) {
+            continue;
+        }
+
+        switch (dialect) {
+        case SPEC_KINDS:
+            print(log, "ctags: Warning: Unsupported kind: '");
+            print(log, name.data ? name : Str{&c, 1});
+            print(log, "' for --");
+            print(log, option);
+            print(log, " option\n");
+            break;
+        case SPEC_EXTRAS:
+        case SPEC_FIELDS:
+            if (dialect==SPEC_FIELDS && name.data) {
+                print(log, "ctags: no such field: '");
+                print(log, name);
+                print(log, "'\n");
+                return r;
+            }
             print(log, "ctags: Warning: Unsupported parameter '");
             if (name.data) {
                 putbyte(log, '{');
@@ -347,11 +443,17 @@ static b32 extraspec(u32 *bits, Str spec, Str option, Buf *log)
             print(log, "' for \"");
             print(log, option);
             print(log, "\" option\n");
-        } else if (on) {
-            *bits |= (u32)1 << extra;
-        } else {
-            *bits &= ~((u32)1 << extra);
+            break;
+        case SPEC_LANGEXTRAS:
+        case SPEC_LANGFIELDS:
+            print(log, "ctags: no such ");
+            print(log, what);
+            print(log, ": '");
+            print(log, name);
+            print(log, "'\n");
+            return r;
         }
     }
-    return 1;
+    r.ok = 1;
+    return r;
 }

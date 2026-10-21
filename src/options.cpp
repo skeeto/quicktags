@@ -3,16 +3,18 @@
 // This is free and unencumbered software released into the public domain.
 
 struct Options {
-    Str        output;   // "-" is standard output
+    Str        output;       // "-" is standard output
     Slice<Str> files;
     Kinds      kinds;
-    u32        extras;   // EXTRA_*
-    i32        jobs;     // 0: one per processor
-    Str        print;    // for ARGS_EXIT: what to print
+    u32        extras;       // EXTRA_*
+    u64        fields;       // one bit per FIELD_*
+    i32        jobs;         // 0: one per processor
+    Str        print;        // for ARGS_EXIT: what to print
     b32        recurse;
+    b32        fieldsreset;  // --fields reset them: no fixed-field warnings
     b32        stats;
     b32        nofast;
-    b32        windows;  // '\' and ':' separate paths
+    b32        windows;      // '\' and ':' separate paths
 };
 
 static Str usage =
@@ -183,18 +185,52 @@ static i32 kindsopt(Parse *p, Str name, Str value)
         warning(p, "Unknown language \"", lname, "\" in \"", name, "\" option");
         return ARGS_OK;
     }
-    return kindspec(&p->opt->kinds, lang, value, name, p->log) ? ARGS_OK
-                                                               : ARGS_FATAL;
+    KindTable t    = kindtable(&p->opt->kinds, lang);
+    u64       bits = *t.bits;
+    Spec      s    = flagspec(&bits, t.kinds, t.len, value, SPEC_KINDS, name,
+                              p->log);
+    *t.bits = (u32)bits;
+    return s.ok ? ARGS_OK : ARGS_FATAL;
+}
+
+// Enable the fields that others need, and the fixed fields, which no
+// option disables, warning as Universal Ctags does for its tags output.
+static void fixfields(Parse *p)
+{
+    u64 *f = &p->opt->fields;
+    if (fieldon(*f, FIELD_KINDKEY) && !fieldon(*f, FIELD_KIND) &&
+        !fieldon(*f, FIELD_KINDLONG)) {
+        warning(p, "though z/kind field is enabled, neither k nor K field "
+                   "is not enabled");
+        warning(p, "enable the K field to make the z/kind field printable");
+        *f |= (u64)1 << FIELD_KINDLONG;
+    }
+    if (fieldon(*f, FIELD_SCOPEKEY) && !fieldon(*f, FIELD_SCOPE)) {
+        warning(p, "though Z/scope field is enabled, s field is not enabled");
+        warning(p, "enable the s field to make the Z/scope field printable");
+        *f |= (u64)1 << FIELD_SCOPE;
+    }
+    for (i32 i = FIELD_NAME; i <= FIELD_PATTERN; i++) {
+        if (!fieldon(*f, i)) {
+            *f |= (u64)1 << i;
+            if (!p->opt->fieldsreset) {
+                warning(p, "Cannot disable fixed field: '",
+                        {&fields[i].letter, 1}, "'{", fields[i].name,
+                        "} in ctags output mode");
+            }
+        }
+    }
 }
 
 enum : i32 {
-    OPT_EXTRAS, OPT_FILESCOPE, OPT_HELP, OPT_JOBS, OPT_RECURSE, OPT_VERSION,
-    OPT_STATS, OPT_NOFAST,
+    OPT_EXTRAS, OPT_FIELDS, OPT_FILESCOPE, OPT_HELP, OPT_JOBS, OPT_RECURSE,
+    OPT_VERSION, OPT_STATS, OPT_NOFAST,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
     {"extra",      OPT_EXTRAS},
     {"extras",     OPT_EXTRAS},
+    {"fields",     OPT_FIELDS},
     {"file-scope", OPT_FILESCOPE},
     {"help",       OPT_HELP},
     {"jobs",       OPT_JOBS},
@@ -223,12 +259,23 @@ static i32 longopt(Parse *p, Str name, Str value)
     }
 
     switch (id) {
-    case OPT_EXTRAS:
+    case OPT_EXTRAS: {
         if (name == "extra") {
             warning(p, "--extra option is obsolete; use --extras instead");
         }
-        return extraspec(&opt->extras, value, name, p->log) ? ARGS_OK
-                                                            : ARGS_FATAL;
+        u64  bits = opt->extras;
+        Spec s    = flagspec(&bits, extras, countof(extras), value,
+                             SPEC_EXTRAS, name, p->log);
+        opt->extras = (u32)bits;
+        return s.ok ? ARGS_OK : ARGS_FATAL;
+    }
+
+    case OPT_FIELDS: {
+        Spec s = flagspec(&opt->fields, fields, NCOMMONFIELDS, value,
+                          SPEC_FIELDS, name, p->log);
+        opt->fieldsreset |= s.reset;
+        return s.ok ? ARGS_OK : ARGS_FATAL;
+    }
 
     case OPT_FILESCOPE: {
         i32 b = parsebool(value);
@@ -344,6 +391,7 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     p->log  = log;
     opt->kinds  = defaultkinds();
     opt->extras = defaultextras();
+    opt->fields = defaultfields();
 }
 
 // Parse arguments: options, and files to tag.
@@ -390,10 +438,16 @@ static i32 parseloop(Parse *p, Str *args, iz nargs)
     return ARGS_OK;
 }
 
+static i32 notyet(Parse *p, Str option)
+{
+    return fatal(p, option, ": not yet supported");
+}
+
 // Check and complete the options once all are parsed.
 static i32 parsefinish(Parse *p)
 {
     Options *opt = p->opt;
+    fixfields(p);
     if (!opt->output.data) {
         opt->output = "tags";
     }
@@ -403,6 +457,10 @@ static i32 parsefinish(Parse *p)
         }
         opt->files = push(p->perm, opt->files, Str("."));
     }
+
+    // Parsed, but not yet implemented: each check goes when its
+    // milestone lands
+    if (opt->fields != defaultfields()) return notyet(p, "--fields");  // M3a
     return ARGS_OK;
 }
 
