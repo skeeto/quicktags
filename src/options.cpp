@@ -1957,6 +1957,8 @@ static i32 parsefinish(Parse *p)
             return r;
         }
     }
+    sort(opt->excludes.data, opt->excludes.len, globless, *p->perm);
+    sort(opt->exceptions.data, opt->exceptions.len, globless, *p->perm);
     if (opt->append && opt->output=="-") {
         return fatal(p, "append mode is not compatible with tags to stdout");
     }

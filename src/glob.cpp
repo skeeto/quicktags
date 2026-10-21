@@ -271,6 +271,12 @@ static Glob newglob(Str pat)
     return r;
 }
 
+// Order patterns by the cost of matching them, cheapest first.
+static b32 globless(Glob *a, Glob *b)
+{
+    return a->kind < b->kind;
+}
+
 // Compare a name to a fixed part of a pattern of the same length.
 static b32 samename(Str pat, Str s, b32 windows)
 {
