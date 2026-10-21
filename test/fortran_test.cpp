@@ -739,21 +739,51 @@ static TagCase fortrancases[] = {
      "s\tx.f90\t/^subroutine s(/;\"\ts\tline:1\n"
      "simple\tx.f90\t/^  integer :: simple,/;\"\tv\tline:7\n"
      "t\tx.f90\t/^subroutine t$/;\"\ts\tline:10\n"},
-    {SHARED, "FTN-6 separate module procedures in interfaces", "x.f90", "",
+    {IMPROVED, "F2 MODULE FUNCTION and MODULE SUBROUTINE in interfaces", "x.f90", "",
      "module m\n"
      "  interface\n"
      "    module function f(x)\n"
      "      integer :: x\n"
      "    end function\n"
-     "    module subroutine s(y)\n"
+     "    pure module subroutine s(y)\n"
      "    end subroutine\n"
+     "    integer module function g()\n"
+     "    end function\n"
      "  end interface\n"
      "  integer :: after\n"
+     "contains\n"
+     "  module function f(x)\n"
+     "  end function\n"
      "end module\n",
      "__anon10956f7a0105\tx.f90\t/^  interface$/;\"\ti\tline:2\tmodule:m\n"
-     "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:9\n"
+     "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:11\tmodule:m\n"
+     "f\tx.f90\t/^  module function f(/;\"\tf\tline:13\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
-     ""},
+     "__anon10956f7a0105\tx.f90\t/^  interface$/;\"\ti\tline:2\tmodule:m\n"
+     "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:11\n"
+     "function\tx.f90\t/^  module function /;\"\tm\tline:13\n"
+     "g\tx.f90\t/^    integer module function g(/;\"\tf\tline:8\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "module\tx.f90\t/^    integer module /;\"\tv\tline:8\n"},
+    {IMPROVED, "F2 MODULE as a prefix outside a module", "x.f90", "",
+     "module function f(x)\n"
+     "  integer :: x\n"
+     "end function\n"
+     "module subroutine\n"
+     "end module\n"
+     "module procedure\n"
+     "end module\n"
+     "module real(8) function g()\n"
+     "end function\n",
+     "f\tx.f90\t/^module function f(/;\"\tf\tline:1\n"
+     "g\tx.f90\t/^module real(8) function g(/;\"\tf\tline:8\n"
+     "procedure\tx.f90\t/^module procedure$/;\"\tm\tline:6\n"
+     "subroutine\tx.f90\t/^module subroutine$/;\"\tm\tline:4\n",
+     "function\tx.f90\t/^module function /;\"\tm\tline:1\n"
+     "procedure\tx.f90\t/^module procedure$/;\"\tm\tline:6\n"
+     "real\tx.f90\t/^module real(/;\"\tm\tline:8\n"
+     "subroutine\tx.f90\t/^module subroutine$/;\"\tm\tline:4\n"
+     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:2\tmodule:function\n"},
     {IMPROVED, "F4 END CRITICAL, END TEAM, and END FILE stay in the unit", "x.f90", "",
      "module m\n"
      "contains\n"

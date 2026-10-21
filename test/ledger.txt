@@ -735,13 +735,11 @@
 
 @ corpus/llvm/flang: F5, a joined END (endmodule, endblock) ends a specification part instead of being skipped as a statement function with the next unit's header: subroutines one and four, modules m2 and m4, and s7 come back. In keyword-optional-spaces.f90, subroutine one's declarations now end at the joined doubleprecision (FTN-12), so its enum is no longer tagged at the top level, and F2's bogus modules shift.
 + __anonfa7f6f280105	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
-+ __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117
 + four	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine four$/;"	s	line:91
 + m2	flang/test/Parser/keyword-optional-spaces.f90	/^module m2$/;"	m	line:124
 + m4	flang/test/Parser/keyword-optional-spaces.f90	/^module m4$/;"	m	line:128
 + one	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine one(/;"	s	line:9
 + s7	flang/test/Semantics/resolve57.f90	/^pure subroutine s7(/;"	s	line:117
-+ subroutine	flang/test/Parser/keyword-optional-spaces.f90	/^    module subroutine /;"	m	line:114
 - __anonfa7f6f280103	flang/test/Parser/keyword-optional-spaces.f90	/^  enum, bind(c)$/;"	E	line:15
 - __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
 - __anonfa7f6f280305	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117
@@ -778,15 +776,9 @@
 + fct3	flang/test/Lower/func-attrs.f90	/^non_recursive function fct3(/;"	f	line:33
 + foo	flang/test/Parser/simple-unparse.f90	/^simple function foo(/;"	f	line:6
 + foo	flang/test/Parser/simple.f90	/^simple function foo(/;"	f	line:4
-+ impure	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureF/;"	v	line:37
-+ impureFunc	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureFunc(/;"	f	line:37
 + impureFunc	flang/test/Semantics/resolve89.f90	/^impure function impureFunc(/;"	f	line:13
-+ impurePureFunc	flang/test/Semantics/resolve83.f90	/^    impure real pure function impurePureFunc(/;"	f	line:45
 + needs_simple	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine needs_simple(/;"	s	line:22	module:pure_not_enough_for_simple
 + nested	flang/test/Semantics/call01.f90	/^  integer function nested(/;"	f	line:27	function:f02
-+ non_recursive	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveF/;"	v	line:53
-+ non_recursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveFunc(/;"	f	line:53
-+ non_recursiveRecursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveRecursiveFunc(/;"	f	line:57
 + notPureFunc	flang/test/Semantics/doconcurrent01.f90	/^    integer function notPureFunc(/;"	f	line:254	subroutine:s7
 + p0	flang/test/Semantics/intrinsics03.f90	/^  procedure(index), pointer :: p0$/;"	v	line:40	program:test
 + p1	flang/test/Semantics/intrinsics03.f90	/^  procedure(index1), pointer :: p1$/;"	v	line:41	program:test
@@ -795,22 +787,13 @@
 + p4	flang/test/Semantics/intrinsics03.f90	/^  procedure(index4), pointer :: p4$/;"	v	line:44	program:test
 + procTypeNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypeNotPure$/;"	t	line:205	subroutine:s7
 + procTypePure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypePure$/;"	t	line:209	subroutine:s7
-+ pure	flang/test/Semantics/resolve83.f90	/^    impure real pure function impureP/;"	v	line:45
-+ pure	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureF/;"	v	line:41
 + pureFunc	flang/test/Semantics/doconcurrent01.f90	/^    pure integer function pureFunc(/;"	f	line:258	subroutine:s7
-+ pureFunc	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureFunc(/;"	f	line:41
 + pure_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  pure real function pure_fn(/;"	f	line:18	module:simple_intrinsic_function
 + pure_only	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  pure subroutine pure_only(/;"	s	line:25	module:pure_not_enough_for_simple
-+ recursive	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveR/;"	v	line:57
-+ recursive	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveF/;"	v	line:49
-+ recursiveFunc	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveFunc(/;"	f	line:49
 + s3	flang/test/Semantics/pure02.f90	/^impure elemental subroutine s3(/;"	s	line:43
 + simple_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  simple real function simple_fn(/;"	f	line:22	module:simple_intrinsic_function
 + sub3	flang/test/Lower/func-attrs.f90	/^non_recursive subroutine sub3(/;"	s	line:13
 + sub4	flang/test/Lower/func-attrs.f90	/^impure elemental subroutine sub4(/;"	s	line:18
-+ subroutine	flang/test/Semantics/OpenMP/bad_module_subroutine.f90	/^impure elemental module subroutine /;"	m	line:5
-+ subroutine	flang/test/Semantics/separate-mp02.f90	/^    non_recursive module subroutine /;"	m	line:105
-+ subroutine	flang/test/Semantics/separate-mp03.f90	/^  impure module subroutine /;"	m	line:97
 + t1	flang/test/Semantics/pure02.f90	/^  subroutine t1$/;"	s	line:46	subroutine:s3
 + t2	flang/test/Semantics/pure02.f90	/^  pure subroutine t2$/;"	s	line:48	subroutine:s3
 + t3	flang/test/Semantics/pure02.f90	/^  elemental subroutine t3(/;"	s	line:50	subroutine:s3
@@ -861,3 +844,237 @@
 @ corpus/llvm/flang-rt: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope. A typed function with a prefix after its type (real impure function) now shows the prefix as a variable, as Universal Ctags does for pure; MODULE before the prefix still makes a bogus module (F2).
 + /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150	module:ieee_arithmetic
 - /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150
+
+@ corpus/llvm/flang: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ __anon0d8368020205	flang/test/Semantics/separate-mp05.f90	/^   interface$/;"	i	line:14	prototype:smp
++ __anonc4bcf2870205	flang/test/Semantics/pure-function-result-pointer.f90	/^  interface$/;"	i	line:31	module:associated_func_call
++ __anoneb931a780505	flang/test/Semantics/resolve118.f90	/^      interface$/;"	i	line:68	prototype:sub
++ __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117	module:m1
++ chlen	flang/test/Semantics/separate-mp06.f90	/^      type :: chlen$/;"	t	line:19	prototype:s3
++ e	flang/test/Semantics/OpenMP/bad_module_subroutine.f90	/^impure elemental module subroutine e(/;"	s	line:5
++ elementalFunc	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalFunc(/;"	f	line:31	module:m
++ ent	flang/test/Semantics/entry01.f90	/^      entry ent$/;"	e	line:12	prototype:hasentry
++ f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:29	module:m1
++ f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:76	module:m2
++ f3	flang/test/Semantics/separate-mp03.f90	/^  module function f3(/;"	f	line:36
++ f3	flang/test/Semantics/separate-mp03.f90	/^  module function f3(/;"	f	line:85
++ f4	flang/test/Semantics/separate-mp03.f90	/^  module subroutine f4$/;"	s	line:91
++ foo	flang/test/Lower/pre-fir-tree01.f90	/^  subroutine foo(/;"	s	line:47	module:test_mod
++ foo2	flang/test/Lower/pre-fir-tree01.f90	/^  function foo2(/;"	f	line:64	module:test_mod
++ func1	flang/test/Semantics/separate-mp01.f90	/^    real module function func1()   ! implementation of func1 /;"	f	line:93	submodule:m4sub
++ g1	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g1$/;"	i	line:119	module:m1
++ g2	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g2$/;"	i	line:121	module:m1
++ generic	flang/test/Semantics/resolve15.f90	/^  interface generic$/;"	i	line:44	module:m2
++ i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:18	module:m1
++ i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:48	module:m2
++ i	flang/test/Semantics/resolve36.f90	/^  module subroutine i$/;"	s	line:33
++ i	flang/test/Semantics/resolve36.f90	/^  module subroutine i$/;"	s	line:61
++ implementation	flang/test/Semantics/implicit-module-prefix-modfile.f90	/^  subroutine implementation(/;"	s	line:29	submodule:implicit_prefix_child
++ impureFunc	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureFunc(/;"	f	line:37	module:m
++ impurePureFunc	flang/test/Semantics/resolve83.f90	/^    impure real pure function impurePureFunc(/;"	f	line:45	module:m
++ inside_one	flang/test/Semantics/modfile86.f90	/^  subroutine inside_one(/;"	s	line:25	submodule:modfile86b
++ local1	flang/test/Semantics/smp-def02.f90	/^  subroutine local1$/;"	s	line:27	submodule:sm2
++ local2	flang/test/Semantics/smp-def02.f90	/^  subroutine local2(/;"	s	line:32	submodule:sm2
++ m3subr1	flang/test/Semantics/entry01.f90	/^  subroutine m3subr1$/;"	s	line:182	module:m3
++ missing2	flang/test/Semantics/resolve36.f90	/^  module subroutine missing2$/;"	s	line:27
++ missing2	flang/test/Semantics/resolve36.f90	/^  module subroutine missing2$/;"	s	line:54
++ modproc	flang/test/Semantics/entry01.f90	/^  subroutine modproc$/;"	s	line:16	module:m1
++ modsub	flang/test/Semantics/self-use.f90	/^  subroutine modsub$/;"	s	line:8	module:m
++ n	flang/test/Semantics/separate-mp06.f90	/^        integer :: n$/;"	k	line:14	type:seq
++ non_recursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveFunc(/;"	f	line:53	module:m
++ non_recursiveRecursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveRecursiveFunc(/;"	f	line:57	module:m
++ nonseq	flang/test/Semantics/separate-mp06.f90	/^      type :: nonseq$/;"	t	line:6	prototype:s1
++ pdt	flang/test/Semantics/separate-mp06.f90	/^      type :: pdt(/;"	t	line:27	prototype:s4
++ pressure	flang/test/Lower/pre-fir-tree01.f90	/^ real, allocatable :: pressure(/;"	v	line:44	module:test_mod
++ pureFunc	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureFunc(/;"	f	line:41	module:m
++ realFunc	flang/test/Semantics/resolve83.f90	/^    real pure real function realFunc(/;"	f	line:27	module:m
++ recursiveFunc	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveFunc(/;"	f	line:49	module:m
++ s	flang/test/Semantics/symbol02.f90	/^ subroutine s$/;"	s	line:23	module:m
++ s	flang/test/Semantics/symbol28.f90	/^ module subroutine s$/;"	s	line:18	module:m1
++ s1	flang/test/Semantics/separate-mp03.f90	/^  module function s1$/;"	f	line:94
++ s1	flang/test/Semantics/separate-mp03.f90	/^  module subroutine s1$/;"	s	line:44
++ s2	flang/test/Semantics/separate-mp03.f90	/^  impure module subroutine s2$/;"	s	line:97
++ s2	flang/test/Semantics/separate-mp03.f90	/^  pure module subroutine s2$/;"	s	line:46
++ s2	flang/test/Semantics/symbol28.f90	/^ module subroutine s2 /;"	s	line:51
++ seq	flang/test/Semantics/separate-mp06.f90	/^      type :: seq$/;"	t	line:12	prototype:s2
++ sm	flang/test/Semantics/modproc01.f90	/^  integer sm$/;"	v	line:25	module:m
++ smp2	flang/test/Semantics/smp-def02.f90	/^  module subroutine smp2(/;"	s	line:36
++ smp3	flang/test/Semantics/smp-def02.f90	/^  module subroutine smp3(/;"	s	line:38
++ specific	flang/test/Semantics/modfile07.f90	/^  pure integer function specific(/;"	f	line:639	module:m12
++ t	flang/test/Semantics/resolve34.f90	/^  type  :: t$/;"	t	line:160	module:m9
++ t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:16	module:m1
++ t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:45	module:m2
++ t15	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t15(/;"	s	line:103	module:m
++ t16	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t16(/;"	s	line:109	module:m
++ t17	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t17(/;"	s	line:115	module:m
++ t18	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t18(/;"	s	line:122	module:m
++ t19	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t19(/;"	s	line:129	module:m
++ t20	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t20(/;"	s	line:138	module:m
++ t22	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t22(/;"	s	line:146	module:m
++ t23	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t23(/;"	s	line:152	module:m
++ test	flang/test/Semantics/bug181353.f90	/^  pure subroutine test(/;"	s	line:24	module:m
++ test_designator	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_designator$/;"	s	line:22	module:test_use_device
++ test_shadowed	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_shadowed$/;"	s	line:26	module:test_use_device
++ test_simple	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_simple$/;"	s	line:17	module:test_use_device
++ x	flang/test/Semantics/bug124731.f90	/^  real x$/;"	v	line:8	module:m1
++ x002	flang/test/Semantics/separate-mp04.f90	/^  module subroutine x002$/;"	s	line:23
++ x003	flang/test/Semantics/separate-mp04.f90	/^  module subroutine x003$/;"	s	line:25
++ x1	flang/test/Semantics/resolve113.f90	/^  integer, bind(c, name="a") :: x1$/;"	v	line:8	module:m
++ x2	flang/test/Semantics/resolve113.f90	/^  integer, bind(c) :: x2$/;"	v	line:9	module:m
++ xdim	flang/test/Lower/pre-fir-tree01.f90	/^ integer :: xdim$/;"	v	line:43	module:test_mod
+- __anonc4bcf2870205	flang/test/Semantics/pure-function-result-pointer.f90	/^  interface$/;"	i	line:31
+- chlen	flang/test/Semantics/separate-mp06.f90	/^      type :: chlen$/;"	t	line:19	module:subroutine
+- elemental	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalF/;"	v	line:31
+- elementalFunc	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalFunc(/;"	f	line:31
+- f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:29
+- f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:76
+- f3	flang/test/Semantics/separate-mp02.f90	/^      real :: f3$/;"	v	line:275	module:function
+- ff3	flang/test/Lower/submodule.f90	/^      integer ff3(/;"	v	line:13	module:function
+- foo	flang/test/Lower/pre-fir-tree01.f90	/^  subroutine foo(/;"	s	line:47
+- foo2	flang/test/Lower/pre-fir-tree01.f90	/^  function foo2(/;"	f	line:64
+- func1	flang/test/Semantics/separate-mp01.f90	/^    real module function func1()   ! implementation of func1 /;"	f	line:93
+- function	flang/test/Lower/submodule.f90	/^    module function /;"	m	line:12
+- function	flang/test/Semantics/separate-mp02.f90	/^    module function /;"	m	line:274
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:13
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:17
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:62
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:66
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:36
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:85
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:94
+- g1	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g1$/;"	i	line:119
+- g2	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g2$/;"	i	line:121
+- generic	flang/test/Semantics/resolve15.f90	/^  interface generic$/;"	i	line:44
+- i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:18
+- i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:48
+- implementation	flang/test/Semantics/implicit-module-prefix-modfile.f90	/^  subroutine implementation(/;"	s	line:29
+- inside_one	flang/test/Semantics/modfile86.f90	/^  subroutine inside_one(/;"	s	line:25
+- j	flang/test/Semantics/symbol28.f90	/^  integer, intent(in) :: j$/;"	v	line:53	module:subroutine
+- local1	flang/test/Semantics/smp-def02.f90	/^  subroutine local1$/;"	s	line:27
+- local2	flang/test/Semantics/smp-def02.f90	/^  subroutine local2(/;"	s	line:32
+- m3subr1	flang/test/Semantics/entry01.f90	/^  subroutine m3subr1$/;"	s	line:182
+- modproc	flang/test/Semantics/entry01.f90	/^  subroutine modproc$/;"	s	line:16
+- modsub	flang/test/Semantics/self-use.f90	/^  subroutine modsub$/;"	s	line:8
+- module	flang/test/Semantics/resolve76.f90	/^    logical module /;"	v	line:12	module:m1
+- module	flang/test/Semantics/separate-mp01.f90	/^    real module /;"	v	line:93
+- module	flang/test/Semantics/separate-mp01.f90	/^    real module function func3()   ! module /;"	v	line:89	submodule:m4sub
+- module	flang/test/Semantics/separate-mp03.f90	/^    integer module /;"	v	line:10	module:m1
+- module	flang/test/Semantics/separate-mp03.f90	/^    integer module /;"	v	line:59	module:m2
+- module	flang/test/Semantics/separate-mp03.f90	/^  integer module /;"	v	line:29
+- module	flang/test/Semantics/separate-mp03.f90	/^  integer module /;"	v	line:76
+- nonseq	flang/test/Semantics/separate-mp06.f90	/^      type :: nonseq$/;"	t	line:6	interface:__anon0d9580830105
+- pdt	flang/test/Semantics/separate-mp06.f90	/^      type :: pdt(/;"	t	line:27	module:subroutine
+- pressure	flang/test/Lower/pre-fir-tree01.f90	/^ real, allocatable :: pressure(/;"	v	line:44
+- procedure	flang/test/Lower/submodule.f90	/^  module procedure /;"	m	line:42
+- procedure	flang/test/Semantics/pure-function-result-pointer.f90	/^    module procedure /;"	m	line:40
+- procedure	flang/test/Semantics/resolve36.f90	/^  module procedure /;"	m	line:51
+- procedure	flang/test/Semantics/resolve36.f90	/^  module procedure /;"	m	line:72
+- procedure	flang/test/Semantics/separate-mp03.f90	/^  module procedure /;"	m	line:33
+- procedure	flang/test/Semantics/separate-mp03.f90	/^  module procedure /;"	m	line:82
+- procedure	flang/test/Semantics/separate-mp04.f90	/^  module procedure /;"	m	line:21
+- procedure	flang/test/Semantics/smp-def02.f90	/^  module procedure /;"	m	line:34
+- procedure	flang/test/Semantics/symbol28.f90	/^ module procedure /;"	m	line:21
+- procedure	flang/test/Semantics/symbol28.f90	/^ module procedure /;"	m	line:47
+- pure	flang/test/Semantics/resolve83.f90	/^    real pure /;"	v	line:27
+- real	flang/test/Semantics/resolve83.f90	/^    real pure real function realF/;"	v	line:27
+- realFunc	flang/test/Semantics/resolve83.f90	/^    real pure real function realFunc(/;"	f	line:27
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:14	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:18	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:63	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:67	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^    integer :: res$/;"	v	line:37	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^    real :: res$/;"	v	line:86	module:function
+- s	flang/test/Semantics/symbol02.f90	/^ subroutine s$/;"	s	line:23
+- sm	flang/test/Semantics/modproc01.f90	/^  integer sm$/;"	v	line:25
+- specific	flang/test/Semantics/modfile07.f90	/^  pure integer function specific(/;"	f	line:639
+- subroutine	flang/test/Parser/keyword-optional-spaces.f90	/^    module subroutine /;"	m	line:112
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:27
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:33
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:54
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:61
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:103
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:143
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:145
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:147
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:149
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:151
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:22
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:27
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:32
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:38
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:99
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:21
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:70
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    pure module subroutine /;"	m	line:23
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    pure module subroutine /;"	m	line:72
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  module subroutine /;"	m	line:44
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  module subroutine /;"	m	line:91
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  pure module subroutine /;"	m	line:46
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^    module subroutine /;"	m	line:10
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^  module subroutine /;"	m	line:23
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^  module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/separate-mp06.f90	/^    module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/separate-mp06.f90	/^    module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/smp-def02.f90	/^  module subroutine /;"	m	line:36
+- subroutine	flang/test/Semantics/smp-def02.f90	/^  module subroutine /;"	m	line:38
+- subroutine	flang/test/Semantics/symbol28.f90	/^ module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/symbol28.f90	/^ module subroutine /;"	m	line:51
+- t	flang/test/Semantics/resolve34.f90	/^  type  :: t$/;"	t	line:160
+- t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:16
+- t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:45
+- t15	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t15(/;"	s	line:103
+- t16	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t16(/;"	s	line:109
+- t17	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t17(/;"	s	line:115
+- t18	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t18(/;"	s	line:122
+- t19	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t19(/;"	s	line:129
+- t20	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t20(/;"	s	line:138
+- t22	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t22(/;"	s	line:146
+- t23	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t23(/;"	s	line:152
+- test	flang/test/Semantics/bug181353.f90	/^  pure subroutine test(/;"	s	line:24
+- test_designator	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_designator$/;"	s	line:22
+- test_shadowed	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_shadowed$/;"	s	line:26
+- test_simple	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_simple$/;"	s	line:17
+- w	flang/test/Semantics/separate-mp02.f90	/^      character(len=*) :: w$/;"	v	line:36	module:subroutine
+- w	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(:), z(0:*), w(/;"	v	line:39	module:subroutine
+- x	flang/test/Semantics/bug124731.f90	/^  real x$/;"	v	line:8
+- x	flang/test/Semantics/separate-mp02.f90	/^      character(len=4) :: x$/;"	v	line:33	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x$/;"	v	line:19	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x(/;"	v	line:23	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x(/;"	v	line:28	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real x(/;"	v	line:39	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real(4) :: x$/;"	v	line:100	module:subroutine
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:15	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:19	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:64	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:68	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^    real, intent(in) :: x$/;"	v	line:38	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^    real, intent(in) :: x$/;"	v	line:87	module:function
+- x	flang/test/Semantics/separate-mp05.f90	/^   real, intent(in) :: x$/;"	v	line:26	module:m
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(chlen), intent(in) :: x$/;"	v	line:23	module:subroutine
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(pdt(4)), intent(in) :: x$/;"	v	line:32	module:subroutine
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(seq), intent(in) :: x$/;"	v	line:16
+- x1	flang/test/Semantics/resolve113.f90	/^  integer, bind(c, name="a") :: x1$/;"	v	line:8
+- x2	flang/test/Semantics/resolve113.f90	/^  integer, bind(c) :: x2$/;"	v	line:9
+- xdim	flang/test/Lower/pre-fir-tree01.f90	/^ integer :: xdim$/;"	v	line:43
+- y	flang/test/Semantics/separate-mp02.f90	/^      character(len=4) :: y$/;"	v	line:34	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      procedure(real) :: y$/;"	v	line:101	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y$/;"	v	line:20	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y(/;"	v	line:24	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y(/;"	v	line:29	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(/;"	v	line:39	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      character(len=*) :: z$/;"	v	line:35	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real :: z(/;"	v	line:25	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real :: z(/;"	v	line:30	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(:), z(/;"	v	line:39	module:subroutine
+
+@ units/parser-fortran.r/fortran-submodule.d/*: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ g3	input.f90	/^    module function g3(/;"	f	line:22
+- function	input.f90	/^    module function /;"	m	line:22
+- x	input.f90	/^        integer :: x,/;"	v	line:23	module:function
+- y	input.f90	/^        integer :: x,y$/;"	v	line:23	module:function
+
+@ units/parser-fortran.r/fortran-submodule.d/allkinds: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ x	input.f90	/^        integer :: x,/;"	L	line:23	function:g3	file:
++ y	input.f90	/^        integer :: x,y$/;"	L	line:23	function:g3	file:

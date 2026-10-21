@@ -852,6 +852,32 @@ static b32 ftnisprefix(Ftn *p)
     return ftnistypespec(next->word) || ftnisnewprefix(next);
 }
 
+// MODULE as the prefix of a separate module procedure's FUNCTION or
+// SUBROUTINE, not a module: before another prefix, a type other than
+// PROCEDURE, FUNCTION, or SUBROUTINE, and then more than the end of the
+// statement. Universal Ctags takes it for a module named "function", or
+// skips it in an interface, where the subprogram's END then ends the
+// interface (F2).
+static b32 ftnismoduleprefix(Ftn *p)
+{
+    if (p->tok.word != FW_MODULE) {
+        return 0;
+    }
+    FtnTok *next = ftnpeek(p, 1);
+    switch (next->word) {
+    case FW_ELEMENTAL: case FW_FUNCTION: case FW_PURE: case FW_RECURSIVE:
+    case FW_STDCALL: case FW_SUBROUTINE:
+        break;
+    default:
+        if (next->word==FW_PROCEDURE ||
+            (!ftnistypespec(next->word) && !ftnisnewprefix(next))) {
+            return 0;
+        }
+    }
+    i32 after = ftnpeek(p, 2)->type;
+    return after!=FT_EOS && after!=FT_EOF;
+}
+
 // Skip a kind selector: "(...)", "*N", or "*(...)".
 static void ftnselector(Ftn *p)
 {
@@ -1273,7 +1299,7 @@ static void ftninterface(Ftn *p)
         word = p->tok.word;
         if (word==FW_FUNCTION || word==FW_SUBROUTINE) {
             ftnsubprogram(p);
-        } else if (ftnisprefix(p)) {
+        } else if (ftnisprefix(p) || ftnismoduleprefix(p)) {
             ftnnext(p);
         } else if (ftnistypespec(word)) {
             ftntypespec(p);
@@ -1638,7 +1664,13 @@ static void ftnunits(Ftn *p)
         case FW_FUNCTION:
         case FW_SUBROUTINE: ftnsubprogram(p);      break;
         case FW_SUBMODULE:  ftnmodule(p, 1);       break;
-        case FW_MODULE:     ftnmodule(p, 0);       break;
+        case FW_MODULE:
+            if (ftnismoduleprefix(p)) {
+                ftnnext(p);
+            } else {
+                ftnmodule(p, 0);
+            }
+            break;
         case FW_PROGRAM:    ftnunit(p, F_PROGRAM); break;
         default:
             if (ftnisprefix(p)) {
