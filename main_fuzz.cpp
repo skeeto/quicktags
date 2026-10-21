@@ -1,5 +1,6 @@
 // Fuzz test layer for AFL++, over the in-memory file system: the first
-// byte picks a language, kinds and -I macros, the rest is a file to tag.
+// byte picks a language, kinds, -I macros and the order, the rest is a
+// file to tag.
 // Undefined behavior traps, and the output is checked for the format's
 // invariants.
 // $ afl-clang-fast++ -std=c++20 -g3 -fsanitize=undefined -fsanitize-trap -o fuzz main_fuzz.cpp
@@ -43,27 +44,56 @@ int main()
         Str fkinds  = buf[0]&0x80 ? Str("--kinds-Fortran=*") : Str("--kinds-Fortran=+L");
         Str macros  = buf[0]&0x40 ? Str("-Ix=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R")
                                   : Str("-I-");
+        Str sorts[] = {"--sort=no", "--sort=yes", "--sort=foldcase", "--sort=yes"};
+        i32 order   = buf[0]>>4 & 3;  // SORT_*, then yes again
 
-        Arena a  = {mem, mem+cap/2};
-        Os   *os = newos(&a);
-        vfsfile(os, name, {buf+1, len-1});
-        Str   args[] = {"ctags", kinds, ckinds, fkinds, macros, "-f", "-", name};
-        Arena m      = {mem+cap/2, mem+cap};
-        if (ctags_main(os, m, args, countof(args))) {
-            __builtin_trap();
+        // Tagged in the chosen order, then unsorted, by default too
+        Arena a = {mem, mem+cap/2};
+        Arena m = {mem+cap/2, mem+cap};
+        Str   out[2] = {};
+        for (i32 run = 0; run < 1+(order==SORT_NO); run++) {
+            Os *os = newos(&a);
+            vfsfile(os, name, {buf+1, len-1});
+            Str sort   = run ? Str("--sort=yes") : sorts[order];
+            Str args[] = {"ctags", kinds, ckinds, fkinds, macros, sort, "-f",
+                          "-", name};
+            if (ctags_main(os, m, args, countof(args))) {
+                __builtin_trap();
+            }
+            out[run] = finish(&os->out);
         }
 
-        // Each line has a name, and lines are sorted and unique
-        Str out  = finish(&os->out);
-        Str prev = {};
-        for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        // Each line has a name, and lines are sorted and unique, by bytes
+        // or folded, or unsorted, those sorted are the default output
+        Str        prev  = {};
+        Slice<Str> lines = {};
+        for (Cut c = cut(out[0], '\n'); c.ok; c = cut(c.tail, '\n')) {
             if (!c.head.len || c.head[0]=='\t') {
                 __builtin_trap();
             }
-            if (prev.data && compare(prev, c.head) >= 0) {
+            Line x = {linekey<1>(prev.data, prev.len), prev.data, prev.len};
+            Line y = {linekey<1>(c.head.data, c.head.len), c.head.data, c.head.len};
+            if (prev.data && order==SORT_FOLD && !lineless<1>(&x, &y)) {
+                __builtin_trap();
+            } else if (prev.data && order!=SORT_NO && order!=SORT_FOLD &&
+                       compare(prev, c.head)>=0) {
                 __builtin_trap();
             }
-            prev = c.head;
+            prev  = c.head;
+            lines = push(&a, lines, c.head);
+        }
+        if (order == SORT_NO) {
+            sort(lines.data, lines.len, strless, a);
+            Buf b(&a, out[0].len+1);
+            for (iz i = 0; i < lines.len; i++) {
+                if (!i || !(lines[i] == lines[i-1])) {
+                    print(&b, lines[i]);
+                    putbyte(&b, '\n');
+                }
+            }
+            if (!(finish(&b) == out[1])) {
+                __builtin_trap();
+            }
         }
     }
     return 0;

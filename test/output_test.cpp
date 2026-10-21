@@ -360,12 +360,12 @@ static void test_output(Test *t)
         for (i32 i = 0; i < n; i++) {
             ls[i].data = lines[i].data;
             ls[i].len  = lines[i].len;
-            ls[i].key  = linekey(ls[i].data, ls[i].len);
+            ls[i].key  = linekey<0>(ls[i].data, ls[i].len);
         }
         // Three streams, each sorted
-        sort(ls, 3, lineless, a);
-        sort(ls+3, 3, lineless, a);
-        sort(ls+6, 3, lineless, a);
+        sort(ls, 3, lineless<0>, a);
+        sort(ls+3, 3, lineless<0>, a);
+        sort(ls+6, 3, lineless<0>, a);
         Stream s[] = {{ls, ls+3}, {ls+3, ls+6}, {ls+6, ls+9}};
 
         // Lines must end in newlines, as they do in a worker's buffer
@@ -379,10 +379,43 @@ static void test_output(Test *t)
 
         Os  *os = newos(&a);
         Out *o  = newout(os, &a, 1);
-        iz   count = mergelines(o, s, 3, a);
+        iz   count = mergelines<0>(o, s, 3, a);
         flush(o);
         expect(t, "merge", finish(&os->out),
                "!_TAG\tx\nZ\tx\na\tx\na\ty\na_b\tx\nab\tx\nb\tx\n\xc3\xa9\tx\n");
         expect(t, "merge count", num(&a, count), "8");
+    }
+
+    // Merging folded streams: struppercmp() order, ties by bytes, so
+    // that duplicates meet and are written once
+    {
+        Str lines[] = {
+            "ab\tx", "a\tx", "_\tx", "B\tx", "\xc3\xa9\tx", "AB\tx",
+            "a\tx", "!_TAG\tx", "Z\tx", "aB\tx", "b\tx", "A\tx",
+        };
+        i32  n   = countof(lines);
+        Buf  joined(&a, 256);
+        Line *ls = alloc<Line>(&a, n);
+        for (i32 i = 0; i < n; i++) {
+            iz at = joined.len;
+            print(&joined, lines[i]);
+            putbyte(&joined, '\n');
+            ls[i].data = joined.data + at;
+            ls[i].len  = lines[i].len;
+            ls[i].key  = linekey<1>(ls[i].data, ls[i].len);
+        }
+        sort(ls, 4, lineless<1>, a);
+        sort(ls+4, 4, lineless<1>, a);
+        sort(ls+8, 4, lineless<1>, a);
+        Stream s[] = {{ls, ls+4}, {ls+4, ls+8}, {ls+8, ls+12}};
+
+        Os  *os = newos(&a);
+        Out *o  = newout(os, &a, 1);
+        iz   count = mergelines<1>(o, s, 3, a);
+        flush(o);
+        expect(t, "fold merge", finish(&os->out),
+               "!_TAG\tx\nA\tx\na\tx\nAB\tx\naB\tx\nab\tx\nB\tx\nb\tx\n"
+               "Z\tx\n_\tx\n\xc3\xa9\tx\n");
+        expect(t, "fold merge count", num(&a, count), "11");
     }
 }

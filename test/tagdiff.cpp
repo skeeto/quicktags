@@ -25,6 +25,7 @@
 //   --ordered          compare in order, with duplicates
 //   --base RB OB       compare only the tags on which RB and OB agree
 //   --etags            REF and OURS are Emacs TAGS files
+//   --folded           OURS must be in --sort=foldcase order
 //
 // Lines are compared as sorted sets, unless --ordered: then duplicates
 // count, and the lines in both files must also come in the same order:
@@ -39,6 +40,12 @@
 // address starts with, else its address. A key is clean when RB and OB
 // hold the same lines for it (or none), and only lines with clean keys
 // are compared.
+//
+// With --folded, each line of OURS must sort after the one before by
+// struppercmp(), ASCII letters uppercased, as Universal Ctags sorts
+// with --sort=foldcase, and the lines are then compared as sets: with
+// the same lines, the folded sequences are then the same. Universal
+// Ctags' own order is not checked, as it compares lines with their CRs.
 //
 // With --etags, each section "\f\n<path>,<size>\n" becomes a line
 // "\t<path>\t0\t", and each of its entries, "<text>\x7f<name>\x01<line>,
@@ -1075,11 +1082,45 @@ static void comparelines(Tally *t, Slice<Str> ref, Slice<Str> ours,
     }
 }
 
+static u8 upper(u8 c)
+{
+    return c>='a' && c<='z' ? (u8)(c - 32) : c;
+}
+
+// struppercmp(): bytes with ASCII letters uppercased, shorter first.
+static i32 comparefold(Str a, Str b)
+{
+    iz len = a.len<b.len ? a.len : b.len;
+    for (iz i = 0; i < len; i++) {
+        i32 d = upper(a[i]) - upper(b[i]);
+        if (d) return d;
+    }
+    return a.len<b.len ? -1 : a.len>b.len;
+}
+
+// Count each line out of foldcase order as unexplained.
+static void checkfolded(Tally *t, Slice<Str> lines)
+{
+    for (iz i = 1; i < lines.len; i++) {
+        if (comparefold(lines[i-1], lines[i]) > 0) {
+            t->reordered++;
+            t->unexplained++;
+            if (t->shown++ < t->show) {
+                fputs("~ not in foldcase order\n  ", stdout);
+                printstr(stdout, lines[i-1]);
+                fputs("\n  ", stdout);
+                printstr(stdout, lines[i]);
+                fputc('\n', stdout);
+            }
+        }
+    }
+}
+
 static i32 usage()
 {
     fputs("usage: tagdiff [--ledger FILE] [--scope NAME] [--only KINDS] "
           "[--show N]\n               [--ordered] [--base RB OB] [--etags] "
-          "REF OURS\n", stderr);
+          "[--folded] REF OURS\n", stderr);
     return 2;
 }
 
@@ -1098,6 +1139,7 @@ int main(int argc, char **argv)
     i32 show       = 40;
     b32 ordered    = 0;
     b32 etags      = 0;
+    b32 folded     = 0;
     Str bases[2]   = {};
     Str files[2]   = {};
     i32 nfiles     = 0;
@@ -1116,6 +1158,8 @@ int main(int argc, char **argv)
             ordered = 1;
         } else if (arg == "--etags") {
             etags = 1;
+        } else if (arg == "--folded") {
+            folded = 1;
         } else if (arg=="--base" && i+2<argc) {
             bases[0] = v;
             bases[1] = cstr(argv[i+2]);
@@ -1156,16 +1200,22 @@ int main(int argc, char **argv)
 
     i32   format = etags ? FORMAT_ETAGS : FORMAT_TAGS;
     Input ref    = readinput(&a, files[0], format, only, rewrites, ordered);
-    Input ours   = readinput(&a, files[1], format, only, 0, ordered);
+    Input ours   = readinput(&a, files[1], format, only, 0, ordered||folded);
     iz    bad    = ref.bad + ours.bad + keys.bad;
+    Tally t      = {};
+    t.ledger = ledger;
+    t.show   = show;
+    if (folded) {
+        checkfolded(&t, ours.lines);
+        if (!ordered) {
+            ours.lines = sortunique(ours.lines, a);
+        }
+    }
     if (bases[0].data) {
         ref.lines  = keepclean(&a, &keys, ref.lines);
         ours.lines = keepclean(&a, &keys, ours.lines);
     }
 
-    Tally t = {};
-    t.ledger = ledger;
-    t.show   = show;
     comparelines(&t, ref.lines, ours.lines, ordered, a);
 
     iz stale = 0;
@@ -1184,7 +1234,7 @@ int main(int argc, char **argv)
     }
     printf("%td ref, %td ours, %td missing, %td extra, ",
            ref.lines.len, ours.lines.len, t.missing, t.extra);
-    if (ordered) {
+    if (ordered || folded) {
         printf("%td reordered, ", t.reordered);
     }
     printf("%td unexplained, %td stale\n", t.unexplained, stale);

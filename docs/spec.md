@@ -564,7 +564,10 @@ depends on how far the walk had read when the label was seen. Our
 - **SORT-1 [S][V]** Sort whole lines (without CR or LF) with `strcmp`, i.e. unsigned bytewise. An exact duplicate of the previous line is dropped; blank lines are skipped. Pseudo-tags are sorted along with everything else.
   - TAB sorts below every name byte, so a name that is a prefix of another sorts first; then the file, then the address, then the fields.
 - **SORT-2 [I]** Sorted output does not depend on traversal order. Anonymous names depend only on each file's own path and content.
-- **SORT-3 [V]** `--sort=foldcase` uses `struppercmp` (`_` sorts after letters) and writes `!_TAG_FILE_SORTED 2`. Not default.
+- **SORT-3 [S][V] `--sort=foldcase`** (`--sort=f`, `fold`, OPT-7) writes `!_TAG_FILE_SORTED 2`. It compares whole lines as `struppercmp` does (`sort.c`, `routines.c`): byte by byte, unsigned, after `toupper` in the C locale, so only `a` to `z` change and `_`, `[`, `\`, `]`, `^` and `` ` `` sort after every letter; a line that is a prefix of another sorts first. As SORT-1, an exact duplicate of the line before it is dropped.
+  - Universal Ctags sorts with `qsort`, which leaves lines equal but for case in no defined order (`A` and `a`, or `aB` and `Ab`), so an exact duplicate may also survive when such a line falls between the two copies. Here lines equal ignoring case are ordered by SORT-1, so the order is total, duplicates always meet and are dropped, and the output does not depend on the threads.
+- **SORT-4 [S][V] `--sort=no`** (and `-u`) writes `!_TAG_FILE_SORTED 0`, and the lines as they were made, none dropped: the tags of each file in the order its parser makes them, which is the order of the Units cases' expected output, and the files in the order they are visited (DISC-1): the arguments in order, then the `-L` entries, each directory depth-first in its listing order (DISC-2). A file named twice is tagged twice, and its lines written twice.
+  - Here files are tagged by several threads in any order, so each file's lines are kept apart with a key that orders them as the walk would: an argument's or list entry's index, and for a directory's entry, its directory's key followed by its index in the listing. The pseudo-tags come first, in the order of PT-4, which is sorted.
 
 ### 1.10 Pseudo-tags
 
@@ -716,7 +719,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -792,6 +795,12 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - The writer decides what is fixed. Under `-e` (etags) no field is, so `N`, `F` and `P` are listed among the others by letter, and are neither enabled again nor warned about (OPT-9); the pseudo extra is fixed, and options that set it under etags leave it as it was.
   - The pseudo extra (`xtag.c`): until an option sets it, by naming it or by a reset, it is enabled only where the writer writes pseudo-tags (not etags) and the output is a file, not `-` or `/dev/stdout`. So `-f - --list-extras` lists it disabled, as does `-e --extras=+p --list-extras`, while `--extras=+p -e --list-extras` lists it enabled and fixed [V].
   - Here other languages list no kinds, extras or fields, and all-language tables hold only our rows, so their columns are narrower than Universal Ctags'.
+- **OPT-19 [V] `--version`** prints to stdout and exits 0 at once, as the listings do. Universal Ctags prints several lines, the first `Universal Ctags 6.2.1, Copyright (C) 2015-2025 Universal Ctags Team`, then its derivation from `Exuberant Ctags 5.8` and its build's features.
+  - Here it prints one line, `ctags 0.1 (Universal Ctags 6.2.1 compatible)`, naming this program and its version, as `PROGRAM_NAME` and `PROGRAM_VERSION` do (PT-4), and the version whose behavior it follows. Editor plugins read this text to decide what the program can do, and each accepts it:
+    - tagbar requires a match of `\(Exuberant\|Universal\) Ctags`, case-sensitively, then takes its Universal Ctags path on `Universal Ctags`, ignoring case;
+    - easytags matches `\(Exuberant\|Universal\) Ctags \zs\(\d\+\(\.\d\+\)*\|Development\)` in the first line, which finds `6.2.1`, above its minimum;
+    - fzf-lua looks for `Universal`, after which it passes `--excmd=combine`, and reads `0.1` as a version it does not use; the Linux kernel's `tags.sh` greps for `universal`, ignoring case.
+    - vim-clap requires the first line to start with `Universal Ctags`, which this does not.
 
 **Order of checks**
 - **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check and OPT-6's checks follow.
@@ -1024,8 +1033,9 @@ Decided for this program, deliberately different from Universal Ctags.
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
-  `--tag-relative`, the listings (OPT-15), `--version`, `--help`, and
-  this program's `--jobs`. The others are
+  `--tag-relative`, `--sort` and `-u` (SORT-3, SORT-4), the listings
+  (OPT-15), `--version` (OPT-19), `--help`, and this program's
+  `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have

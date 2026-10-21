@@ -79,24 +79,22 @@ set(lines
 ctags_caseopts("${lines}")
 expect("args" "${ctags_args}"
   "--kinds-C++=+p;--extras=+q;--KINDS-c=+l;--C++-kinds=+z;-I X=int;--param-CPreProcessor.ignore=Y")
-expect("fmt" "${ctags_fmt}" "--fields=+K")
+expect("fmt" "${ctags_fmt}" "--fields=+K;--sort=no")
 
 set(formats
   "-n" "-N" "-nN" "--excmd=combine" "--format=1" "--pattern-length-limit=9"
-  "--output-format=e-ctags" "--output-format=etags" "--fields=+e" "-e")
+  "--output-format=e-ctags" "--output-format=etags" "--fields=+e" "-e"
+  "--sort=foldcase" "-u" "-uR")
 ctags_caseopts("${formats}")
 expect("args formats" "${ctags_args}" "")
 expect("fmt formats" "${ctags_fmt}"
-  "-n;-N;--excmd=combine;--format=1;--pattern-length-limit=9;--output-format=e-ctags")
+  "-n;-N;--excmd=combine;--format=1;--pattern-length-limit=9;--output-format=e-ctags;--sort=foldcase;-u")
 
 # The options that choose languages, for these languages
 ctags_caseopts("--langmap=c:.h.c;--MAP-c++=+.x;--map-Python=+.x;--languages=-LdScript;--language-force=Fortran;--language-force=CPreProcessor;-h;.x;--sort=no")
 expect("languages" "${ctags_args}"
   "--langmap=c:.h.c;--MAP-c++=+.x;--languages=-LdScript;--language-force=Fortran;-h;.x")
 
-set(ctags_fmt_keep "^--fields=" "^--sort=")
-ctags_caseopts("${lines}")
-expect("fmt kept" "${ctags_fmt}" "--fields=+K;--sort=no")
 
 # A run compared by key names files as its base run does
 ctags_keyedopts(got --sort=no)

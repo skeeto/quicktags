@@ -102,6 +102,13 @@ static Str fuzzmutate(Arena *a, u64 *rng, Str src)
     return finish(&b);
 }
 
+// The order of a run's lines.
+enum : i32 {
+    ORDER_BYTES,  // sorted by bytes, each line once
+    ORDER_NONE,   // unsorted, as the parser made them
+    ORDER_FOLD,   // sorted ignoring case, ties by bytes, each line once
+};
+
 // A run's options, and what they promise of each line.
 struct Lint {
     Str opts;      // before "-f - FILE"
@@ -109,6 +116,7 @@ struct Lint {
     b32 nofields;  // --format=1: nothing after the address
     b32 deflt;     // the kind letter first, then line:
     b32 strip;     // the default output once stripped (fuzzstrip)
+    i32 order = ORDER_BYTES;
 };
 
 static Lint lints[] = {
@@ -127,7 +135,30 @@ static Lint lints[] = {
     {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0, 0},
     {"--output-format=e-ctags --fields=+zES ",          EXCMD_MIXED,   0, 0, 0},
     {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1},
+    // Unsorted and folded, which sorted are the default output
+    {"-u --fields=+lzZEr ",                             EXCMD_MIXED,   0, 0, 1,
+     ORDER_NONE},
+    {"--sort=foldcase --fields=+iaSm ",                 EXCMD_MIXED,   0, 1, 1,
+     ORDER_FOLD},
 };
+
+// Do the lines come in this order, each once? Folded, struppercmp()
+// orders them, then bytes.
+static b32 lintorder(Str a, Str b, i32 order)
+{
+    if (order == ORDER_FOLD) {
+        iz len = a.len<b.len ? a.len : b.len;
+        for (iz i = 0; i < len; i++) {
+            u8 x = a[i]>='a' && a[i]<='z' ? (u8)(a[i] - 32) : a[i];
+            u8 y = b[i]>='a' && b[i]<='z' ? (u8)(b[i] - 32) : b[i];
+            if (x != y) return x < y;
+        }
+        if (a.len != b.len) {
+            return a.len < b.len;
+        }
+    }
+    return order==ORDER_NONE || compare(a, b)<0;
+}
 
 // Universal Ctags' order of the fields written here (FLD-4), by key,
 // where a scope's key is its kind, and the kind may have none.
@@ -225,7 +256,7 @@ static iz fieldsat(Str s)
     return ok ? i : -1;
 }
 
-// Is the tags output well formed for the source and options? Sorted,
+// Is the tags output well formed for the source and options? In order,
 // each address as the excmd says, the fields in order, and the line
 // field in range, and equal to a line number in the address.
 static Str fuzzlint(Str out, Str src, Lint *x)
@@ -237,8 +268,9 @@ static Str fuzzlint(Str out, Str src, Lint *x)
     Str prev = {};
     for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
         Str l = c.head;
-        if (prev.data && compare(prev, l) >= 0) {
-            return "lines not sorted and unique";
+        if (prev.data && !lintorder(prev, l, x->order)) {
+            return x->order==ORDER_FOLD ? Str("lines not folded and unique")
+                                        : Str("lines not sorted and unique");
         }
         prev = l;
         if (cut(l, 0).ok) {
@@ -300,10 +332,10 @@ static Str fuzzlint(Str out, Str src, Lint *x)
     return {};
 }
 
-// Output with --fields=+lzZEriaSm as the default options would write it:
-// each line without its language, inherits, access, implementation,
-// signature, roles, and extras fields, and without the kind and scope
-// keys, then sorted, each line once.
+// Output with --fields=+lzZEriaSm, in any order, as the default options
+// would write it: each line without its language, inherits, access,
+// implementation, signature, roles, and extras fields, and without the
+// kind and scope keys, then sorted, each line once.
 static Str fuzzstrip(Arena *a, Str out)
 {
     Slice<Str> lines = {};

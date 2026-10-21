@@ -1949,7 +1949,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         Buf b(p->perm, 32);
         print(&b, "ctags ");
         print(&b, version);
-        putbyte(&b, '\n');
+        print(&b, " (Universal Ctags 6.2.1 compatible)\n");  // OPT-19
         opt->print = finish(&b);
         return ARGS_EXIT;
     }
@@ -2188,7 +2188,6 @@ static i32 parsefinish(Parse *p)
     // milestone lands
     b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
-    if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
 
