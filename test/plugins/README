@@ -1,0 +1,15 @@
+A sample project for the plugin tests (cmake/plugins.cmake), which run
+the command lines of editor plugins and build scripts on a copy of this
+tree, with ctags and with Universal Ctags, and compare.
+
+src/            C and C++, one file with CRLF lines, one with a UTF-8 BOM
+sub/            Fortran, free and fixed form
+build/          generated code, excluded by wildignore.txt
+third_party/    vendored code, excluded by .gutctags
+.gutctags       a gutentags project options file
+wildignore.txt  'wildignore' entries, as gutentags writes them
+files.txt       a file list, as gutentags' file list command prints it
+
+This README and the Makefile are not sources: ctags must skip them.
+
+This is free and unencumbered software released into the public domain.

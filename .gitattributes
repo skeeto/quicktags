@@ -2,3 +2,5 @@
 *.cpp text eol=lf
 *.cmake text eol=lf
 *.md text eol=lf
+# The plugin tests sample tree keeps its bytes: CRLF lines, a BOM
+test/plugins/** -text

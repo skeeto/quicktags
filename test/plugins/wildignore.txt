@@ -1,0 +1,6 @@
+*.o
+*.obj
+*/build/*
+*.swp
+*/.git/*
+build

@@ -19,7 +19,16 @@ cmake --build build
 ctest --test-dir build -j24 -L '^unit$'    # unit tests, import check, cases
 ctest --test-dir build -j24 -L units       # differential, Universal Ctags Units
 ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
+ctest --test-dir build -j24 -L plugins     # plugins' own command lines
 ```
+
+- Plugin tests (`cmake/runplugins.cmake`, one per tool): each editor
+  plugin's or build script's exact ctags command lines (tagbar, vista,
+  ctrlp, taglist, fzf, LeaderF, easytags, gutentags, the kernel's
+  tags.sh, OmniCppComplete, Kate, Emacs), cited by file and line, run
+  on a copy of `test/plugins/` with both tools; ledger scope
+  `plugins/TOOL[/STEP]`. Also `--version` against the plugins' checks,
+  a 6-line header (LeaderF), and numeric `-n` addresses.
 
 - Units modes (`cmake/runcase.cmake`): `default`, `allkinds`, `args` (a
   case's options that change which tags exist) and `fmt` (also those that
@@ -89,7 +98,8 @@ name:
 Elsewhere:
 - `test/`: unit tests (`*_test.cpp`, included by `main_test.cpp`, one
   CTest per group listed in `CTAGS_TEST_GROUPS`), `vfs.cpp` (the test
-  platform), `tagdiff.cpp` (differential comparison), `ledger.txt`.
+  platform), `tagdiff.cpp` (differential comparison), `ledger.txt`,
+  `plugins/` (the plugin tests' sample tree, kept byte for byte).
 - `docs/spec.md`: Universal Ctags' rules in our words, with rule IDs, and
   our departures from it. Read the relevant section before porting a
   behavior.
