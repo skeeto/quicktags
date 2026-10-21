@@ -336,58 +336,98 @@ apply.
 
 ### 1.6 Fortran rules
 
+The parser (`parsers/fortran.c`) reads characters through a layer for the
+source form, groups them into tokens, and walks the tokens statement by
+statement with recursive descent. It writes each tag as soon as it finds
+it, and tags labels while it reads characters, so the scope of a label
+depends on how far the walk had read when the label was seen. Our
+`fortran.cpp` keeps that order of reads; FTN-1 to FTN-23 describe it.
+
 **Source form and lexing**
-- **FTN-1 Form detection** [S][V]. Content only, never extension. Pass 1 is fixed form; it switches to free form (with pass-1 tags discarded) when any of these occurs:
-  - (a) an INVALID line. Columns 1–5 contain a non-blank, non-digit character, where column 1 is exempt for `*Cc!#$Dd` (and NUL) and a TAB anywhere in columns 1–6 means tab format and an initial line. Or the line has a label plus a column-6 character other than blank or `0`. The fixed pass then returns EOF immediately.
-  - (b) `&` immediately followed by LF.
-  - (c) a newline inside a string.
+- **FTN-1 Form detection** [S][V]. Content only, never extension. Pass 1 is fixed form; it fails, and pass 2 reads the file again as free form with pass-1 tags discarded, when any of these occurs:
+  - (a) an invalid margin (FTN-2): a character other than a blank or a digit in columns 1–5 (column 1 is exempt for `*Cc!#$Dd`, which mark comments, and a TAB ends the margin), or a label with a column-6 character other than blank or `0`. The reader then returns end of input, but the walk may read on (an END reads the word after it, for one), taking a new margin from wherever the reading stopped. This matters only for the anonymous counter and the carried character below.
+  - (b) `&` immediately followed by the line end (the line end is then lost).
+  - (c) a line end inside a string.
+
+  The anonymous-name counter goes on from pass 1, and so does a character the lexer put back at the end of pass 1 (it reads the next character to end a token, then puts it back): pass 2 reads it first, before the file's first byte. Universal Ctags resets that character only before pass 1.
 
   Real results: 116 `.f90` and 24 `.F90` files in flang/test stay fixed form; 13 `.f`/`.F` files switch to free form.
-- **FTN-2 Fixed form** [S]:
-  - No 72-column limit.
-  - Inline `!` outside strings is a comment.
-  - A continuation joins directly if column 7 is non-blank; otherwise the leading blanks become one space.
-  - Label tags are created during look-ahead, so the end-of-statement token gets the next line's number. This causes the anonymous-tag line quirk and the label-scope quirks.
-- **FTN-3 Free form** [S]:
-  - `&` + optional spaces + LF or `!` continues the line, skipping blank, comment and column-1 `#` lines, plus one optional leading `&`.
-  - `!` ends the statement; a trailing `&` inside the comment wrongly continues it.
-  - `;` ends a statement.
-  - Labels (≤5 digits) only after a newline statement end.
-  - `#` is skipped only in column 1.
+- **FTN-2 Fixed form** [S][V]:
+  - Each line begins with a margin, columns 1–6, read when the previous line is done. Column 1 `*`, `C`, `c`, `!`, `#`, `$`, `D` or `d` makes a comment line (so `#` directives and `D` debug lines are skipped). A TAB anywhere in the margin ends it, and the line begins a statement. Columns 1–5 hold blanks and the digits of a label (blanks inside it are dropped: `1 0` is `10`). A line that ends before column 6 is skipped. Column 6 blank or `0` begins a statement; anything else continues the previous one.
+  - A label is tagged as soon as its margin is read, whatever the line turns out to be.
+  - After the margin, blanks are skipped. The first other character reads as itself if it is in column 7, and otherwise as a blank followed by it: blanks after column 6 on a continuation line split a name, and column 7 joins it (`longna` + `me` is `longname`).
+  - A line end reads as the end of the statement only when the next line that is not a comment or blank begins a statement, or the input ends. So the margin of the next statement's line, and its label, are read before the statement end is returned, and that token belongs to the next line. An anonymous tag, which takes the position of the token after its keyword, therefore points at the next line (`interface` followed by a blank line points at the line after it).
+  - No limit at column 72: columns 73 and beyond are code.
+  - `!` outside a string comments out the rest of the line; inside a string it is text.
+- **FTN-3 Free form** [S][V]:
+  - `&`, optional blanks, then the line end or `!` (whose comment is skipped) continues the statement. Reading resumes after blank lines, lines whose first character is `!`, lines whose first character is `#`, leading blanks, and any `&` (each followed by blanks) at the start of the continuation. This works inside strings too.
+  - A line whose first character is `!` or `#` is skipped. An indented `!` comment, or one after code, is read to the line end through the same reader, so an `&` at its end continues into the next line, which is lost; it reads as the end of a statement.
+  - `;` ends a statement, in both forms.
+  - After a statement end at a line end (not `;`, and not on line 1), blanks then up to five digits are a label; a sixth digit begins a number.
+  - An indented `#` is not special; its words are read as tokens.
 - **FTN-4 Tokens** [S][V]:
-  - Identifiers are `isalpha` then `[alnum_$]*`. **A leading `_` is not an identifier.**
-  - Keywords are matched case-insensitively, but the `end` prefix test is case-sensitive.
-  - `blockdata`, `doubleprecision`, `impure`, `non_recursive`, `simple`, `critical` and `enumeration` are not keywords.
-
-**Kinds and grammar**
+  - Identifiers are an ASCII letter, then letters, digits, `_` and `$`. **A leading `_` is not an identifier**: `_`, `$` and bytes from 0x80 are one-character tokens of no type.
+  - Keywords are matched ignoring ASCII case: `abstract allocatable assignment associate automatic bind block byte cexternal cglobal character class codimension common complex contains data deferred dimension dll_export dll_import do double elemental end entry enum enumerator equivalence extends external final forall format function generic if implicit import include inline integer intent interface intrinsic kind len logical map module namelist non_overridable nopass operator optional parameter pascal pass pexternal pglobal pointer precision private procedure program protected public pure real record recursive save select sequence static stdcall structure submodule subroutine target then type union use value virtual volatile where while`. `blockdata`, `doubleprecision`, `impure`, `non_recursive`, `simple`, `critical`, `team` and `enumeration` are not keywords.
+  - **Joined END**: an identifier that is not a keyword, starts with lowercase `end`, and whose rest is a keyword (any case) reads as END with that keyword as the word after it (`enddo`, `endType`). `ENDDO` and `EndDo` are plain identifiers.
+  - Operators: one of `* / + - = < >`, continued by any of `* / + = < >` (not `-`). A `.` followed by identifier characters and a `.` is an operator (`.eq.`); without the closing dot it has no type.
+  - Numbers: digits, a kind suffix `_` + letters (dropped), an optional `.` and digits, and an optional `e` or `E` and digits (a sign after it starts a new token).
+  - Strings: from `'` or `"` to the same quote or the line end, which is consumed. A doubled quote reads as two strings.
+  - `::`, `:`, `,`, `(`, `)`, `[`, `]` and `%` are tokens of their own.
+  - A token's line and position are those of the input after its first character was read: the line of that character, except in fixed form where a line end was read ahead (FTN-2).
 - **FTN-5 Default kinds** [V]: `E M N S b c e f i k l m n p s t v`; `L` and `P` are off.
-- **FTN-6 Production rules** [S][V]. The variable-kind rule, from `variableTagType`:
 
-  | Top of the scope stack | Entity kind |
+**Program units and statements** [S][V]. When a unit or block ends, its END statement is consumed together with the word after END, which is read even when it is on the next line (so a bare `end` reads the next statement's first word, which then ends the statement); a joined END already has its word.
+- **FTN-11 Top level.** Statement ends are skipped. BLOCK starts block data (FTN-23), END skips its statement, FUNCTION and SUBROUTINE start subprograms (FTN-19), MODULE always starts a module and SUBMODULE a submodule (FTN-22), and PROGRAM a main program. The prefixes `elemental`, `pure`, `recursive` and `stdcall` are skipped as words. Anything else is read as the specification part and then the execution part of a main program without a PROGRAM statement, with no scope; if neither read anything, one token is skipped.
+- **FTN-12 Specification part.** USE statements, then IMPORT statements, then the implicit part (IMPLICIT, INCLUDE, PARAMETER and FORMAT skipped, ENTRY tagged), then declarations, until a statement is not one:
+  - ENTRY name: `e`, if the name is an identifier.
+  - INTERFACE (FTN-15), ABSTRACT INTERFACE (ABSTRACT followed by anything else skips the statement), ENUM (FTN-16).
+  - STDCALL is skipped as a word; AUTOMATIC followed by a type specifier is a type declaration (else the statement is skipped).
+  - Skipped: `cexternal cglobal dll_export dll_import external format include inline parameter pascal pexternal pglobal static value virtual volatile`.
+  - Type declarations (FTN-13) start with `byte integer real double complex character logical record type procedure final generic class enumerator`.
+  - A statement that starts with an identifier is skipped; the part goes on only if it is a statement function, `name(...) =`.
+  - COMMON and NAMELIST (FTN-18), STRUCTURE (FTN-17); `allocatable data dimension equivalence external intent intrinsic optional pointer private protected public save target` statements are skipped.
+  - Anything else ends the part, unread.
+- **FTN-13 Type declarations.** A type specifier, then `, attributes` and `::`, then a list of entities, each tagged with the kind of FTN-6.
+  - Specifiers: CHARACTER `[*] (…)` or `[*] N`; BYTE, INTEGER, REAL, COMPLEX, LOGICAL, PROCEDURE and CLASS with `(…)`, `*N` or `*(…)`; DOUBLE PRECISION and DOUBLE COMPLEX (DOUBLE followed by anything else skips to the statement end); RECORD `/s/`; TYPE `(…)`, while TYPE followed by anything else defines a derived type (FTN-14); FINAL, GENERIC and ENUMERATOR are just the word.
+  - Attributes: `parameter allocatable external intrinsic kind len optional private pointer protected public save target nopass abstract deferred non_overridable` alone, `dimension intent bind extends` with `(…)`, `pass` with an optional `(…)`, `codimension` with `[…]`. **Any other attribute skips to the end of the statement, losing its entities.**
+  - Entities are identifiers, or keywords other than FUNCTION and SUBROUTINE. After each, `(…)`, `[…]`, `*len` or `*(…)`, a DEC `/initial value/`, and an initializer after `=` or `=>` (to the next comma outside brackets) are skipped. A list that starts with `%` (DEC `%FILL`) skips the statement.
+  - So a module-level `generic :: g => a, b` tags `g` and `b` as variables.
+- **FTN-14 Derived types.** TYPE `[, attributes] [::] name`: the name, an identifier or keyword, is tagged `t` and becomes the scope; one PRIVATE or SEQUENCE statement after it is skipped. Then statements that start with a type specifier declare components `k`, or methods `M` if they start with PROCEDURE, FINAL or GENERIC (which includes procedure pointer components); GENERIC tags its generic name, or the operator of `operator(op)` or `assignment(=)`; other statements are skipped, up to END. The walk then returns to the statement that held TYPE with the END statement's first token current: after `end type …` that is the end of the statement, but **a bare `end` closing a type is taken as the first entity** of the declaration, so `end` (and words after it) are tagged as variables of the enclosing unit.
+- **FTN-15 Interfaces.** INTERFACE then a generic name (identifier or keyword), `operator(op)` or `assignment(=)` with the operator's text as name, or else an anonymous name; tagged `i`, and entered as a scope, though an operator name never serves as one. Inside, FUNCTION and SUBROUTINE start prototypes `P`, prefixes are skipped as words, type specifiers are skipped (for typed functions), and every other statement, MODULE PROCEDURE lists included, is skipped, up to END.
+- **FTN-16 Enums.** ENUM `[, bind(c)] [kind] [::] [name]`: tagged `E`, named or anonymous, then entered after the rest of its statement is read. Type declarations inside, ENUMERATOR ones in particular, declare enumerators `N`, up to END. ENUMERATOR outside an enum declares variables.
+- **FTN-17 DEC structures.** STRUCTURE `[/name/] [field names]`: a type `t`, named or anonymous (with the kind index of components, 06), and its field names on that line as components `k`. Fields: type declarations, nested structures, and UNION blocks of MAP blocks of fields, each up to its END. RECORD `/s/ name` declares `name`.
+- **FTN-18 COMMON and NAMELIST.** Each `/name/` with an identifier is tagged `c` or `n`, and each identifier member is a local `L`, in any unit; array bounds are skipped. A blank common `//` or a COMMON without slashes tags only the members.
+- **FTN-19 Subprograms and main programs.** PROGRAM, FUNCTION or SUBROUTINE, then a name (identifier or keyword) tagged `p`, `f` or `s`, or `P` when any enclosing unit is an interface. A subroutine's or prototype's argument list is read before the tag is made and the unit entered, so the line end after it is read, and a label on the next line tagged, in the enclosing scope; a function's arguments are read after. Without a name, the unit is entered with no tag (entities in it are `v`). Then the specification part, the execution part, a CONTAINS part, and the END statement.
+- **FTN-20 Execution part.** Statements are skipped one by one; ENTRY is tagged and prefix words are skipped. It ends at CONTAINS, FUNCTION or SUBROUTINE starting a statement, and at END unless the word after END is ASSOCIATE, BLOCK, DO, ENUM, FORALL, IF, SELECT or WHERE: **any other END (`end critical`, `end team`, `end file`) ends the unit**.
+- **FTN-21 CONTAINS part** (internal and module subprograms). Read token by token, not by statement: FUNCTION or SUBROUTINE anywhere starts a subprogram, a type specifier is skipped as one (so TYPE not followed by `(` starts a type definition), END stops, and any other token is skipped. Unknown prefixes such as `impure` or `module` are thus harmless here.
+- **FTN-22 Modules.** MODULE then a name (identifier or keyword), tagged `m`. SUBMODULE then `(parent)`, which must be identifiers and colons with at least one of them, or the statement is skipped; then the name, tagged `S`. Then the specification part, a CONTAINS part, then every statement up to the first END, which ends the module. Since MODULE always starts a module at the top level, a stray `module function f` makes a module named `function`.
+- **FTN-23 Block data.** BLOCK, then DATA and a name (an identifier) tagged `b`; the unit is entered with or without it. Then the specification part, and statements up to END. `blockdata` joined is an identifier.
+- **FTN-6 Entity kinds** [S][V]. The kind of an entity in a type declaration depends only on the innermost unit:
+
+  | Innermost unit | Entity kind |
   |---|---|
   | module or submodule | `v` |
   | type or structure | `M` if the statement started with `procedure`, `final` or `generic`, else `k` |
   | function, subroutine or prototype | `L` |
   | enum | `N` |
-  | anything else | `v` |
+  | anything else (program, block data, a unit without a tag, none) | `v` |
 
-  - Interface bodies are `P`.
-  - Common blocks are `c`; their members are `L`.
-  - Labels are `l`.
-  - Not tagged: statement functions, `result()`, `use`, `module procedure` lists, BLOCK declarations, construct names.
+  - Not tagged: statement functions, `result()`, `use`, `module procedure` lists, BLOCK declarations (they are in the execution part), `associate` names, construct names, `data`, `equivalence`.
 
 **Fields and patterns**
 - **FTN-7 Scope and `file:`** [V]:
-  - Scope is `<kind>:<immediate named ancestor>`, unqualified: `module`, `submodule`, `program`, `subroutine`, `function`, `prototype`, `interface`, `type`, `enum`, `blockData`. Disabled kinds still supply scope.
-  - Operator-interface and keyword-named units do not become scope.
+  - The scope is the innermost enclosing unit that was tagged (its kind enabled or not) and whose name is an identifier: `<kind>:<name>`, unqualified. Scope kinds: `module`, `submodule`, `program`, `subroutine`, `function`, `prototype`, `interface`, `type`, `enum`, `blockData`.
+  - Operator interfaces and **subprograms named by a keyword** (`function sequence`) do not serve as scopes, though they still decide entity kinds (FTN-6) and prototypes (FTN-19).
+  - A label takes the scope current when it is read: the first label of a subroutine is outside it (FTN-19), and one on the line after an END that ends a unit is inside that unit.
   - `file:` only on `l` and `L`. No typeref.
 - **FTN-8 Patterns and excmd** [V]:
   - Every tag except labels is truncated after the last occurrence of its name (OUT-4); labels use the full line.
   - **`c` uses a line-number address `N;"`** (`lineNumberEntry`).
-  - The pattern line is the physical line holding the name's first character.
+  - The pattern line is the physical line holding the token's first character (FTN-4), which may be a continuation line.
+  - Names keep their case. A tag with an empty name is dropped.
 - **FTN-9 Anonymous names** [S][V]:
-  - Kind indices: b00 c01 e02 E03 f04 i05 k06 l07 L08 m09 M0a n0b N0c p0d P0e s0f t10 v11 S12. A nested DEC structure is named with 06.
-  - The counter carries over from a failed fixed pass.
+  - Kind indices: b00 c01 e02 E03 f04 i05 k06 l07 L08 m09 M0a n0b N0c p0d P0e s0f t10 v11 S12. An anonymous DEC structure is named with 06.
+  - The counter advances for every anonymous interface, enum and structure, even when its kind is disabled, and carries over from a failed fixed pass.
 - **FTN-10 Preprocessor lines and INCLUDE** [V]: `#` lines are comments, both `#if` branches are parsed, and `INCLUDE` is not followed.
 
 ### 1.7 Fields
