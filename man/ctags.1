@@ -1,0 +1,277 @@
+.TH CTAGS 1 2026-10-21 quicktags
+.SH NAME
+ctags \- generate tags files for C, C++, and Fortran
+.SH SYNOPSIS
+.B ctags
+.RI [ options ]
+.RI [ file .\|.\|.]
+.SH DESCRIPTION
+.B ctags
+writes a tags file indexing the definitions in C, C++, and Fortran
+sources, for Vim and other editors to jump to them.
+It is quicktags, a fast replacement for Universal Ctags 6.2.1, whose
+options it takes and whose tags files it matches, except where those
+are wrong.
+.PP
+Each
+.I file
+is tagged by its extension, and each directory is tagged recursively.
+Files without an extension of a known language are skipped, and so are
+version control directories and build products, such as
+.B .git
+and
+.BR *.o .
+With no
+.I file
+and
+.BR \-R ,
+the current directory is tagged.
+Files are tagged in parallel, and the output does not depend on the
+number of threads.
+.PP
+The tags file is written as
+.BR tags ,
+sorted, with a short header of pseudo-tags.
+Each tag gives its name, its file, a search pattern for its line, and
+fields: its kind, its line number, its enclosing scope, its type, and
+whether it is visible only in its file.
+The file is replaced at once when complete, so an editor never reads a
+partial one, and a file that is not a tags file is never overwritten.
+.SH OPTIONS
+.SS Input
+.TP
+.BR \-R ", " \-\-recurse [ =yes | no ]
+With no
+.IR file ,
+tag the current directory.
+Directories are always tagged recursively.
+.TP
+.BI \-L " file"
+Also tag the files named by
+.IR file ,
+one per line, or by standard input for
+.BR \- .
+Blank lines and lines starting with
+.B #
+are skipped, and lines starting with
+.B \-
+are options.
+.TP
+.BI \-\-exclude= pattern \fR|\fB@ file
+Skip files and directories whose name or path matches the shell
+.IR pattern ,
+or any pattern listed in
+.IR file .
+An empty value clears the list, including the default exclusions.
+.TP
+.BI \-\-exclude\-exception= pattern \fR|\fB@ file
+Tag matching names even though excluded.
+.TP
+.B \-\-links=no
+Skip symbolic links to files.
+Links to directories are always skipped.
+.TP
+.BI \-\-options= file
+Read options from
+.IR file ,
+one per line, or from the
+.B *.ctags
+files in a directory.
+.B NONE
+does nothing: no option files are ever read implicitly.
+.SS Languages
+.TP
+.BR \-\-languages= [ + | \- ] \fIlist\fR
+Tag only the languages listed, of
+.BR C ,
+.BR C++ ,
+and
+.BR Fortran ,
+or add or remove them.
+.TP
+.BI \-\-language\-force= language
+Tag every file as
+.IR language .
+.TP
+.BI \-\-langmap= language : map\fR[\fB,\fR.\|.\|.]
+.TQ
+.BR \-\-map\- \fIlanguage\fR=[ + | \- ] \fImap\fR
+Choose the files of a language by extensions such as
+.B .c.h
+and patterns such as
+.BR (*.x) ;
+a leading
+.B +
+adds to the defaults.
+For example,
+.B \-\-langmap=c:+.h
+tags
+.B .h
+files as C instead of C++.
+.TP
+.BR \-h " [" + "]\fIextensions\fR|" default
+The extensions of header files, such as
+.BR .h.hpp ,
+whose tags are never file-scoped.
+.TP
+.BR \-\-kinds\- \fIlanguage\fR=[ + | \- ] \fIkinds\fR
+Enable or disable kinds of tags, as letters or
+.BI { name }\fR.
+.B \-\-help
+lists the kinds, and which are enabled by default.
+For example,
+.B \-\-kinds\-C=+p
+adds prototypes.
+The older
+.BI \-\- language \-kinds=
+is the same.
+.TP
+.BR \-I " \fIlist\fR|" @\fIfile\fR | \-
+Identifiers for the C and C++ parser to ignore:
+.I X
+drops
+.IR X ,
+.IB X +
+drops it and the parenthesized arguments after it, and
+.IB X = Y
+and
+.IB X += Y
+replace them with
+.IR Y .
+Useful for macros that confuse parsing, such as
+.B __init
+or
+.BR EXPORT_SYMBOL+ .
+.SS Output
+.TP
+.BR \-f " " \fIfile\fR ", " \-o " " \fIfile
+Write to
+.IR file ,
+or to standard output for
+.BR \- ,
+without pseudo-tags.
+.TP
+.BR \-a ", " \-\-append [ =yes | no ]
+Add to an existing tags file, replacing the tags of the files tagged
+again.
+.TP
+.BR \-u ", " \-\-sort=yes | no | foldcase
+Sort the tags, ignoring case with
+.BR foldcase ,
+or leave them in the order found, as
+.B \-u
+does.
+.TP
+.BR \-e ", " \-\-output\-format=etags
+Write an Emacs
+.B TAGS
+file instead.
+.TP
+.B \-\-output\-format=e\-ctags
+Write Exuberant Ctags' variant of the format.
+.TP
+.BR \-\-format=1 | 2
+Format 1 writes no fields.
+.TP
+.BR \-n ", " \-N ", " \-\-excmd=number | pattern | mixed | combine
+Address tags by line number, by search pattern, or by both.
+The default, mixed, uses patterns except for Fortran common blocks.
+.TP
+.BI \-\-pattern\-length\-limit= n
+Cut patterns at
+.I n
+bytes, or never for 0 (default 96).
+.TP
+.BR \-\-tag\-relative [ =yes | no | always | never ]
+Name files relative to the directory of the tags file, or absolutely
+for
+.BR never .
+.SS Extras and fields
+.TP
+.BR \-\-extras= [ + | \- ] \fIextras\fR
+Enable or disable extra tags:
+.B q
+also tags C and C++ names qualified by their scope, such as
+.BR ns::Class::f ,
+for jumping to a member by its full name;
+.B f
+tags each file by its name;
+.B F
+includes tags visible only in their file;
+.B p
+writes the pseudo-tags.
+.B F
+and
+.B p
+are enabled by default.
+.TP
+.BR \-\-fields= [ + | \- ] \fIfields\fR
+Choose the fields written, as letters or
+.BI { name }\fR.
+The default is
+.BR fknst :
+the file scope, kind, line, scope, and type.
+.B +iaS
+adds base classes, access, and signatures, as completion plugins use.
+.B \-\-list\-fields
+lists them all.
+.SS Other
+.TP
+.BR \-\-list\-languages ", " \-\-list\-kinds [ =\fIlanguage\fR] ", " \-\-list\-kinds\-full [ =\fIlanguage\fR] ", " \-\-list\-extras ", " \-\-list\-fields
+List these as Universal Ctags does.
+.TP
+.BI \-\-jobs= n
+Use
+.I n
+threads, or one per processor for 0, the default.
+.TP
+.B \-\-version
+Show the version.
+.TP
+.B \-\-help
+Show the options and the kinds.
+.PP
+Universal Ctags' other options are accepted where they would change
+nothing here, as are options naming its other languages.
+Those that would change the tags, such as
+.B \-\-regex\-C
+or
+.BR \-D ,
+are refused.
+.SH FILES
+.TP
+.B tags
+The default output.
+.TP
+.B TAGS
+The default output with
+.BR \-e .
+.SH EXIT STATUS
+0 on success, including when some inputs could not be read, 1 on an
+error, and 2 when out of memory.
+.SH EXAMPLES
+.nf
+ctags \-R
+ctags \-\-kinds\-C=+p \-f tags.local src
+ctags \-R \-\-extras=+q \-\-fields=+iaS \-\-exclude=build
+ctags \-a src/main.c
+git ls\-files | ctags \-L \-
+ctags \-e \-R
+.fi
+.SH NOTES
+Each tag also carries a
+.B line:
+field, which Universal Ctags writes only with
+.BR \-\-fields=+n ,
+so that an editor starts its search at the tag's line.
+Lines end with a line feed, also on Windows.
+.PP
+Files larger than 64 MiB are skipped with a warning, and blocks and
+Fortran units nested more than 1024 deep are read as part of the
+construct around them.
+.PP
+Where the output departs from Universal Ctags, and why, is described in
+.B docs/spec.md
+in the source.
+.SH SEE ALSO
+.BR vim (1)
