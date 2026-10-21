@@ -100,7 +100,7 @@ apply.
 - **DISC-3 [V][S] Exclusion** (`options.c isExcludedFile`, `strlist.c`).
   - Two lists of patterns: `--exclude`, which starts as the default list, and `--exclude-exception`, which starts empty. The default list:
     `*.a *.class *.dll *.exe *.gcda *.gcno *.lib *.o *.obj *.pyc *.pyo *.so *~ .*.swp .DS_Store .arch-ids .arch-inventory .bzr .bzrignore .cvsignore .deps .dvi .git .gitattributes .gitignore .hg .hgignore .svn BitKeeper CVS EIFGEN PENDING RCS RESYNC SCCS _darcs autom4te.cache {arch}`
-  - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
+  - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows; here `No such file or directory`). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
   - A path is excluded when its base name, or else the whole path as constructed (DISC-2), matches an `--exclude` pattern, and neither the base name nor the path matches an exception. On Windows, `\` in the path is taken as `/`, and the pattern and the path are uppercased before matching.
   - Matching is gnulib's `fnmatch(pattern, name, 0)` (DISC-8), so `*` and `?` match `/`, and a leading `.` is not special.
   - When (DISC-1): before anything else, unless any exception is given, an excluded entry is dropped, so a missing file that is excluded gets no warning, and an excluded directory is not descended. A regular file is checked again, now with the exceptions, just before it is parsed. Directories are checked only by the first step, so **[V] Bug:** with any exception given, excluded directories are walked: `--exclude=sub --exclude-exception=nothing -R` tags `sub/s.c` and `sub/deep/d.c`.
@@ -638,7 +638,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -845,8 +845,9 @@ Decided for this program, deliberately different from Universal Ctags.
   grammar and messages (section 1.12). Those that act here are `-R`,
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
-  `--file-scope`, `--file-tags`), `--options`, the listings (OPT-15),
-  `--version`, `--help`, and this program's `--jobs`. The others are
+  `--file-scope`, `--file-tags`), `--options`, `--exclude`,
+  `--exclude-exception`, the listings (OPT-15), `--version`, `--help`,
+  and this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have

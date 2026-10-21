@@ -191,14 +191,17 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     ctx.os  = os;
     ctx.opt = &opt;
 
-    // The arguments are the roots of the work
+    // The arguments are the roots of the work, or with none, "." itself,
+    // which is not checked for exclusion (DISC-1)
     iz    nroots = 0;
     b32   anydir = 0;
     Item *first  = 0;
     Item *last   = 0;
-    for (iz i = 0; i < opt.files.len; i++) {
-        Str path = opt.files[i];
-        if (excluded(path, opt.windows)) {
+    b32   dot    = !opt.files.len && !opt.listfile.data;
+    for (iz i = 0; i < opt.files.len+dot; i++) {
+        Str path = dot ? Str(".") : opt.files[i];
+        Str base = basename(path, opt.windows);
+        if (!dot && excludedearly(&opt, path, base)) {
             continue;
         }
         Stat  s  = os_stat(os, g, path);
@@ -210,7 +213,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
             anydir = 1;
         } else if (s.type == STAT_FILE) {
             Lang lang = detectlang(path, opt.windows);
-            if (lang.lang) {
+            if (lang.lang && !excludedlate(&opt, path, base)) {
                 it = newitem(&g, path, ITEM_FILE, lang);
             }
         }

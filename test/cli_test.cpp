@@ -250,12 +250,12 @@ static void test_cli(Test *t)
     }
 
     struct { Str args; i32 status; Str output, files, log; } opts[] = {
-        {"-R",               ARGS_OK, "tags", ".", ""},
+        {"-R",               ARGS_OK, "tags", "", ""},
         {"-Rf- x.c",         ARGS_OK, "-", "x.c", ""},
-        {"-R -f out.tags",   ARGS_OK, "out.tags", ".", ""},
+        {"-R -f out.tags",   ARGS_OK, "out.tags", "", ""},
         {"-o out a.c b.f",   ARGS_OK, "out", "a.c b.f", ""},
         {"-f /dev/stdout a", ARGS_OK, "-", "a", ""},
-        {"--recurse=yes",    ARGS_OK, "tags", ".", ""},
+        {"--recurse=yes",    ARGS_OK, "tags", "", ""},
         {"--recurse=OFF a",  ARGS_OK, "tags", "a", ""},
         {"--jobs=4 a",       ARGS_OK, "tags", "a", ""},
         {"-f a -f b x",      ARGS_OK, "b", "x",
@@ -447,10 +447,13 @@ static void test_cli(Test *t)
         {"--line-directives=no a", OK, ""},
         {"--line-directives a", FATAL, "ctags: --line-directives: not "
                                        "supported\n"},
-        {"--exclude=x a",      FATAL, "ctags: --exclude: not yet supported\n"},
-        {"--exclude= a",       FATAL, "ctags: --exclude: not yet supported\n"},
-        {"--exclude-exception=x a", FATAL,
-         "ctags: --exclude-exception: not yet supported\n"},
+        {"--exclude=x --exclude= --exclude=y a",         OK, ""},
+        {"--exclude-exception=x --exclude-exception= a", OK, ""},
+        {"--exclude=@nosuch a", FATAL, "ctags: cannot open \"nosuch\" : No "
+                                       "such file or directory\n"},
+        {"--exclude-exception=@nosuch a", FATAL, "ctags: cannot open "
+                                                 "\"nosuch\" : No such "
+                                                 "file or directory\n"},
         {"--file-tags a",      FATAL, "ctags: Warning: \"--file-tags\" option "
                                       "is obsolete; use \"--extras=+f\" "
                                       "instead\n"

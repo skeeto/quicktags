@@ -1,5 +1,16 @@
 // Discovery: paths, exclusions, languages, and whole runs
 
+// The names of the tags in output, in order, separated by spaces.
+static Str tagnames(Arena *a, Str out)
+{
+    Buf b(a, 64);
+    for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        if (b.len) putbyte(&b, ' ');
+        print(&b, cut(c.head, '\t').head);
+    }
+    return finish(&b);
+}
+
 static void test_walk(Test *t)
 {
     Arena a = t->perm;
@@ -166,8 +177,16 @@ static void test_walk(Test *t)
         {"notes~",        0, 1},
     };
     for (iz i = 0; i < countof(excl); i++) {
-        expect(t, excl[i].path, num(&a, excluded(excl[i].path, excl[i].windows)),
-               num(&a, excl[i].want));
+        Arena   tmp = a;
+        Options opt = {};
+        Parse   p   = {};
+        Buf     log(&tmp, 64);
+        opt.windows = excl[i].windows;
+        parseinit(&p, &opt, newos(&tmp), &tmp, &log);
+        Str path = excl[i].path;
+        Str base = basename(path, opt.windows);
+        expect(t, path, num(&tmp, excludedearly(&opt, path, base)),
+               num(&tmp, excl[i].want));
     }
 
     struct { Str path; i32 lang; b32 header; } langs[] = {
@@ -420,6 +439,74 @@ static void test_walk(Test *t)
         expect(t, "list out", r.out, "C\nC++ [disabled]\nFortran\n");
         expect(t, "list err", r.err, "ctags: Warning: Unknown language \"cpp\" "
                                      "in \"kinds-cpp\" option\n");
+    }
+
+    {
+        // Exclusions (DISC-3), as Universal Ctags makes them in this tree,
+        // where it runs on Windows, and by the same rules elsewhere
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "b.cpp",        "int b;\n");
+        vfsfile(os, "x.h",          "int h;\n");
+        vfsfile(os, "sub/s.c",      "int s;\n");
+        vfsfile(os, "sub/deep/d.c", "int d;\n");
+        vfsfile(os, "other/o.c",    "int o;\n");
+        vfsfile(os, "wild",         "sub\\deep\n  b.cpp  \n#a.c\n\n*.h\r\n");
+        Str all     = "a b d h o s";
+        Str nosuchw = "ctags: Warning: cannot open input file \"nosuch.c\" : "
+                      "No such file or directory\n";
+        struct { Str args; i32 windows; Str names, err; } cases[] = {
+            {"-R --exclude=sub",                      2, "a b h o",   ""},
+            {"-R --exclude=sub/deep",                 2, "a b h o s", ""},
+            {"-R --exclude=sub\\deep",                1, "a b h o s", ""},
+            {"-R --exclude=sub\\deep",                0, all,         ""},
+            {"-R --exclude=*/s.c",                    2, "a b d h o", ""},
+            {"-R --exclude=[ab].*",                   2, "d h o s",   ""},
+            {"-R --exclude=[!a].*",                   2, "a",         ""},
+            {"-R --exclude=s*",                       2, "a b h o",   ""},
+            {"-R --exclude=A.C",                      1, "b d h o s", ""},
+            {"-R --exclude=A.C",                      0, all,         ""},
+            {"-R --exclude= --exclude=a.c",           2, "b d h o s", ""},
+            {"--exclude=a.c a.c b.cpp",               2, "b",         ""},
+            {"--exclude=nosuch.c nosuch.c",           2, "",          ""},
+            {"-R --exclude=*.c --exclude-exception=s.c", 2, "b h s",  ""},
+            {"-R --exclude-exception=x --exclude=sub --exclude-exception=",
+             2, "a b h o", ""},
+            {"-R --exclude=@wild",                    2, "a b d o s", ""},
+            {"-R --exclude=./sub",                    2, all,         ""},
+            {"-R --exclude=./sub ./sub",              2, "",          ""},
+            {"--exclude=sub ./sub",                   2, "",          ""},
+            {"--exclude=sub/s.c ./sub",               2, "d s",       ""},
+            {"--exclude=./sub/s.c ./sub",             2, "d",         ""},
+            {"--exclude=.\\sub\\s.c ./sub",           1, "d",         ""},
+            {"--exclude=*b\\s.c .\\sub",              1, "d",         ""},
+            {"--exclude=SUB/DEEP sub",                1, "s",         ""},
+            {"--exclude=SUB/DEEP sub",                0, "d s",       ""},
+            {"-R --exclude=.*",                       2, all,         ""},
+            {"-R --exclude=.* .",                     2, "",          ""},
+            {"--exclude=.* ./sub sub",                2, "d s",       ""},
+
+            // Universal Ctags walks excluded directories, and checks
+            // missing files, once any exception is given
+            {"-R --exclude=sub --exclude-exception=nothing", 2, all, ""},
+            {"-R --exclude=sub --exclude-exception=s.c",     2, all, ""},
+            {"--exclude=nosuch.c --exclude-exception=zz nosuch.c", 2, "",
+             nosuchw},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            for (i32 w = 0; w < 2; w++) {
+                if (cases[i].windows!=2 && cases[i].windows!=w) {
+                    continue;
+                }
+                os->windows = w;
+                Str args = concat(&a, "-f - ", cases[i].args);
+                Str name = concat(&a, args, w ? Str(" (windows)") : Str(""));
+                Run r    = run(os, a, args);
+                expect(t, name, num(&a, r.status), "0");
+                expect(t, name, tagnames(&a, r.out), cases[i].names);
+                expect(t, name, r.err, cases[i].err);
+            }
+        }
     }
 
     {

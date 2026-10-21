@@ -97,27 +97,29 @@ static Str joinpath(Arena *a, Str dir, Str name, b32 windows)
     return concat(a, r, name);
 }
 
-// Universal Ctags' built-in exclusions, tried against the base name
-// and then the whole path, ignoring case on Windows.
-static b32 excluded(Str path, b32 windows)
+// Whether patterns match a path's base name, or else the whole path as
+// constructed (DISC-3).
+static b32 pathmatch(Slice<Glob> globs, Str path, Str base, b32 windows)
 {
-    static Str patterns[] = {
-        "*.a", "*.class", "*.dll", "*.exe", "*.gcda", "*.gcno", "*.lib",
-        "*.o", "*.obj", "*.pyc", "*.pyo", "*.so", "*~", ".*.swp",
-        ".DS_Store", ".arch-ids", ".arch-inventory", ".bzr", ".bzrignore",
-        ".cvsignore", ".deps", ".dvi", ".git", ".gitattributes",
-        ".gitignore", ".hg", ".hgignore", ".svn", "BitKeeper", "CVS",
-        "EIFGEN", "PENDING", "RCS", "RESYNC", "SCCS", "_darcs",
-        "autom4te.cache", "{arch}",
-    };
-    Str base = basename(path, windows);
-    for (iz i = 0; i < countof(patterns); i++) {
-        if (globmatch(patterns[i], base, windows) ||
-            globmatch(patterns[i], path, windows)) {
-            return 1;
-        }
-    }
-    return 0;
+    return globsmatch(globs, base, windows) ||
+           (base.len!=path.len && globsmatch(globs, path, windows));
+}
+
+// Whether an entry is excluded before it is examined, which no entry is
+// while any exception is given (DISC-1).
+static b32 excludedearly(Options *opt, Str path, Str base)
+{
+    return !opt->exceptions.len &&
+           pathmatch(opt->excludes, path, base, opt->windows);
+}
+
+// Whether a regular file is excluded once examined: only exceptions
+// make this differ from the early check.
+static b32 excludedlate(Options *opt, Str path, Str base)
+{
+    return opt->exceptions.len &&
+           pathmatch(opt->excludes, path, base, opt->windows) &&
+           !pathmatch(opt->exceptions, path, base, opt->windows);
 }
 
 struct Lang {
@@ -255,7 +257,7 @@ static void visitdir(Worker *w, Item *it)
     for (Dirent *d = l.head; d; d = d->next) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
-        if (excluded(path, windows)) {
+        if (excludedearly(c->opt, path, d->name)) {
             w->perm.beg = mark;
             continue;
         }
@@ -266,7 +268,7 @@ static void visitdir(Worker *w, Item *it)
             if (!dlast) dlast = n;
         } else {
             Lang lang = detectlang(path, windows);
-            if (!lang.lang) {
+            if (!lang.lang || excludedlate(c->opt, path, d->name)) {
                 w->perm.beg = mark;
                 continue;
             }

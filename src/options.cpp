@@ -10,36 +10,36 @@ enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
-    Str        output;       // "-" is standard output
-    Slice<Str> files;
-    Kinds      kinds;
-    b32        filekind;     // the file kind, F, which all languages share
-    u32        extras;       // EXTRA_*
-    b32        pseudoset;    // an option set the pseudo extra
-    u64        fields;       // one bit per FIELD_*
-    i32        jobs;         // 0: one per processor
-    i32        excmd;        // EXCMD_*
-    i32        sort;         // SORT_*
-    i32        format;       // tags file format, 2 by default
-    u32        patmax;       // pattern length limit, 0 for none
-    i32        writer;       // WRITER_*
-    i32        tagrelative;  // TREL_*
-    i32        force;        // forced language, LANG_NONE for none
-    u32        langs;        // enabled languages, one bit per LANG_*
-    Slice<Str> excludes;     // --exclude values, as given
-    Slice<Str> exceptions;   // --exclude-exception values, as given
-    Slice<Str> ignores;      // -I lists, as given
-    Str        listfile;     // -L, null for none
-    Str        print;        // for ARGS_EXIT: what to print
-    b32        append;
-    b32        recurse;
-    b32        nolinks;      // --links=no
-    b32        mapped;       // --langmap or --map-LANG changed our maps
-    b32        headers;      // -h changed the header extensions
-    b32        fieldsreset;  // --fields reset them: no fixed-field warnings
-    b32        stats;
-    b32        nofast;
-    b32        windows;      // '\' and ':' separate paths
+    Str         output;       // "-" is standard output
+    Slice<Str>  files;
+    Kinds       kinds;
+    b32         filekind;     // the file kind, F, which all languages share
+    u32         extras;       // EXTRA_*
+    b32         pseudoset;    // an option set the pseudo extra
+    u64         fields;       // one bit per FIELD_*
+    i32         jobs;         // 0: one per processor
+    i32         excmd;        // EXCMD_*
+    i32         sort;         // SORT_*
+    i32         format;       // tags file format, 2 by default
+    u32         patmax;       // pattern length limit, 0 for none
+    i32         writer;       // WRITER_*
+    i32         tagrelative;  // TREL_*
+    i32         force;        // forced language, LANG_NONE for none
+    u32         langs;        // enabled languages, one bit per LANG_*
+    Slice<Glob> excludes;     // --exclude patterns, the defaults first
+    Slice<Glob> exceptions;   // --exclude-exception patterns
+    Slice<Str>  ignores;      // -I lists, as given
+    Str         listfile;     // -L, null for none
+    Str         print;        // for ARGS_EXIT: what to print
+    b32         append;
+    b32         recurse;
+    b32         nolinks;      // --links=no
+    b32         mapped;       // --langmap or --map-LANG changed our maps
+    b32         headers;      // -h changed the header extensions
+    b32         fieldsreset;  // --fields reset them: no fixed-field warnings
+    b32         stats;
+    b32         nofast;
+    b32         windows;      // '\' and ':' separate paths
 };
 
 static Str usage =
@@ -934,6 +934,56 @@ static i32 paramopt(Parse *p, Str name, Str value)
 }
 
 
+// Exclusions
+
+// Universal Ctags' default exclusions (DISC-3).
+static Str defaultexcludes[] = {
+    "*.a", "*.class", "*.dll", "*.exe", "*.gcda", "*.gcno", "*.lib", "*.o",
+    "*.obj", "*.pyc", "*.pyo", "*.so", "*~", ".*.swp", ".DS_Store",
+    ".arch-ids", ".arch-inventory", ".bzr", ".bzrignore", ".cvsignore",
+    ".deps", ".dvi", ".git", ".gitattributes", ".gitignore", ".hg",
+    ".hgignore", ".svn", "BitKeeper", "CVS", "EIFGEN", "PENDING", "RCS",
+    "RESYNC", "SCCS", "_darcs", "autom4te.cache", "{arch}",
+};
+
+// --exclude and --exclude-exception: a pattern, with '\' as '/' on
+// Windows; "@FILE", the lines of a file as they are; or an empty value,
+// which empties the list.
+static i32 excludeopt(Parse *p, Slice<Glob> *list, Str value)
+{
+    if (!value.len) {
+        *list = {};
+        return ARGS_OK;
+    } else if (value[0] != '@') {
+        Str pat = value;
+        if (p->opt->windows) {
+            pat = clone(p->perm, value);
+            for (iz i = 0; i < pat.len; i++) {
+                pat[i] = pat[i]=='\\' ? (u8)'/' : pat[i];
+            }
+        }
+        *list = push(p->perm, *list, newglob(pat));
+        return ARGS_OK;
+    }
+
+    Str  path = cuthead(value, 1);
+    Read r    = os_read(p->os, p->perm, path, (iz)1<<30);
+    if (r.err) {
+        return fatal(p, "cannot open \"", path, "\" : ", errstr(r.err));
+    }
+    Cut c = {};
+    c.tail = r.data;
+    while (c.tail.len) {
+        c = cut(c.tail, '\n');
+        Str pat = trimright(c.head);
+        if (pat.len) {
+            *list = push(p->perm, *list, newglob(pat));
+        }
+    }
+    return ARGS_OK;
+}
+
+
 // Option files
 
 static i32 parseloop(Parse *, Str *args, iz nargs);
@@ -1423,13 +1473,8 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         opt->append = b;
         return ARGS_OK;
 
-    case OPT_EXCLUDE:
-        opt->excludes = push(p->perm, opt->excludes, value);
-        return ARGS_OK;
-
-    case OPT_EXCEPTION:
-        opt->exceptions = push(p->perm, opt->exceptions, value);
-        return ARGS_OK;
+    case OPT_EXCLUDE:   return excludeopt(p, &opt->excludes, value);
+    case OPT_EXCEPTION: return excludeopt(p, &opt->exceptions, value);
 
     case OPT_EXCMD:
         switch (value.len ? value[0] : 0) {
@@ -1722,6 +1767,9 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     opt->format = 2;
     opt->patmax = 96;  // as Universal Ctags
     opt->langs  = LANGS_ALL;
+    for (iz i = 0; i < countof(defaultexcludes); i++) {
+        opt->excludes = push(perm, opt->excludes, newglob(defaultexcludes[i]));
+    }
 }
 
 // Parse arguments, or the lines of an option file: options, and files
@@ -1802,11 +1850,8 @@ static i32 parsefinish(Parse *p)
     if (!opt->output.data) {
         opt->output = opt->writer==WRITER_ETAGS ? Str("TAGS") : Str("tags");
     }
-    if (!opt->files.len && !opt->listfile.data) {
-        if (!opt->recurse) {
-            return fatal(p, "No files specified. Try \"ctags --help\".");
-        }
-        opt->files = push(p->perm, opt->files, Str("."));
+    if (!opt->files.len && !opt->listfile.data && !opt->recurse) {
+        return fatal(p, "No files specified. Try \"ctags --help\".");
     }
     if (opt->extras & EXTRA_LINKNAME) {
         return unsupported(p, "--extras-Fortran=+{linkName}");
@@ -1825,8 +1870,6 @@ static i32 parsefinish(Parse *p)
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
-    if (opt->excludes.len)            return notyet(p, "--exclude");               // M2a
-    if (opt->exceptions.len)          return notyet(p, "--exclude-exception");     // M2a
     if (opt->listfile.data)           return notyet(p, "-L");                      // M2a
     if (opt->nolinks)                 return notyet(p, "--links");                 // M2a
     if (opt->langs != LANGS_ALL)      return notyet(p, "--languages");             // M2b
