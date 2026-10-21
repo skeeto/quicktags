@@ -281,6 +281,17 @@ static b32 linked(FindData *fd)
            fd->reparsetag&IO_REPARSE_TAG_NAME_SURROGATE;
 }
 
+// A file time, in 100 ns ticks since 1601 UTC, as seconds since 1970,
+// rounded down. On i686 the division is libgcc's, linked statically.
+static i64 unixtime(Filetime t)
+{
+    u64 ticks = (u64)t.hi<<32 | t.lo;
+    u64 epoch = 116444736000000000;
+    u64 tick  = 10000000;
+    return ticks>=epoch ? (i64)((ticks - epoch)/tick)
+                        : -(i64)((epoch - ticks + tick - 1)/tick);
+}
+
 static Stat os_stat(Os *os, Arena scratch, Str path)
 {
     Stat           r = {};
@@ -304,8 +315,9 @@ static Stat os_stat(Os *os, Arena scratch, Str path)
     } else if (a.attr & FILE_ATTRIBUTE_DEVICE) {
         r.type = STAT_OTHER;
     } else {
-        r.type = STAT_FILE;
-        r.size = (i64)((u64)a.sizehi<<32 | a.sizelo);
+        r.type  = STAT_FILE;
+        r.size  = (i64)((u64)a.sizehi<<32 | a.sizelo);
+        r.mtime = unixtime(a.mtime);
     }
     return r;
 }
@@ -358,6 +370,7 @@ static Listing os_list(Os *os, Arena *a, Str path)
         Dirent *d = alloc<Dirent>(a);
         d->name   = fromwide(a, name, namelen);
         d->size   = (i64)((u64)fd.sizehi<<32 | fd.sizelo);
+        d->mtime  = unixtime(fd.mtime);
         d->isdir  = isdir;
         d->islink = linked(&fd);
         *tail = d;

@@ -9,6 +9,7 @@ struct VNode {
     VNode **tail;   // where the next child goes
     Str     name;
     Str     data;
+    i64     mtime;
     b32     isdir;
     b32     islink;  // a link to a file, which data stands for
     i32     err;     // reading it fails so: OSERR_*
@@ -23,6 +24,7 @@ struct Os {
     Buf    err;      // fd 2
     Buf    file;     // fd 3, until closed
     Str    created;  // fd 3's path
+    i64    mtime;    // given to files as they are added or replaced
     u64    seed;     // nonzero: workers take turns at random
     i32    ncpu;
     i32    nworked;  // workers that tagged a file, in the last run
@@ -151,11 +153,13 @@ static VNode *vfsfind(Os *os, Str path, Arena *a)
     return n;
 }
 
-// Add a file to the file system, with its directories.
+// Add a file to the file system, with its directories, modified at
+// os->mtime.
 static void vfsfile(Os *os, Str path, Str data)
 {
     VNode *n = vfsfind(os, path, os->a);
-    n->data = clone(os->a, data);
+    n->data  = clone(os->a, data);
+    n->mtime = os->mtime;
 }
 
 // Add a link to a file, standing for the file with its contents.
@@ -212,6 +216,7 @@ static Stat os_stat(Os *os, Arena, Str path)
     } else {
         r.type   = STAT_FILE;
         r.size   = n->data.len;
+        r.mtime  = n->mtime;
         r.islink = n->islink;
     }
     return r;
@@ -230,6 +235,7 @@ static Listing os_list(Os *os, Arena *a, Str path)
         Dirent *d = alloc<Dirent>(a);
         d->name   = clone(a, c->name);
         d->size   = c->data.len;
+        d->mtime  = c->mtime;
         d->isdir  = c->isdir;
         d->islink = c->islink;
         *tail = d;
