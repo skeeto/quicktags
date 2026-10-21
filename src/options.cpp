@@ -66,9 +66,16 @@ struct Parse {
     Os        *os;
     Arena     *perm;
     Buf       *log;
+    Str        optfile;   // the option file being read, null for arguments
+    Map<b32>  *read;      // option files read, by path
+    i32        depth;     // option files being read
     Slice<Str> langdefs;  // languages defined by --langdef
     b32        seenf;     // -f or -o given
 };
+
+enum : i32 { OPTFILEDEPTH = 16 };
+
+static Str errstr(i32 err);  // walk.cpp
 
 
 // Messages
@@ -821,6 +828,85 @@ static i32 paramopt(Parse *p, Str name, Str value)
 }
 
 
+// Option files
+
+static i32 parseloop(Parse *, Str *args, iz nargs);
+
+// Read an option file, one option per line, and blank lines and those
+// starting with '#' skipped. A file already read is skipped.
+static i32 readoptions(Parse *p, Str path)
+{
+    b32 *seen = upsert(&p->read, path, p->perm);
+    if (*seen) {
+        return ARGS_OK;
+    }
+    *seen = 1;
+    if (p->depth == OPTFILEDEPTH) {
+        return fatal(p, "too many nested option files: \"", path, "\"");
+    }
+
+    Read r = os_read(p->os, p->perm, path, (iz)1<<30);
+    if (r.err) {
+        return fatal(p, "cannot open option file \"", path, "\" : ",
+                     errstr(r.err));
+    }
+    Slice<Str> lines = splitlines(p->perm, r.data, LINES_TRIM|LINES_COMMENTS);
+
+    Str outer = p->optfile;
+    p->optfile = path;
+    p->depth++;
+    i32 status = parseloop(p, lines.data, lines.len);
+    p->depth--;
+    p->optfile = outer;
+    return status;
+}
+
+// --options=FILE|DIR|NONE: read a file, or a directory's *.ctags files
+// in name order. NONE, which Universal Ctags takes only before other
+// options, reads nothing, as no option files are read by default here.
+static i32 optionsopt(Parse *p, Str name, Str value)
+{
+    if (!value.len) {
+        return fatal(p, "no option file supplied for \"", name, "\"");
+    } else if (value == "NONE") {
+        return ARGS_OK;
+    }
+
+    Stat s = os_stat(p->os, *p->perm, value);
+    if (s.type == STAT_NONE) {
+        return fatal(p, "cannot stat \"", value, "\" : ", errstr(s.err));
+    } else if (s.type != STAT_DIR) {
+        return readoptions(p, value);
+    }
+
+    Listing l = os_list(p->os, p->perm, value);
+    if (l.err) {
+        return fatal(p, "cannot open option directory \"", value, "\" : ",
+                     errstr(l.err));
+    }
+    Slice<Str> names = {};
+    for (Dirent *d = l.head; d; d = d->next) {
+        Str n = d->name;
+        if (!d->isdir && n.len>6 && n[0]!='.' && endswith(n, ".ctags")) {
+            names = push(p->perm, names, n);
+        }
+    }
+    sort(names.data, names.len, strless, *p->perm);
+
+    u8  last = value[value.len-1];
+    b32 sep  = last=='/' || (p->opt->windows && last=='\\');
+    for (iz i = 0; i < names.len; i++) {
+        Str path = concat(p->perm, value, sep ? Str("") : Str("/"));
+        path = concat(p->perm, path, names[i]);
+        i32 r = readoptions(p, path);
+        if (r) {
+            return r;
+        }
+    }
+    return ARGS_OK;
+}
+
+
 // Long options
 
 static void etagsmode(Options *opt)
@@ -834,9 +920,9 @@ enum : i32 {
     OPT_APPEND, OPT_EXCLUDE, OPT_EXCEPTION, OPT_EXCMD, OPT_EXTRAS,
     OPT_FIELDS, OPT_FILESCOPE, OPT_FILETAGS, OPT_FORMAT, OPT_HELP, OPT_IF0,
     OPT_JOBS, OPT_FORCE, OPT_LANGUAGES, OPT_LANGDEF, OPT_LANGMAP,
-    OPT_LINEDIRS, OPT_LINKS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
-    OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
-    OPT_VERSION, OPT_STATS, OPT_NOFAST,
+    OPT_LINEDIRS, OPT_LINKS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT,
+    OPT_QUIET, OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS,
+    OPT_VERBOSE, OPT_VERSION, OPT_STATS, OPT_NOFAST,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
@@ -861,6 +947,7 @@ static struct { Str name; i32 id; } longopts[] = {
     {"langmap",              OPT_LANGMAP},
     {"line-directives",      OPT_LINEDIRS},
     {"links",                OPT_LINKS},
+    {"options",              OPT_OPTIONS},
     {"output-format",        OPT_OUTFORMAT},
     {"pattern-length-limit", OPT_PATLIMIT},
     {"quiet",                OPT_QUIET},
@@ -1041,6 +1128,9 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
     case OPT_LINKS:
         opt->nolinks = !b;
         return ARGS_OK;
+
+    case OPT_OPTIONS:
+        return optionsopt(p, name, value);
 
     case OPT_OUTFORMAT:
         if (!value.len) {
@@ -1247,14 +1337,19 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     opt->langs  = LANGS_ALL;
 }
 
-// Parse arguments: options, and files to tag.
+// Parse arguments, or the lines of an option file: options, and files
+// to tag, though a file in an option file ends it.
 static i32 parseloop(Parse *p, Str *args, iz nargs)
 {
     for (iz i = 0; i < nargs; i++) {
         Str a = args[i];
         i32 r = ARGS_OK;
 
-        if (!startswith(a, "-")) {
+        if (!startswith(a, "-") && p->optfile.data) {
+            warning(p, "Ignoring non-option in ", p->optfile);
+            return ARGS_OK;
+
+        } else if (!startswith(a, "-")) {
             p->opt->files = push(p->perm, p->opt->files, a);
 
         } else if (startswith(a, "--")) {
