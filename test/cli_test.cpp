@@ -161,8 +161,8 @@ static void test_cli(Test *t)
         {"--extras=+q x.c",        "{anonymous}Fpqs", ""},
         {"--extras=q x.c",         "q", ""},
         {"--extras= x.c",          "", ""},
-        {"--extras=* x.c",         "{anonymous}Ffgpqrsz", ""},
-        {"--extras=*-p x.c",       "{anonymous}Ffgqrsz", ""},
+        {"--extras=* --kinds-C=-F x.c",   "{anonymous}Ffgpqrsz", ""},
+        {"--extras=*-p --kinds-C=-F x.c", "{anonymous}Ffgqrsz", ""},
         {"--extras=-F+q x.c",      "{anonymous}pqs", ""},
         {"--extras=+{qualified}-{anonymous} x.c", "Fpqs", ""},
         {"--extras=+{qual x.c",    "{anonymous}Fps", ""},
@@ -439,9 +439,25 @@ static void test_cli(Test *t)
         {"--exclude= a",       FATAL, "ctags: --exclude: not yet supported\n"},
         {"--exclude-exception=x a", FATAL,
          "ctags: --exclude-exception: not yet supported\n"},
-        {"--file-tags a",      OK,    "ctags: Warning: \"--file-tags\" option "
+        {"--file-tags a",      FATAL, "ctags: Warning: \"--file-tags\" option "
                                       "is obsolete; use \"--extras=+f\" "
+                                      "instead\n"
+                                      "ctags: --extras=+f: not yet supported\n"},
+        {"--file-tags=no a",   OK,    "ctags: Warning: \"--file-tags\" option "
+                                      "is obsolete; use \"--extras=-f\" "
                                       "instead\n"},
+        {"--extras=+f a",      FATAL, "ctags: --extras=+f: not yet supported\n"},
+        {"--extras=* a",       FATAL, "ctags: --extras=+f: not yet supported\n"},
+        {"--extra=+fq a",      FATAL, "ctags: Warning: --extra option is "
+                                      "obsolete; use --extras instead\n"
+                                      "ctags: --extras=+f: not yet supported\n"},
+        {"--extras-all=+{inputFile} a", FATAL,
+         "ctags: --extras=+f: not yet supported\n"},
+        {"--kinds-C=-F --extras=+f a", FATAL,
+         "ctags: --extras=+f: not yet supported\n"},
+        {"--extras=+f --kinds-python=-F a", OK, ""},
+        {"--extras=+f --kinds-all=-F a",    OK, ""},
+        {"--kinds-C=+F a",     OK,    ""},
         {"--__anything=x a",   OK,    ""},
 
         // Languages

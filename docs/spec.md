@@ -588,7 +588,7 @@ depends on how far the walk had read when the label was seen. Our
   - Macros and macro parameters never have one, nor does Fortran.
   - The scope type is read when the tag is committed, its name when it began; they agree everywhere here.
 - **EX-5 [S] pseudo.** Without it, no pseudo-tags are written. With it given explicitly, Universal Ctags also writes them to stdout.
-- **EX-6** `inputFile`, `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (file-kind entries with an `epoch` field, guest parsers, reference tags with roles, subparsers, empty names).
+- **EX-6** `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (guest parsers, reference tags with roles, subparsers, empty names). `inputFile`'s file-kind entries with an `epoch` field are not written yet (M7), so the extra is refused while it would write them (OPT-6).
 
 ### 1.12 Options
 
@@ -611,7 +611,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--regex-LANG`, `--mline-regex-LANG` and `--kinddef-LANG` for our languages; the Fortran extra `linkName` (`--extras-Fortran=+{linkName}`, also by `--extras-all=*`);
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**

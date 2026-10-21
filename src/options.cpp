@@ -1712,6 +1712,7 @@ static i32 parsefinish(Parse *p)
 
     // Parsed, but not yet implemented: each check goes when its
     // milestone lands
+    b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
     if (opt->writer == WRITER_ECTAGS) return notyet(p, "--output-format=e-ctags"); // M3a
     if (fieldschanged(opt->fields))   return notyet(p, "--fields");                // M3a
@@ -1721,6 +1722,7 @@ static i32 parsefinish(Parse *p)
     if (opt->tagrelative != TREL_NO)  return notyet(p, "--tag-relative");          // M3b
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
+    if (filetags)                     return notyet(p, "--extras=+f");             // M7
     if (opt->excludes.len)            return notyet(p, "--exclude");               // M2a
     if (opt->exceptions.len)          return notyet(p, "--exclude-exception");     // M2a
     if (opt->listfile.data)           return notyet(p, "-L");                      // M2a
