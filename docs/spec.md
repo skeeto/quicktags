@@ -726,6 +726,10 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X7** `#elifdef` and `#elifndef` act as `#elif`.
 - **X8** Conditionals nest 64 deep, and push and pop stay in step beyond.
 - **X9** A `??` that is not a trigraph is pushed back in order.
+- **X10** A macro parameter keeps its `macro:` scope when the macro is
+  not tagged, because its kind is disabled or (outside headers) the
+  fileScope extra is. Universal Ctags finds the scope through the
+  macro's tag, and so loses it.
 
 ### Parsing (after parity)
 

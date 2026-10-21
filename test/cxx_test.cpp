@@ -141,6 +141,19 @@ static TagCase ccases[] = {
      "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
      "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
      "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \n"},
+    {IMPROVED, "X10 macro parameters keep their scope", "x10.c",
+     "--kinds-C=+D --extras=-F",
+     "#define MAX(a, b) a\n",
+     "a\tx10.c\t/^#define MAX(a, b) a$/;\"\tD\tline:1\tmacro:MAX\n"
+     "b\tx10.c\t/^#define MAX(a, b) a$/;\"\tD\tline:1\tmacro:MAX\n",
+     "a\tx10.c\t/^#define MAX(a, b) a$/;\"\tD\tline:1\n"
+     "b\tx10.c\t/^#define MAX(a, b) a$/;\"\tD\tline:1\n"},
+    {IMPROVED, "X10 without the macro kind", "x10.h", "--kinds-C=-d+D",
+     "#define MAX(a, b) a\n",
+     "a\tx10.h\t/^#define MAX(a, b) a$/;\"\tD\tline:1\tmacro:MAX\n"
+     "b\tx10.h\t/^#define MAX(a, b) a$/;\"\tD\tline:1\tmacro:MAX\n",
+     "a\tx10.h\t/^#define MAX(a, b) a$/;\"\tD\tline:1\n"
+     "b\tx10.h\t/^#define MAX(a, b) a$/;\"\tD\tline:1\n"},
     {IMPROVED, "P3 macro type with a pointer", "p3.c", "",
      "STACK_OF(X509) *load_certs(const char *path) { return 0; }\n"
      "_Atomic(int) *counter(void) { return 0; }\n",
