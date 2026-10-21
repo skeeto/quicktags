@@ -1,6 +1,7 @@
 // Fuzz test layer for AFL++, over the in-memory file system: the first
-// byte picks a language and kinds, the rest is a file to tag. Undefined
-// behavior traps, and the output is checked for the format's invariants.
+// byte picks a language, kinds and -I macros, the rest is a file to tag.
+// Undefined behavior traps, and the output is checked for the format's
+// invariants.
 // $ afl-clang-fast++ -std=c++20 -g3 -fsanitize=undefined -fsanitize-trap -o fuzz main_fuzz.cpp
 // $ mkdir i && printf 'xint x;' >i/x && afl-fuzz -i i -o o ./fuzz
 // Without AFL++ it tags one input from standard input.
@@ -40,11 +41,13 @@ int main()
         Str kinds   = buf[0]&0x80 ? Str("--kinds-C=*") : Str("--kinds-C=+p");
         Str ckinds  = buf[0]&0x80 ? Str("--kinds-C++=*") : Str("--kinds-C++=+p");
         Str fkinds  = buf[0]&0x80 ? Str("--kinds-Fortran=*") : Str("--kinds-Fortran=+L");
+        Str macros  = buf[0]&0x40 ? Str("-Ix=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(")
+                                  : Str("-I-");
 
         Arena a  = {mem, mem+cap/2};
         Os   *os = newos(&a);
         vfsfile(os, name, {buf+1, len-1});
-        Str   args[] = {"ctags", kinds, ckinds, fkinds, "-f", "-", name};
+        Str   args[] = {"ctags", kinds, ckinds, fkinds, macros, "-f", "-", name};
         Arena m      = {mem+cap/2, mem+cap};
         if (ctags_main(os, m, args, countof(args))) {
             __builtin_trap();
