@@ -324,6 +324,17 @@ static TagCase cxxcases[] = {
      "v\tk.C\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
      "get\tk.C\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
      "v\tk.C\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+    {IMPROVED, "P4 macro as an access label", "p4.cpp", "",
+     "class Json {\n"
+     "JSON_PRIVATE_UNLESS_TESTED:\n"
+     "    int depth;\n"
+     "    void dump() {}\n"
+     "};\n",
+     "Json\tp4.cpp\t/^class Json {$/;\"\tc\tline:1\tfile:\n"
+     "depth\tp4.cpp\t/^    int depth;$/;\"\tm\tline:3\tclass:Json\ttyperef:typename:int\tfile:\n"
+     "dump\tp4.cpp\t/^    void dump() {}$/;\"\tf\tline:4\tclass:Json\ttyperef:typename:void\tfile:\n",
+     "Json\tp4.cpp\t/^class Json {$/;\"\tc\tline:1\tfile:\n"
+     "dump\tp4.cpp\t/^    void dump() {}$/;\"\tf\tline:4\tclass:Json\ttyperef:typename:void\tfile:\n"},
 };
 
 static void test_c(Test *t)

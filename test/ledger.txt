@@ -94,3 +94,11 @@
 
 @ corpus/llvm/llvm: P9, } static x; is file-scoped
 = 2 llvm/tools/llvm-exegesis/lib/SerialSnippetGenerator.cpp
+
+@ corpus/llama: P4, a lone IDENT: label no longer joins the next declaration
+= 15 vendor/nlohmann/json.hpp
+
+@ corpus/llvm/clang: P4, a lone IDENT: label no longer joins the next declaration
+= 2 clang/test/CodeGen/pgo-cold-function-coverage.c
+= 1 clang/test/Preprocessor/init-datetime-macros.c
+= 1 clang/test/Sema/cxx-as-c.c

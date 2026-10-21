@@ -1378,6 +1378,9 @@ static b32 parseblockinternal(Cxx *c, b32 closer, b32 exported)
                     tag->filescope = 1;
                     cxxcommit(c, tag);
                 }
+                // Departure P4: a label, or a macro used as an access
+                // specifier, is not part of the next declaration
+                chainclear(&c->pool, c->chain);
             }
             break;
 
