@@ -441,6 +441,22 @@ static b32 os_windows(Os *)
     return 1;
 }
 
+// The full path of "." without the extended-length prefix of widepath.
+static Str os_cwd(Os *, Arena *a)
+{
+    c16 dot[] = {'.', 0};
+    i32 cap   = GetFullPathNameW(dot, 0, 0, 0);  // with the terminator
+    if (cap <= 0) {
+        return {};
+    }
+    c16 *buf = alloc<c16>(a, cap);
+    i32  len = GetFullPathNameW(dot, cap, buf, 0);
+    if (!len || len>=cap) {
+        return {};
+    }
+    return fromwide(a, buf, len);
+}
+
 static i32 os_ncpu(Os *)
 {
     SystemInfo info = {};

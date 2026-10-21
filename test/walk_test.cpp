@@ -138,6 +138,17 @@ static void test_walk(Test *t)
         Run r = run(os, a, "-R -f -");
         expect(t, "stdout status", num(&a, r.status), "0");
         expect(t, "stdout out", r.out, x);
+
+        // The test platform finds absolute paths in its current directory
+        r = run(os, a, "-f - /work/a.c");
+        expect(t, "absolute out", r.out,
+               "x\t/work/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
+        os->windows = 1;
+        os->cwd     = "C:\\work";
+        r = run(os, a, "-f - C:/work\\a.c");
+        expect(t, "absolute windows out", r.out,
+               "x\tC:/work/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
+        expect(t, "cwd", os_cwd(os, &a), "C:\\work");
     }
     {
         Os *os = newos(&a);

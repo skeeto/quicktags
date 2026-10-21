@@ -64,6 +64,8 @@ static i32     os_rename(Os *, Arena, Str src, Str dst);  // 0 or OSERR_*
 static void    os_delete(Os *, Arena, Str path);
 // 1 if '\' and ':' separate paths and names match regardless of case.
 static b32     os_windows(Os *);
+// The current directory, absolute, as the system spells it, or null.
+static Str     os_cwd(Os *, Arena *);
 // Logical processors, at least 1.
 static i32     os_ncpu(Os *);
 // Run fn(ws+i) for i in [0, n): ws+0 on the caller, the rest on new

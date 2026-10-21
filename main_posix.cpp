@@ -187,6 +187,25 @@ static b32 os_windows(Os *)
     return 0;
 }
 
+// getcwd() into a buffer as large as it needs.
+static Str os_cwd(Os *, Arena *a)
+{
+    for (iz cap = 256; cap <= (iz)1<<20; cap *= 2) {
+        char *buf = (char *)allocbytes(a, cap);
+        if (getcwd(buf, (uz)cap)) {
+            Str r = {(u8 *)buf, 0};
+            for (; buf[r.len]; r.len++) {}
+            a->beg = (byte *)(buf + r.len);
+            return r;
+        }
+        a->beg = (byte *)buf;
+        if (errno != ERANGE) {
+            break;
+        }
+    }
+    return {};
+}
+
 static i32 os_ncpu(Os *)
 {
     long n = sysconf(_SC_NPROCESSORS_ONLN);

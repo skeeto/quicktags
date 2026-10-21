@@ -15,6 +15,7 @@ struct VNode {
 struct Os {
     Arena *a;        // for the file system and captured output
     VNode  root;     // the current directory
+    Str    cwd;      // its absolute path
     Buf    out;      // fd 1
     Buf    err;      // fd 2
     Buf    file;     // fd 3, until closed
@@ -32,6 +33,7 @@ static Os *newos(Arena *a)
     os->a          = a;
     os->root.isdir = 1;
     os->root.tail  = &os->root.child;
+    os->cwd        = "/work";
     os->ncpu       = 1;
     os->out        = Buf(a, 1<<12);
     os->err        = Buf(a, 1<<12);
@@ -43,9 +45,31 @@ static b32 vfssep(Os *os, u8 c)
     return c=='/' || (os->windows && c=='\\');
 }
 
+// A path within the current directory, relative to it if absolute.
+static Str vfsrelative(Os *os, Str path)
+{
+    Str cwd = os->cwd;
+    if (path.len < cwd.len) {
+        return path;
+    }
+    for (iz i = 0; i < cwd.len; i++) {
+        u8 a = path[i];
+        u8 b = cwd[i];
+        if (a!=b && !(vfssep(os, a) && vfssep(os, b))) {
+            return path;
+        }
+    }
+    if (path.len>cwd.len && !vfssep(os, path[cwd.len])) {
+        return path;
+    }
+    return cuthead(path, cwd.len);
+}
+
 // Find a node, or with an arena, make it and any missing directories.
+// Absolute paths are found from the current directory's.
 static VNode *vfsfind(Os *os, Str path, Arena *a)
 {
+    path = vfsrelative(os, path);
     VNode *n = &os->root;
     for (iz i = 0; i < path.len;) {
         iz end = i;
@@ -211,6 +235,11 @@ static void os_delete(Os *os, Arena, Str path)
 static b32 os_windows(Os *os)
 {
     return os->windows;
+}
+
+static Str os_cwd(Os *os, Arena *a)
+{
+    return clone(a, os->cwd);
 }
 
 static i32 os_ncpu(Os *os)
