@@ -609,6 +609,75 @@ static i32 emitfunction(Cxx *c, Sig *sig, i32 kind, b32 pushscopes)
     return pushed;
 }
 
+// Departure P1: macro calls without a ';' begin the statement, as in
+// INITIALIZE_PASS_BEGIN(...) INITIALIZE_PASS_END(...) on lines before
+// a definition, and the signature found lies within them. Returns the
+// last of those calls' parentheses, or null if this is not so.
+static Token *macrorun(Cxx *, Chain *ch, Sig *sig)
+{
+    Token *end = 0;
+    Token *t   = ch->head;
+    for (; t && t->type==T_IDENT && t->next && t->next->type==T_PARENS; t = t->next->next) {
+        end = t->next;
+    }
+    if (!end || !t || t->line<=end->chain->tail->line) {
+        return 0;  // nothing follows on a later line
+    }
+    for (Token *x = ch->head;; x = x->next) {
+        if (x==sig->idstart || x==sig->typestart ||
+                (x->chain && x->chain==sig->idchain)) {
+            return end;
+        }
+        if (x == end) {
+            return 0;
+        }
+    }
+}
+
+static Chain *copychain(Pool *p, Token *from, Token *to)
+{
+    Chain *r = newchain(p);
+    for (Token *t = from;; t = t->next) {
+        Token *x = copytoken(p, t);
+        if (t->chain) {
+            x->chain = copychain(p, t->chain->head, t->chain->tail);
+        }
+        chainappend(r, x);
+        if (t == to) {
+            return r;
+        }
+    }
+}
+
+// Does the statement after the macro calls declare something on its
+// own: a function, or (with vars) variables? Writes no tags and makes no
+// anonymous names.
+static b32 macrotrial(Cxx *c, Chain *ch, Token *end, b32 vars)
+{
+    Token *first = end->next;
+    Chain  rest  = {};
+    rest.head = first;
+    rest.tail = ch->tail;
+    for (Token *t = first; t; t = t->next) {
+        rest.count++;
+    }
+
+    first->prev = 0;
+    Sig sig = {};
+    b32 ok  = lookforsig(c, &rest, &sig, 0) &&
+              !(vars && sig.typeend && sig.typeend->type==T_ASSIGN);
+    first->prev = end;
+
+    if (!ok && vars) {
+        Chain *copy = copychain(&c->pool, first, ch->tail);
+        c->dryrun = 1;
+        ok = extractvars(c, copy, 0);
+        c->dryrun = 0;
+        freechain(&c->pool, copy);
+    }
+    return ok;
+}
+
 // At '{' outside a function: tag the function it begins, if any.
 // Returns the number of scopes pushed.
 static i32 sigbeforebracket(Cxx *c, Sig *sig)
@@ -619,6 +688,15 @@ static i32 sigbeforebracket(Cxx *c, Sig *sig)
     b32    want   = cxxkind(c, K_PARAMETER);
     if (!lookforsig(c, c->chain, sig, want ? &params : 0)) {
         return 0;
+    }
+    Token *end = macrorun(c, c->chain, sig);
+    if (end && macrotrial(c, c->chain, end, 0)) {
+        // Departure P1: macro calls before the definition
+        destroyrange(&c->pool, c->chain, c->chain->head, end);
+        params = {};
+        if (!lookforsig(c, c->chain, sig, want ? &params : 0)) {
+            return 0;
+        }
     }
     i32 scopes = emitfunction(c, sig, K_FUNCTION, 1);
     if (want) {

@@ -105,6 +105,7 @@ struct Cxx {
     Word   scopename;
     b32    scopedirty;
     Token *module;     // the current C++20 module
+    b32    dryrun;     // tags are not written
     Tag    tag;
 };
 
@@ -168,6 +169,8 @@ static b32    lookforsig(Cxx *, Chain *, Sig *, Params *);
 static i32    emitfunction(Cxx *, Sig *, i32 kind, b32 pushscopes);
 static void   emitparams(Cxx *, Params *);
 static i32    sigbeforebracket(Cxx *, Sig *);
+static Token *macrorun(Cxx *, Chain *, Sig *);
+static b32    macrotrial(Cxx *, Chain *, Token *end, b32 vars);
 static b32    extractvars(Cxx *, Chain *, b32 knr);
 static Token *firstnestedid(Cxx *, Chain *, Chain **parent);
 
@@ -331,7 +334,7 @@ static Tag *cxxtag(Cxx *c, i32 kind, Token *t)
 
 static void cxxcommit(Cxx *c, Tag *tag)
 {
-    if (tag->name.len) {
+    if (tag->name.len && !c->dryrun) {
         tagemit(c->f, tag);
     }
 }
@@ -951,6 +954,12 @@ static void analyzestatement(Cxx *c)
         if (!lookforsig(c, c->chain, &sig, pz ? &params : 0) ||
                 (sig.typeend && sig.typeend->type==T_ASSIGN)) {
             break;
+        }
+        Token *end = macrorun(c, c->chain, &sig);
+        if (end && macrotrial(c, c->chain, end, 1)) {
+            // Departure P1: macro calls before the declaration
+            destroyrange(&c->pool, c->chain, c->chain->head, end);
+            continue;
         }
         if (!(c->seen & SEEN_FRIEND)) {
             i32 scopes = emitfunction(c, &sig, K_PROTOTYPE, 1);

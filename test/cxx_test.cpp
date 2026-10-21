@@ -438,6 +438,27 @@ static TagCase cxxcases[] = {
      "n\tp10.cpp\t/^int Local::n = 0;$/;\"\tm\tline:6\tclass:Local\ttyperef:typename:int\n"
      "n\tp10.cpp\t/^struct Local { static int n; };$/;\"\tm\tline:4\tstruct:__anon27067e470111::Local\ttyperef:typename:int\tfile:\n"
      "outer\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tn\tline:7\tfile:\n"},
+    {IMPROVED, "P1 macro calls before a definition", "p1.cpp", "",
+     "INITIALIZE_PASS_BEGIN(Lint, \"lint\", \"Lint\", false, true)\n"
+     "INITIALIZE_PASS_DEPENDENCY(AAResults)\n"
+     "INITIALIZE_PASS_END(Lint, \"lint\", \"Lint\", false, true)\n"
+     "\n"
+     "FunctionPass *createLintPass() { return 0; }\n"
+     "\n"
+     "struct Flags {\n"
+     "    PREFERRED_TYPE(bool)\n"
+     "    unsigned Verbose : 1;\n"
+     "};\n"
+     "\n"
+     "Foo::Foo()\n"
+     "    noexcept {}\n",
+     "Flags\tp1.cpp\t/^struct Flags {$/;\"\ts\tline:7\tfile:\n"
+     "Foo\tp1.cpp\t/^Foo::Foo()$/;\"\tf\tline:12\tclass:Foo\n"
+     "Verbose\tp1.cpp\t/^    unsigned Verbose : 1;$/;\"\tm\tline:9\tstruct:Flags\ttyperef:typename:unsigned:1\tfile:\n"
+     "createLintPass\tp1.cpp\t/^FunctionPass *createLintPass() { return 0; }$/;\"\tf\tline:5\ttyperef:typename:FunctionPass *\n",
+     "Flags\tp1.cpp\t/^struct Flags {$/;\"\ts\tline:7\tfile:\n"
+     "Foo\tp1.cpp\t/^Foo::Foo()$/;\"\tf\tline:12\tclass:Foo\n"
+     "INITIALIZE_PASS_DEPENDENCY\tp1.cpp\t/^INITIALIZE_PASS_DEPENDENCY(AAResults)$/;\"\tf\tline:2\ttyperef:typename:Lint,\"lint\",\"Lint\",false,true\n"},
 };
 
 static void test_c(Test *t)
