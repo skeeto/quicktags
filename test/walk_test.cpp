@@ -106,6 +106,22 @@ static void test_walk(Test *t)
             expect(t, "-p status", num(&a, r.status), "0");
             expect(t, "-p tags", vfsfind(os, "tags", 0)->data, bare);
         }
+
+        // D8: a directory argument is tagged recursively without -R, so
+        // "." is the same as -R
+        Str y = cuthead(bare, find(bare, "\ny\t")+1);
+        struct { Str args, out; } dirs[] = {
+            {"-f - .",              bare},
+            {"-f - sub",            y},
+            {"--recurse=no -f - .", bare},
+            {"-f - a.c sub",        bare},
+        };
+        for (iz i = 0; i < countof(dirs); i++) {
+            r = run(os, a, dirs[i].args);
+            expect(t, dirs[i].args, num(&a, r.status), "0");
+            expect(t, dirs[i].args, r.err, "");
+            expect(t, dirs[i].args, r.out, dirs[i].out);
+        }
     }
     {
         Os *os = newos(&a);
@@ -142,6 +158,145 @@ static void test_walk(Test *t)
                "ctags: \"tags\" already exists as a directory; "
                "I cannot write tag entries there.\n");
     }
+    // Option files
+    Str src = "struct s { int m; };\nint f(void);\n"
+              "int main(void) { int local; return 0; }\n";
+    Str f   = "f\ta.c\t/^int f(void);$/;\"\tp\tline:2\ttyperef:typename:int\t"
+              "file:\n";
+    Str m   = "m\ta.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\t"
+              "typeref:typename:int\tfile:\n";
+    Str mn  = "main\ta.c\t/^int main(void) { int local; return 0; }$/;\"\tf\t"
+              "line:3\ttyperef:typename:int\n";
+    Str lc  = "local\ta.c\t/^int main(void) { int local; return 0; }$/;\"\tl\t"
+              "line:3\tfunction:main\ttyperef:typename:int\tfile:\n";
+    Str s   = "s\ta.c\t/^struct s { int m; };$/;\"\ts\tline:1\tfile:\n";
+    Str sm  = "s::m\ta.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\t"
+              "typeref:typename:int\tfile:\n";
+    {
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "opts", "# a comment\n\n  --extras=+q  \r\n  # another\r"
+                            "--kinds-C=+p\r-f\n-\n");
+        Run r = run(os, a, "--options=opts a.c");
+        expect(t, "options status", num(&a, r.status), "0");
+        expect(t, "options err", r.err, "");
+        expect(t, "options out", r.out, concat(&a, concat(&a, concat(&a,
+               concat(&a, f, m), mn), s), sm));
+    }
+    {
+        // A directory's *.ctags files in name order, not the listing's,
+        // so b.ctags enables p after a.ctags disables it, and a file in
+        // one ends it with a warning
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "od/b.ctags", "--kinds-C=+p\nfoo.c\n--kinds-C=+l\n");
+        vfsfile(os, "od/a.ctags", "--extras=+q\n--kinds-C=-p\n");
+        vfsfile(os, "od/.x.ctags", "--bogus\n");
+        vfsfile(os, "od/c.txt", "--bogus\n");
+        vfsfile(os, "od/.ctags", "--bogus\n");
+        vfsdir(os, "od/d.ctags");
+        vfsfile(os, "od/e.ctags", "-f   -\n");
+        Run r = run(os, a, "--options=od a.c");
+        expect(t, "options dir status", num(&a, r.status), "0");
+        expect(t, "options dir err", r.err,
+               "ctags: Warning: Ignoring non-option in od/b.ctags\n");
+        expect(t, "options dir out", r.out, concat(&a, concat(&a, concat(&a,
+               concat(&a, f, m), mn), s), sm));
+        r = run(os, a, "--options=od/ a.c");
+        expect(t, "options dir/ err", r.err,
+               "ctags: Warning: Ignoring non-option in od/b.ctags\n");
+    }
+    {
+        // On Windows, a directory ending in '\' takes no '/' before names
+        Os *os = newos(&a);
+        os->windows = 1;
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "od/b.ctags", "--kinds-C=+p\nfoo.c\n");
+        vfsfile(os, "od/a.ctags", "--extras=+q\n");
+        Run r = run(os, a, "-f - --options=od\\ a.c");
+        expect(t, "options dir\\ status", num(&a, r.status), "0");
+        expect(t, "options dir\\ err", r.err,
+               "ctags: Warning: Ignoring non-option in od\\b.ctags\n");
+        expect(t, "options dir\\ out", r.out, concat(&a, concat(&a, concat(&a,
+               concat(&a, f, m), mn), s), sm));
+        r = run(os, a, "-f - --options=od a.c");
+        expect(t, "options dir win err", r.err,
+               "ctags: Warning: Ignoring non-option in od/b.ctags\n");
+    }
+    {
+        // Only a file with a non-option warns, unlike Universal Ctags,
+        // whose warning repeats for every later option file (OPT-14)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "n2", "--kinds-C=+p\nfoo.c\n");
+        vfsfile(os, "n3", "--extras=+q\n");
+        Run r = run(os, a, "-f - --options=n2 --options=n3 a.c");
+        expect(t, "options n2 n3 err", r.err,
+               "ctags: Warning: Ignoring non-option in n2\n");
+        r = run(os, a, "-f - a.c --options=n3");
+        expect(t, "options after file err", r.err, "");
+        expect(t, "options after file out", r.out, concat(&a, concat(&a,
+               concat(&a, m, mn), s), sm));
+    }
+    {
+        // Nested files, each read once
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "o1", "--options=o2\n--options=o1\n--kinds-C=+l\n");
+        vfsfile(os, "o2", "--options=o1\n--extras=+q\n--options=NONE\n");
+        Run r = run(os, a, "-f - --options=o1 --options=o2 a.c");
+        expect(t, "options nest status", num(&a, r.status), "0");
+        expect(t, "options nest err", r.err, "");
+        expect(t, "options nest out", r.out, concat(&a, concat(&a, concat(&a,
+               concat(&a, lc, m), mn), s), sm));
+    }
+    {
+        Os *os = newos(&a);
+        for (i32 i = 0; i < 17; i++) {
+            Buf name(&a, 8);
+            print(&name, "o");
+            print(&name, (i64)i);
+            Buf text(&a, 16);
+            print(&text, "--options=o");
+            print(&text, (i64)i+1);
+            vfsfile(os, finish(&name), finish(&text));
+        }
+        Run r = run(os, a, "-f - --options=o0 a.c");
+        expect(t, "options deep status", num(&a, r.status), "1");
+        expect(t, "options deep err", r.err,
+               "ctags: too many nested option files: \"o16\"\n");
+    }
+    {
+        Os *os = newos(&a);
+        vfsfile(os, "bad", "--kinds-C=+p\n--bogus\n");
+        vfsfile(os, "help", "--help\n--bogus\n");
+        struct { Str args; i32 status; Str err; } cases[] = {
+            {"--options= a.c", 1,
+             "ctags: no option file supplied for \"options\"\n"},
+            {"--options=nosuch a.c", 1,
+             "ctags: cannot stat \"nosuch\" : No such file or directory\n"},
+            {"--options=bad a.c", 1, "ctags: Unknown option: --bogus\n"},
+            {"--options=help a.c", 0, ""},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Run r = run(os, a, cases[i].args);
+            expect(t, cases[i].args, num(&a, r.status),
+                   num(&a, cases[i].status));
+            expect(t, cases[i].args, r.err, cases[i].err);
+        }
+    }
+    {
+        // A listing prints to standard output, warnings to standard error
+        Os *os = newos(&a);
+        vfsfile(os, "list",
+                "--kinds-cpp=x\n--languages=-c++\n--list-languages\n");
+        Run r = run(os, a, "--options=list --bogus");
+        expect(t, "list status", num(&a, r.status), "0");
+        expect(t, "list out", r.out, "C\nC++ [disabled]\nFortran\n");
+        expect(t, "list err", r.err, "ctags: Warning: Unknown language \"cpp\" "
+                                     "in \"kinds-cpp\" option\n");
+    }
+
     {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");

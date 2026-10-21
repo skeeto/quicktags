@@ -160,17 +160,23 @@ static iz arenasize(Arena a)
 
 static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 {
-    // Global memory for the main thread, the rest split between workers
+    // Global memory for the main thread, the rest split between workers.
+    // A reservation commits only what is used, so on 64-bit it may be
+    // generous, as long lists of files need.
+    iz    gmax = mem.lim ? (iz)1<<(sizeof(void *)==8 ? 32 : 26) : (iz)64<<20;
     iz    gcap = arenasize(mem)/4;
-    gcap = gcap<(iz)64<<20 ? gcap : (iz)64<<20;
+    gcap = gcap<gmax ? gcap : gmax;
     Arena g    = carve(&mem, gcap);
     Buf   log(&g, 1<<12);
 
     Options opt = {};
     opt.windows = os_windows(os);
-    switch (parseargs(&opt, args, nargs, &g, &log)) {
+    switch (parseargs(&opt, os, args, nargs, &g, &log)) {
     case ARGS_EXIT:
-        return os_write(os, 1, finish(&log)) ? 0 : 1;
+        if (log.len) {
+            os_write(os, 2, finish(&log));
+        }
+        return os_write(os, 1, opt.print) ? 0 : 1;
     case ARGS_FATAL:
         os_write(os, 2, finish(&log));
         return 1;
@@ -189,7 +195,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     b32   anydir = 0;
     Item *first  = 0;
     Item *last   = 0;
-    for (iz i = 0; i < opt.nfiles; i++) {
+    for (iz i = 0; i < opt.files.len; i++) {
         Str path = opt.files[i];
         if (excluded(path, opt.windows)) {
             continue;
@@ -198,7 +204,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         Item *it = 0;
         if (s.type == STAT_NONE) {
             warn(&log, "cannot open input file", path, s.err);
-        } else if (s.type==STAT_DIR && opt.recurse) {
+        } else if (s.type == STAT_DIR) {
             it = newitem(&g, path, ITEM_DIR, {});
             anydir = 1;
         } else if (s.type == STAT_FILE) {
