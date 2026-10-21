@@ -15,6 +15,7 @@ struct Item {
     Item *next;
     Str   path;    // as constructed: the input to anonymous names
     Str   key;     // its place in the walk's order, if output is ordered
+    i64   mtime;   // a file's, as listed or examined
     i32   type;
     i32   lang;
     b32   header;
@@ -474,6 +475,15 @@ static Str tagpath(Arena *a, Ctx *c, Str path)
     return mode==TREL_NEVER ? abs : relpath(a, abs, c->base, windows);
 }
 
+// A file tag's name: the path as constructed after its last separator,
+// on Windows ':' too, as Universal Ctags names it (EX-7).
+static Str filetagname(Str path, b32 windows)
+{
+    iz i = path.len;
+    for (; i>0 && !relsep(path[i-1], windows); i--) {}
+    return cuthead(path, i);
+}
+
 static Str errstr(i32 err)
 {
     switch (err) {
@@ -567,7 +577,8 @@ static void visitdir(Worker *w, Item *it)
                 continue;
             }
             Item *n = newitem(&w->perm, path, ITEM_FILE, lang);
-            n->key  = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
+            n->key   = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
+            n->mtime = d->mtime;
             n->next = files;
             files   = n;
             if (!last) last = n;
@@ -621,6 +632,7 @@ static void visitfile(Worker *w, Item *it)
     src.path     = it->path;
     src.outpath  = raw ? tp : outpath(&tmp, tp, c->opt->windows);
     src.text     = r.data;
+    src.mtime    = it->mtime;
     src.anonhash = anonhash(it->path);
     src.lang     = it->lang;
     src.header   = it->header;
@@ -638,6 +650,9 @@ static void visitfile(Worker *w, Item *it)
     f.mark   = w->tags.len;
     f.nofast = c->opt->nofast;
     parsefile(&f, tmp);
+    if (c->opt->extras&EXTRA_INPUTFILE && c->opt->filekind) {
+        filetag(&f, filetagname(it->path, c->opt->windows));
+    }
 
     if (c->ordered) {
         // The output path lives in scratch, so copy it out
@@ -673,7 +688,8 @@ static void examine(Ctx *c, Item *it, Arena scratch)
     } else if (s.type == STAT_DIR) {
         it->type = ITEM_DIR;
     } else if (s.type==STAT_FILE && it->lang) {
-        it->type = ITEM_FILE;
+        it->type  = ITEM_FILE;
+        it->mtime = s.mtime;
     }
 }
 

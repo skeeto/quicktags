@@ -15,7 +15,8 @@ static void test_parallel(Test *t)
 {
     Arena a  = t->perm;
     Os   *os = newos(&a);
-    os->cwd = "/home/u";  // for --tag-relative
+    os->cwd   = "/home/u";    // for --tag-relative
+    os->mtime = 1600000000;  // for --extras=+f
     vfsfile(os, "src/main.c",
         "#include \"util.h\"\n"
         "static int count;\n"
@@ -97,6 +98,8 @@ static void test_parallel(Test *t)
         "-u --extras=+q --fields=+K",
         "--sort=foldcase",
         "--sort=foldcase --extras=+q",
+        "--extras=+f",
+        "-u --extras=+fq --fields=+KE",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;

@@ -36,13 +36,13 @@ string(APPEND ctags_macroparam "[.:]ignore=")
 set(ctags_langs "c|c\\+\\+|fortran")
 
 # Kept by "args": --kinds-L, --L-kinds and --L-types (any case), --extras
-# without the reference (r) and guest (g) extras, the options that
-# choose languages: --langmap, --map-L, --languages, --language-force=L
-# (others' already stripped) and -h, and -I
+# without the reference (r) and guest (g) extras, --file-tags, the
+# options that choose languages: --langmap, --map-L, --languages,
+# --language-force=L (others' already stripped) and -h, and -I
 set(ctags_kinds "kinds-(${ctags_langs})|(${ctags_langs})-(kinds|types)")
 ctags_nocase(ctags_kinds "^--(${ctags_kinds})=")
 ctags_nocase(ctags_maps "^--map-(${ctags_langs})=")
-set(ctags_args_keep "${ctags_kinds}" "^--extras?=" "${ctags_maps}"
+set(ctags_args_keep "${ctags_kinds}" "^--extras?=" "^--file-tags" "${ctags_maps}"
   "^--langmap=" "^--languages=" "^--language-force=" "^-h"
   "^-I" "${ctags_macroparam}")
 
@@ -158,7 +158,9 @@ function(ctags_keyedopts var)
 endfunction()
 
 # Sort a case's option lines into ctags_args and ctags_fmt, the options
-# each mode keeps, in order.
+# each mode keeps, in order. Set ctags_noepoch when the extras kept may
+# make file tags, whose epoch: fields are not compared: on Windows
+# Universal Ctags writes some an hour off (D17).
 function(ctags_caseopts lines)
   set(args "")
   set(fmt "")
@@ -192,6 +194,13 @@ function(ctags_caseopts lines)
       endif()
     endforeach()
   endforeach()
+  set(noepoch OFF)
+  foreach(opt IN LISTS args)
+    if(opt MATCHES "^--(extras?=|file-tags)")
+      set(noepoch ON)
+    endif()
+  endforeach()
   set(ctags_args "${args}" PARENT_SCOPE)
   set(ctags_fmt "${fmt}" PARENT_SCOPE)
+  set(ctags_noepoch ${noepoch} PARENT_SCOPE)
 endfunction()

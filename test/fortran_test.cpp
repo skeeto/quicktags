@@ -976,6 +976,39 @@ static TagCase fortrancases[] = {
      "shape\tt.f90\t/^  type, abstract :: shape$/;\"\tt\tline:2\tmodule:shapes\timplementation:abstract\n"
      "shapes\tt.f90\t/^module shapes$/;\"\tm\tline:1\n",
      ""},
+
+    // The inputFile extra (EX-7): after the second pass, if any
+    {SHARED, "EX-7 a Fortran file tag", "m.f90",
+     "--extras=+f --fields=+lK-T --sort=no",
+     "module m\n"
+     "contains\n"
+     "  subroutine s(a)\n"
+     "  end subroutine\n"
+     "end module\n",
+     "m\tm.f90\t/^module m$/;\"\tmodule\tline:1\tlanguage:Fortran\n"
+     "s\tm.f90\t/^  subroutine s(/;\"\tsubroutine\tline:3\tlanguage:Fortran\tmodule:m\n"
+     "m.f90\tm.f90\t1;\"\tfile\tline:1\tlanguage:Fortran\n",
+     ""},
+    {SHARED, "EX-7 one file tag after a failed fixed pass", "x.f",
+     "--extras=+f --fields=-T --sort=no",
+     "      module m\n"
+     "      interface\n"
+     "      end interface\n"
+     "      enum, bind(c)\n"
+     "      end enum\n"
+     "end module\n",
+     "m\tx.f\t/^      module m$/;\"\tm\tline:1\n"
+     "__anon0b88b7b10305\tx.f\t/^      interface$/;\"\ti\tline:2\tmodule:m\n"
+     "__anon0b88b7b10403\tx.f\t/^      enum, bind(c)$/;\"\tE\tline:4\tmodule:m\n"
+     "x.f\tx.f\t1;\"\tF\tline:1\n",
+     ""},
+    {SHARED, "EX-7 a file tag alone after both passes fail", "x.f",
+     "--extras=+f --fields=-T",
+     "      type :: t\n"
+     " bad\n"
+     "      procedure(f) :: ff\n",
+     "x.f\tx.f\t1;\"\tF\tline:1\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

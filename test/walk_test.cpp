@@ -605,6 +605,104 @@ static void test_walk(Test *t)
         }
     }
     {
+        // The inputFile extra (EX-7): a tag for each file tagged, after
+        // its other tags, with its mtime as listed or examined, none for
+        // files not tagged
+        Os *os = newos(&a);
+        os->mtime = 1700000000;
+        vfsfile(os, "d/a.c", "int a;\n");
+        os->mtime = -1;
+        vfsfile(os, "d/e.c", "");
+        vfsfile(os, "d/x.txt", "int x;\n");
+        os->mtime = 4102444800;
+        vfsfile(os, "d/skip.c", "int s;\n");
+        vfsunreadable(os, "d/u.c");
+        os->mtime = 86400;
+        vfsfile(os, "d/f.f90", "program p\nend\n");
+        os->mtime = 0;
+        Str f90 = "p\td/f.f90\t/^program p$/;\"\tp\tline:1\n"
+                  "f.f90\td/f.f90\t1;\"\tF\tline:1\tepoch:86400\n";
+        Str want = concat(&a,
+            "a\td/a.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+            "a.c\td/a.c\t1;\"\tF\tline:1\tepoch:1700000000\n"
+            "e.c\td/e.c\t1;\"\tF\tline:1\tepoch:-1\n", concat(&a, f90, f90));
+        Str unreadable = "ctags: Warning: cannot open input file \"d/u.c\" : "
+                         "Permission denied\n";
+        for (u64 seed = 0; seed <= 4; seed++) {
+            os->seed = seed;
+            Str args = "--jobs=3 --extras=+f --sort=no --exclude=skip.c -f - "
+                       "d d/f.f90 d/nosuch.c";
+            Run r    = run(os, a, args);
+            expect(t, args, r.out, want);
+            expect(t, args, r.err, concat(&a,
+                "ctags: Warning: cannot open input file \"d/nosuch.c\" : "
+                "No such file or directory\n", unreadable));
+        }
+        os->seed = 0;
+
+        // Sorted with the others, and its fields as asked
+        Str args = "--extras=+f --fields=+KzlEr-n -f - d/a.c";
+        Run r    = run(os, a, args);
+        expect(t, args, r.out,
+            "a\td/a.c\t/^int a;$/;\"\tkind:variable\tlanguage:C\t"
+            "typeref:typename:int\troles:def\n"
+            "a.c\td/a.c\t1;\"\tkind:file\tlanguage:C\troles:def\t"
+            "extras:inputFile\tepoch:1700000000\n");
+        args = "--extras=+f --fields=-T -n -f - d/a.c";
+        r    = run(os, a, args);
+        expect(t, args, r.out,
+            "a\td/a.c\t1;\"\tv\tline:1\ttyperef:typename:int\n"
+            "a.c\td/a.c\t1;\"\tF\tline:1\n");
+
+        // Named by the path as constructed, not the file field
+        os->cwd = "/home/u/w";
+        vfsdir(os, "sub");
+        run(os, a, "--extras=+f --tag-relative=always -f sub/tags d/a.c");
+        Str got = vfsfind(os, "sub/tags", 0)->data;
+        expect(t, "file tag relative", num(&a, find(got,
+            "\na.c\t../d/a.c\t1;\"\tF\tline:1\tepoch:1700000000\n")>=0), "1");
+        os->cwd = "/work";
+
+        // A tab in the path: escaped, else dropped by e-ctags (FLD-6)
+        vfsfile(os, "t\tb.c", "int t;\n");
+        args = "--extras=+f --fields=-T -f - t\tb.c";
+        r    = run(os, a, args);
+        expect(t, args, r.out,
+            "t\tt\\tb.c\t/^int t;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+            "t\\tb.c\tt\\tb.c\t1;\"\tF\tline:1\n");
+        args = "--extras=+f --output-format=e-ctags -f - t\tb.c";
+        r    = run(os, a, args);
+        expect(t, args, r.out, "");
+
+        // On POSIX a '\' is part of the name
+        vfsfile(os, "s\\h.h", "int h;\n");
+        args = "--extras=+f --fields=-T -f - s\\h.h";
+        r    = run(os, a, args);
+        expect(t, args, r.out,
+            "h\ts\\\\h.h\t/^int h;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+            "s\\\\h.h\ts\\\\h.h\t1;\"\tF\tline:1\n");
+
+        // On Windows it separates, as ':' does in the name
+        os = newos(&a);
+        os->windows = 1;
+        vfsfile(os, "s/h.h", "int h;\n");
+        args = "--extras=+f --fields=-T -f - s\\h.h";
+        r    = run(os, a, args);
+        expect(t, args, r.out,
+            "h\ts/h.h\t/^int h;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+            "h.h\ts/h.h\t1;\"\tF\tline:1\n");
+        args = "--extras=+f --fields=-T --output-format=e-ctags -f - s\\h.h";
+        r    = run(os, a, args);
+        expect(t, args, r.out,
+            "h\ts\\h.h\t/^int h;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+            "h.h\ts\\h.h\t1;\"\tF\tline:1\n");
+        expect(t, "file tag name", filetagname("C:a.c", 1), "a.c");
+        expect(t, "file tag name", filetagname("C:", 1), "");
+        expect(t, "file tag name", filetagname("x/y\\z:a.c", 1), "a.c");
+        expect(t, "file tag name", filetagname("x/y\\z:a.c", 0), "y\\z:a.c");
+        expect(t, "file tag name", filetagname("a.c", 0), "a.c");
+    }
+    {
         Os *os = newos(&a);
         Run r = run(os, a, "--help");
         Str s = r.out.len ? r.out : r.err;
