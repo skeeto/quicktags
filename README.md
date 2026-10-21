@@ -37,8 +37,8 @@ and 39 seconds. Where it departs from Universal Ctags, and why, is in
 No dependencies, and on Windows no C runtime. The program is named
 `ctags`, as editors and scripts expect:
 
-    $ c++ -std=c++20 -O2 -nostartfiles -static-libgcc -Wl,--stack,0x800000 -s -o ctags.exe main_win32.cpp
-    $ c++ -std=c++20 -O2 -pthread -o ctags main_posix.cpp
+    $ cc -O2 -nostartfiles -Wl,--stack,0x800000 -o ctags.exe main_win32.cpp
+    $ cc -O2 -pthread -o ctags main_posix.cpp
 
 Or with CMake, which also runs the tests:
 
