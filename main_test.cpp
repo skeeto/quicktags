@@ -194,8 +194,17 @@ static void runcases(Test *t, TagCase *cases, iz n)
 #include "test/parallel_test.cpp"
 #include "test/fuzz_test.cpp"
 
+#if _WIN32
+extern "C" __declspec(dllimport) u32 __stdcall SetErrorMode(u32);
+#endif
+
 int main(int argc, char **argv)
 {
+    #if _WIN32
+    // A trap exits at once rather than waiting on an error dialog
+    SetErrorMode(0x0002);  // SEM_NOGPFAULTERRORBOX
+    #endif
+
     iz    cap = (iz)1<<30;
     byte *mem = (byte *)malloc((uz)cap);
     Test  t   = {};

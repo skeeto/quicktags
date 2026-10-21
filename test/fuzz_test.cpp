@@ -157,8 +157,9 @@ static void test_fuzz(Test *t)
     TagCase *sets[]  = {ccases, cxxcases, fortrancases};
     iz       sizes[] = {countof(ccases), countof(cxxcases), countof(fortrancases)};
 
-    // On i686 Windows, GCC gives a u64 local only 4-byte alignment,
-    // short of its alignof, which UBSan checks through the pointer
+    // GCC 16 places u64 locals below their alignof (8) on i686 Windows,
+    // which UBSan traps through the pointer: a regression w64devkit
+    // patched in 0de8f07, explicit here for unpatched compilers
     alignas(8) u64 rng   = 1;
     iz             ntags = 0;
     for (i32 i = 0; i < FUZZRUNS; i++) {
