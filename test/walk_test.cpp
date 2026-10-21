@@ -612,6 +612,19 @@ static void test_walk(Test *t)
         expect(t, "help usage", num(&a, startswith(s, "usage: ctags ")), "1");
         expect(t, "help extras", num(&a, find(s, "\n  --extras=")>0), "1");
         expect(t, "help kinds", num(&a, find(s, "\n  Fortran: b* blockData ")>0), "1");
+
+        // What plugins look for in the version (OPT-19): tagbar's
+        // "\(Exuberant\|Universal\) Ctags", easytags' version after it,
+        // and fzf-lua's "Universal", on one line, and nothing else
+        r = run(os, a, "--version x.c");
+        expect(t, "version status", num(&a, r.status), "0");
+        expect(t, "version", r.out,
+               "ctags 0.1 (Universal Ctags 6.2.1 compatible)\n");
+        expect(t, "version err", r.err, "");
+        iz at = find(r.out, "Universal Ctags ");
+        expect(t, "version tagbar", num(&a, at>=0), "1");
+        Str easy = cuthead(r.out, at+16);
+        expect(t, "version easytags", takehead(easy, 6), "6.2.1 ");
     }
     {
         Os *os = newos(&a);
@@ -944,7 +957,8 @@ static void test_walk(Test *t)
             expect(t, args, r.err, cases[i].err);
         }
         Run r = run(os, a, "-L list4");
-        expect(t, "-L list4", r.out, "ctags 0.1\n");
+        expect(t, "-L list4", r.out,
+               "ctags 0.1 (Universal Ctags 6.2.1 compatible)\n");
 
         // D13: a -L after a file name is read as any other. Universal
         // Ctags parses it but never reads the list, so it tags x.h alone,

@@ -1949,7 +1949,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         Buf b(p->perm, 32);
         print(&b, "ctags ");
         print(&b, version);
-        putbyte(&b, '\n');
+        print(&b, " (Universal Ctags 6.2.1 compatible)\n");  // OPT-19
         opt->print = finish(&b);
         return ARGS_EXIT;
     }
