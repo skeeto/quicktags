@@ -1487,7 +1487,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
             return fatal(p, "no output format name supplied for \"", name,
                          "\"");
         } else if (value == "u-ctags") {
-            opt->writer = WRITER_UCTAGS;
+            return ARGS_OK;  // the default: Universal Ctags never restores it
         } else if (value == "e-ctags") {
             opt->writer = WRITER_ECTAGS;
         } else if (value == "etags") {
