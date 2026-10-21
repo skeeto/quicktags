@@ -73,7 +73,15 @@ set(lines
 ctags_caseopts("${lines}")
 expect("args" "${ctags_args}"
   "--kinds-C++=+p;--extras=+q;--KINDS-c=+l;--C++-kinds=+z")
-expect("fmt" "${ctags_fmt}" "")
+expect("fmt" "${ctags_fmt}" "--fields=+K")
+
+set(formats
+  "-n" "-N" "-nN" "--excmd=combine" "--format=1" "--pattern-length-limit=9"
+  "--output-format=e-ctags" "--output-format=etags" "--fields=+e" "-e")
+ctags_caseopts("${formats}")
+expect("args formats" "${ctags_args}" "")
+expect("fmt formats" "${ctags_fmt}"
+  "-n;-N;--excmd=combine;--format=1;--pattern-length-limit=9;--output-format=e-ctags")
 
 set(ctags_fmt_keep "^--fields=" "^--sort=")
 ctags_caseopts("${lines}")

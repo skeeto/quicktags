@@ -38,8 +38,10 @@ set(ctags_kinds "kinds-(${ctags_langs})|(${ctags_langs})-(kinds|types)")
 ctags_nocase(ctags_kinds "^--(${ctags_kinds})=")
 set(ctags_args_keep "${ctags_kinds}" "^--extras?=")
 
-# Kept by "fmt"
-set(ctags_fmt_keep "")
+# Kept by "fmt": --fields (filtered below), --excmd, -n, -N, --format,
+# --pattern-length-limit, and --output-format=e-ctags
+set(ctags_fmt_keep "^--fields=" "^--excmd=" "^-[nN]$" "^--format="
+  "^--pattern-length-limit=" "^--output-format=e-ctags$")
 
 # Letters and {names} filtered out of --fields: e and o never print in
 # tags output here, and the rest until their fields are ported
