@@ -13,6 +13,7 @@ struct Options {
     Str        output;       // "-" is standard output
     Slice<Str> files;
     Kinds      kinds;
+    b32        filekind;     // the file kind, F, which all languages share
     u32        extras;       // EXTRA_*
     u64        fields;       // one bit per FIELD_*
     i32        jobs;         // 0: one per processor
@@ -546,14 +547,32 @@ static i32 langdefopt(Parse *p, Str name, Str value)
 
 // Kinds, extras, and fields
 
+// Apply a language's kinds specification. For one not parsed here, only
+// the file kind, which every language shares, changes anything.
 static i32 kindspec(Parse *p, i32 lang, Str spec, Str option)
 {
     KindTable t    = kindtable(&p->opt->kinds, lang);
-    u64       bits = *t.bits;
-    Spec      s    = flagspec(&bits, t.kinds, t.len, spec, SPEC_KINDS, option,
-                              p->log);
-    *t.bits = (u32)bits;
+    u64       bits = t.bits ? *t.bits : 0;
+    i32       d    = t.bits ? SPEC_KINDS : SPEC_FOREIGNKINDS;
+    Spec      s    = flagspec(&bits, t.kinds, t.len, spec, d, option, p->log);
+    if (t.bits) {
+        *t.bits = (u32)bits;
+    }
+    if (s.file) {
+        p->opt->filekind = s.file > 0;
+    }
     return s.ok ? ARGS_OK : ARGS_FATAL;
+}
+
+// Store the extras a specification left, with those it set: setting the
+// inputFile extra sets the file kind to the same state.
+static void setextras(Parse *p, u64 bits, u64 set)
+{
+    Options *opt = p->opt;
+    if (set & EXTRA_INPUTFILE) {
+        opt->filekind = (bits & EXTRA_INPUTFILE) != 0;
+    }
+    opt->extras = (u32)bits;
 }
 
 // --kinds-all, which takes only "*", "F", "{file}" (the file kind), and
@@ -617,8 +636,6 @@ static i32 kindsopt(Parse *p, Str name, Str value)
     if (!lang.lang) {
         warning(p, "Unknown language \"", lname, "\" in \"", name, "\" option");
         return ARGS_OK;
-    } else if (lang.lang == LANG_FOREIGN) {
-        return ARGS_OK;
     }
     return kindspec(p, lang.lang, value, name);
 }
@@ -671,7 +688,7 @@ static i32 langspec(Parse *p, Str name, Str value, b32 isfields)
         opt->fields = bits;
         opt->fieldsreset |= s.reset && lname=="all";
     } else {
-        opt->extras = (u32)bits;
+        setextras(p, bits, s.set<<beg & mask);
     }
     return s.ok ? ARGS_OK : ARGS_FATAL;
 }
@@ -1335,7 +1352,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         u64  bits = opt->extras;
         Spec s    = flagspec(&bits, extras, NCOMMONEXTRAS, value,
                              SPEC_EXTRAS, name, p->log);
-        opt->extras = (u32)bits;
+        setextras(p, bits, s.set);
         return s.ok ? ARGS_OK : ARGS_FATAL;
     }
 
@@ -1353,8 +1370,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         u32 extra = id==OPT_FILESCOPE ? EXTRA_FILESCOPE : EXTRA_INPUTFILE;
         warning(p, "\"--", name, "\" option is obsolete; use \"--extras=",
                 {&sign, 1}, {&x, 1}, "\" instead");
-        opt->extras &= ~extra;
-        opt->extras |= b ? extra : 0u;
+        setextras(p, (opt->extras & ~extra) | (b ? extra : 0u), extra);
         return ARGS_OK;
     }
 

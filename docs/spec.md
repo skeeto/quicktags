@@ -50,7 +50,8 @@ apply.
     - `{longname}` is case-sensitive. Within braces `+` and `-` are part of the name, and an unclosed `{name` at the end is ignored. A `{` inside braces or a `}` outside them is FATAL `unexpected character in kind specification: '}'`.
     - An empty SPEC disables all kinds of that language.
     - An unknown letter or name gives WARNING `Unsupported kind: 'Q' for --kinds-C option` (the name without braces) and is ignored.
-    - Every language has the file kind, `F` or `{file}`, off by default; it marks the `F` tags of the inputFile extra.
+    - The file kind, `F` or `{file}`, is one kind that every language shares (`parse.c defaultFileKind`), off by default. Naming it in any language's SPEC, Python's as well as C's, enables or disables it for all, and resets (`*`, or a first character other than `+` or `-`) leave it alone. The inputFile extra's `F` tags are written only while it is enabled, and enabling or disabling that extra (`--extras`, `--extras-all`, `--file-tags`) sets it to the same state, so the last of the two options wins: `--kinds-C=-F --extras=+f` writes `F` tags, `--extras=+f --kinds-python=-F` does not [V].
+    - Every language also has the placeholder kind, `' '` or `{ghost}`, which makes no tags; naming it does nothing, without a warning [V].
   - The old forms `--c-kinds=` and `--c++-types=` also work. The language is everything before the first `-`.
   - `--kinds-all=` accepts only `*`, `F`, `{file}` (OPT-10).
   - Options naming other languages: OPT-4.
@@ -603,7 +604,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 - **OPT-3 [S][V] Language names** are matched ignoring case, with no aliases. Universal Ctags 6.2.1 knows 153: C, C++, Fortran, the 148 others `--list-languages` prints, and the hidden UniversalCtags and CTagsSelfTest. `--langdef=NAME` adds one.
   - In `--regex-LANG`, `--map-LANG`, `--param-LANG.NAME` and the like, the language runs to the first `.` or `:`. A `:` warns `using `:' as a separator is obsolete; use `.' instead: --OPTION`.
   - An unknown language is FATAL `Unknown language "X" in "OPTION" option` for `--kinddef-`, `--regex-`, `--mline-regex-`, `--map-`, `--param-`, `--language-force` and the listings, and a WARNING otherwise: the same text for `--kinds-LANG` and `--languages`, `Unknown language: X (ignoring "--OPTION")` for `--fields-LANG` and `--extras-LANG`, `unknown language "X" in --OPTION option` for `--roles-LANG`, and for `--langmap` the whole value as the language.
-- **OPT-4 Other languages** (here). An option naming a language Universal Ctags knows and this program does not parse is accepted and does nothing, without Universal Ctags' checks of that language's kinds, extras, fields or parameters (it warns `Unsupported kind: 'x' for --kinds-python option`, say). So option files written for Universal Ctags work unchanged.
+- **OPT-4 Other languages** (here). An option naming a language Universal Ctags knows and this program does not parse is accepted and does nothing, without Universal Ctags' checks of that language's kinds, extras, fields or parameters (it warns `Unsupported kind: 'x' for --kinds-python option`, say). So option files written for Universal Ctags work unchanged. The exception is the file kind, which every language shares (CLI-4): `--kinds-python=-F` disables it for C too, and the grammar's FATAL errors (a stray brace) apply.
 
 **What is refused, and what is not yet done**
 - **OPT-5 Refused** (here): options that would change which tags exist in C, C++ or Fortran, or write another output, are FATAL `OPTION: not supported`:
@@ -646,7 +647,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - Here only the default fields are written for now: other common fields, or C++'s `name` off, are not yet supported (OPT-6). The other parser fields are accepted and do nothing.
 - **OPT-10 [S][V] `--kinds-all`** (and the obsolete `--all-kinds`, `--all-types`, which warn `"--all-kinds" option is obsolete; use "--kinds-all" instead`).
   - The value may hold only `*`, `F` and `{file}`, each `F` or `{file}` perhaps after one `+` or `-`. Else FATAL: `don't repeat + (nor -) in --OPTION option`, `don't use '*' after + (nor -) in --OPTION option`, `no kind specification after + (or -) in --OPTION option`, or `only '*', 'F', "{file}" or their combination is acceptable as kind letter for --OPTION`.
-  - It then applies to every language: `*` enables every kind, an empty value or `F` disables every kind, `+F` changes only the file kinds.
+  - It then applies to every language: `*` enables every kind, an empty value or `F` disables every kind (and `F` enables the file kind), `+F` and `-F` change only the file kind.
 - **OPT-11 [S][V] `--extras-LANG` and `--fields-LANG`.**
   - The language `all` (exact case) covers the common entries and every language's: `--extras-all=` disables all extras, and a name enables every entry of that name in any language (`--fields-all={name}` enables `N` and C++'s `name`).
   - C and C++ have no extras of their own, and Fortran only `linkName` (OPT-5).

@@ -376,16 +376,19 @@ static b32 fieldon(u64 bits, i32 field)
 // Specifications
 
 enum : i32 {
-    SPEC_KINDS,       // --kinds-LANG
-    SPEC_EXTRAS,      // --extras
-    SPEC_FIELDS,      // --fields
-    SPEC_LANGEXTRAS,  // --extras-LANG, by {name} only
-    SPEC_LANGFIELDS,  // --fields-LANG, by {name} only
+    SPEC_KINDS,         // --kinds-LANG
+    SPEC_FOREIGNKINDS,  // --kinds-LANG, a language not parsed here
+    SPEC_EXTRAS,        // --extras
+    SPEC_FIELDS,        // --fields
+    SPEC_LANGEXTRAS,    // --extras-LANG, by {name} only
+    SPEC_LANGFIELDS,    // --fields-LANG, by {name} only
 };
 
 struct Spec {
     b32 ok;
     b32 reset;  // all were first disabled
+    u64 set;    // entries enabled or disabled, by a reset or by name
+    i32 file;   // the file kind: 0 if not named, +1 enabled, -1 disabled
 };
 
 static Spec badspec(Buf *log, Str what, u8 c)
@@ -405,16 +408,18 @@ static Spec badspec(Buf *log, Str what, u8 c)
 // named by letter or by {name}, and an unclosed {name is ignored. The
 // dialects differ in their messages, in which unknown entries are fatal,
 // and in the per-language forms taking names only. A name sets every
-// entry with that name. The file kind, F or {file}, is accepted and does
-// nothing.
+// entry with that name. Every language's kinds also include the file
+// kind, F or {file}, which they share and resets leave alone, and the
+// placeholder, ' ' or {ghost}, which makes no tags.
 static Spec flagspec(u64 *bits, Kind *table, i32 len, Str spec, i32 dialect,
                      Str option, Buf *log)
 {
     Spec r      = {};
     u64  all    = len<64 ? ((u64)1<<len) - 1 : ~(u64)0;
     b32  bylang = dialect >= SPEC_LANGEXTRAS;
+    b32  kinds  = dialect <= SPEC_FOREIGNKINDS;
     Str  what   = "field";
-    if (dialect == SPEC_KINDS) {
+    if (kinds) {
         what = "kind";
     } else if (dialect==SPEC_EXTRAS || dialect==SPEC_LANGEXTRAS) {
         what = "extra";
@@ -423,10 +428,12 @@ static Spec flagspec(u64 *bits, Kind *table, i32 len, Str spec, i32 dialect,
     iz i = 0;
     if (i<spec.len && spec[i]=='*') {
         *bits |= all;
+        r.set  = all;
         i++;
     } else if (i==spec.len || spec[i]=='{' ||
                (!bylang && spec[i]!='+' && spec[i]!='-')) {
-        *bits &= ~all;
+        *bits  &= ~all;
+        r.set   = all;
         r.reset = 1;
     } else if (bylang && spec[i]!='+' && spec[i]!='-') {
         print(log, "ctags: Warning: Wrong per language ");
@@ -464,19 +471,26 @@ static Spec flagspec(u64 *bits, Kind *table, i32 len, Str spec, i32 dialect,
             return r;
         }
 
+        if (kinds && (name.data ? name=="file" : c=='F')) {
+            r.file = on ? 1 : -1;
+            continue;
+        } else if (kinds && (name.data ? name=="ghost" : c==' ')) {
+            continue;
+        }
+
         b32 found = 0;
         for (i32 j = 0; j < len; j++) {
             Kind *k     = table + j;
             b32   match = name.data ? k->name.data && k->name==name
                                     : k->letter && k->letter==c;
             if (match) {
-                found = 1;
+                found  = 1;
+                r.set |= (u64)1 << j;
                 *bits &= ~((u64)1 << j);
                 *bits |= (u64)on << j;
             }
         }
-        b32 filekind = name.data ? name=="file" : c=='F';
-        if (found || (dialect==SPEC_KINDS && filekind)) {
+        if (found) {
             continue;
         }
 
@@ -488,6 +502,8 @@ static Spec flagspec(u64 *bits, Kind *table, i32 len, Str spec, i32 dialect,
             print(log, option);
             print(log, " option\n");
             break;
+        case SPEC_FOREIGNKINDS:
+            break;  // its kinds are unknown here
         case SPEC_EXTRAS:
         case SPEC_FIELDS:
             if (dialect==SPEC_FIELDS && name.data) {

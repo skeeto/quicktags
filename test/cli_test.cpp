@@ -550,6 +550,11 @@ static void test_cli(Test *t)
 
         // Kinds of other languages, and every language
         {"--kinds-python=+x --Python-kinds=x --vim-types=* a", OK, ""},
+        {"--kinds-python=+Q{x --kinds-C=+{ghost}-{ghost} a", OK, ""},
+        {"--kinds-python=+} a", FATAL, "ctags: unexpected character in kind "
+                                       "specification: '}'\n"},
+        {"--kinds-python=+{a{b} a", FATAL, "ctags: unexpected character in "
+                                           "kind specification: '{'\n"},
         {"--kinds-foo=+x a",  OK, "ctags: Warning: Unknown language \"foo\" "
                                   "in \"kinds-foo\" option\n"},
         {"--kinds- a",        OK, "ctags: Warning: No language given in "
@@ -754,6 +759,51 @@ static void test_cli(Test *t)
         expect(t, st[i].args, showkinds(&tmp, &r.opt.kinds), st[i].kinds);
         expect(t, st[i].args, showextras(&tmp, r.opt.extras), st[i].extras);
         expect(t, st[i].args, showfields(&tmp, r.opt.fields), st[i].fields);
+    }
+
+    // The file kind, which every language shares, and which the inputFile
+    // extra sets, the last option winning
+    struct { Str args; b32 on; } fk[] = {
+        {"a",                                0},
+        {"--kinds-C=+F a",                   1},
+        {"--kinds-C=F --kinds-C=* a",        1},  // resets leave it
+        {"--kinds-C=+F --kinds-C= a",        1},
+        {"--kinds-python=+{file} a",         1},
+        {"--Python-kinds=+F --kinds-c=-F a", 0},
+        {"--kinds-foo=+F a",                 0},  // unknown, ignored
+        {"--langdef=foo --kinds-foo=+F a",   1},
+        {"--kinds-all=+F a",                 1},
+        {"--all-kinds=*F-F a",               0},
+        {"--extras=+f a",                    1},
+        {"--kinds-C=-F --extras=+f a",       1},
+        {"--extras=+f --kinds-C=-F a",       0},
+        {"--extras=+f --kinds-Fortran=-F a", 0},
+        {"--extras=+f --extras=+q a",        1},
+        {"--extras=+f --extras=q a",         0},
+        {"--kinds-C=+F --extras=* a",        1},
+        {"--kinds-C=+F --extras=-f a",       0},
+        {"--extras=+f --extras-all= a",      0},
+        {"--extras-all=+{inputFile} a",      1},
+        {"--extras=+f --extras-Fortran= a",  1},
+        {"--file-tags a",                    1},
+        {"--kinds-C=+F --file-tags=no a",    0},
+        {"--kinds-C=+F --file-scope=no a",   1},
+    };
+    for (iz i = 0; i < countof(fk); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, fk[i].args);
+        expect(t, fk[i].args, num(&tmp, r.opt.filekind), num(&tmp, fk[i].on));
+    }
+    {
+        // The placeholder kind's letter, a space, which words() splits
+        Arena tmp  = a;
+        Buf   log(&tmp, 64);
+        u64   bits = 0;
+        Spec  s    = flagspec(&bits, cxxkinds, NCKINDS, "+ -{ghost}", SPEC_KINDS,
+                              "kinds-C", &log);
+        expect(t, "ghost ok", num(&tmp, s.ok), "1");
+        expect(t, "ghost log", finish(&log), "");
+        expect(t, "ghost bits", num(&tmp, (i64)bits), "0");
     }
     // Listings, as Universal Ctags 6.2.1 prints them for these languages,
     // with the state the options before them leave
