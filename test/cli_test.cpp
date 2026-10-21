@@ -18,6 +18,24 @@ static Str showkinds(Arena *a, Kinds *k)
     return finish(&b);
 }
 
+// Enabled extras as letters, after "{anonymous}" if it is enabled.
+static Str showextras(Arena *a, u32 bits)
+{
+    Buf b(a, 32);
+    for (i32 i = 0; i < countof(extras); i++) {
+        if (bits>>i & 1) {
+            if (extras[i].letter) {
+                putbyte(&b, extras[i].letter);
+            } else {
+                putbyte(&b, '{');
+                print(&b, extras[i].name);
+                putbyte(&b, '}');
+            }
+        }
+    }
+    return finish(&b);
+}
+
 static void test_cli(Test *t)
 {
     Arena a = t->perm;
@@ -64,6 +82,45 @@ static void test_cli(Test *t)
         expect(t, kinds[i].args, finish(&log), kinds[i].log);
     }
 
+    // As Universal Ctags 6.2.1 parses them
+    struct { Str args, extras, log; } xs[] = {
+        {"x.c",                    "{anonymous}Fps", ""},
+        {"--extras=+q x.c",        "{anonymous}Fpqs", ""},
+        {"--extras=q x.c",         "q", ""},
+        {"--extras= x.c",          "", ""},
+        {"--extras=* x.c",         "{anonymous}Ffgpqrsz", ""},
+        {"--extras=*-p x.c",       "{anonymous}Ffgqrsz", ""},
+        {"--extras=-F+q x.c",      "{anonymous}pqs", ""},
+        {"--extras=+{qualified}-{anonymous} x.c", "Fpqs", ""},
+        {"--extras=+{qual x.c",    "{anonymous}Fps", ""},
+        {"--extras=+q --extras=-s x.c", "{anonymous}Fpq", ""},
+        {"--extra=+q x.c",         "{anonymous}Fpqs",
+         "ctags: Warning: --extra option is obsolete; use --extras instead\n"},
+        {"--extras=+Q x.c",        "{anonymous}Fps",
+         "ctags: Warning: Unsupported parameter 'Q' for \"extras\" option\n"},
+        {"--extra=+Qq x.c",        "{anonymous}Fpqs",
+         "ctags: Warning: --extra option is obsolete; use --extras instead\n"
+         "ctags: Warning: Unsupported parameter 'Q' for \"extra\" option\n"},
+        {"--extras=+{bogus} x.c",  "{anonymous}Fps",
+         "ctags: Warning: Unsupported parameter '{bogus}' for \"extras\" option\n"},
+        {"--file-scope=no x.c",    "{anonymous}ps",
+         "ctags: Warning: \"--file-scope\" option is obsolete; "
+         "use \"--extras=-F\" instead\n"},
+        {"--extras=-F --file-scope x.c", "{anonymous}Fps",
+         "ctags: Warning: \"--file-scope\" option is obsolete; "
+         "use \"--extras=+F\" instead\n"},
+    };
+    for (iz i = 0; i < countof(xs); i++) {
+        Arena      tmp  = a;
+        Slice<Str> args = words(&tmp, xs[i].args);
+        Options    opt  = {};
+        Buf        log(&tmp, 256);
+        i32 r = parseargs(&opt, args.data, (i32)args.len, &tmp, &log);
+        expect(t, xs[i].args, num(&tmp, r), num(&tmp, ARGS_OK));
+        expect(t, xs[i].args, showextras(&tmp, opt.extras), xs[i].extras);
+        expect(t, xs[i].args, finish(&log), xs[i].log);
+    }
+
     struct { Str args; i32 status; Str output, files, log; } opts[] = {
         {"-R",               ARGS_OK, "tags", ".", ""},
         {"-Rf- x.c",         ARGS_OK, "-", "x.c", ""},
@@ -90,6 +147,12 @@ static void test_cli(Test *t)
          "ctags: -f: Parameter missing\n"},
         {"--kinds-C={x a",   ARGS_FATAL, "", "",
          "ctags: unexpected character in kind specification\n"},
+        {"--extras=+} a",    ARGS_FATAL, "", "",
+         "ctags: unexpected character in extra specification: '}'\n"},
+        {"--extras=+{a{b} a", ARGS_FATAL, "", "",
+         "ctags: unexpected character in extra specification: '{'\n"},
+        {"--file-scope=maybe a", ARGS_FATAL, "", "",
+         "ctags: Invalid value for \"file-scope\" option\n"},
     };
     for (iz i = 0; i < countof(opts); i++) {
         Arena      tmp  = a;

@@ -17,6 +17,7 @@ struct Source {
 struct File {
     Source *src;
     Kinds  *kinds;
+    u32     extras;
     Buf    *out;
     iz      mark;   // where this file's lines begin in out
     iz      ntags;
@@ -37,6 +38,7 @@ struct Tag {
     b32 filescope;
     b32 truncate;   // cut the pattern just after the name
     b32 lineaddr;   // address by line number instead of a pattern
+    b32 anon;       // named for an unnamed entity
     Str aliased;    // C++ namespace aliases: the "name:" field
 };
 
@@ -199,11 +201,16 @@ static void printpattern(Buf *b, Str text, Tag *t)
 // Append a finished tag to its file's output as one tags-file line:
 // name, file, address, then the kind, line, scope, typeref, and file:
 // fields in the order Universal Ctags writes them with --fields=+n.
+// File-scoped and anonymous tags are dropped without their extras.
 static void tagemit(File *f, Tag *t)
 {
     Source *src = f->src;
     Buf    *b   = f->out;
     assert(kindon(f->kinds, src->lang, t->kind));
+    if ((t->filescope && !(f->extras & EXTRA_FILESCOPE)) ||
+        (t->anon      && !(f->extras & EXTRA_ANONYMOUS))) {
+        return;
+    }
 
     printescaped(b, t->name, 1);
     putbyte(b, '\t');

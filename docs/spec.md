@@ -566,6 +566,26 @@ depends on how far the walk had read when the label was seen. Our
     - `v,variable` program (global) and module variables
   - Lines are sorted by `strcmp`, so `!C→…` precedes `!C++→…`, and uppercase letters precede lowercase.
 
+### 1.11 Extras
+
+- **EX-1 [S][V]** `--extras=SPEC` (`options.c processExtraTagsOption`).
+  - The grammar is that of kinds (CLI-4): a leading `*` enables every extra, a leading character other than `+`, `-` or `*` first disables them all (so `--extras=q` turns off `F` and `anonymous`), `+` and `-` set the mode, and `{name}` names an extra in full.
+  - Within braces, `+` and `-` belong to the name. An unclosed `{name` is ignored silently. A `{` inside braces or a `}` outside them is FATAL `unexpected character in extra specification: 'C'`.
+  - An unknown letter or name gives WARNING `Unsupported parameter 'Q' for "extras" option` (or `'{name}'`), and is ignored.
+  - `--extra=` is the same with WARNING `--extra option is obsolete; use --extras instead`, and its warnings name `"extra"`.
+  - `--file-scope=BOOL` sets `F`, with WARNING `"--file-scope" option is obsolete; use "--extras=+F" instead` (or `-F` for false), after the value is checked: an invalid one is FATAL `Invalid value for "file-scope" option`.
+  - The generic extras are `anonymous` (no letter), `F fileScope`, `f inputFile`, `g guest`, `p pseudo`, `q qualified`, `r reference`, `s subparser`, `z nulltag`. On by default: `anonymous F p s`.
+- **EX-2 [S][V] fileScope.** Without it, every tag that would carry `file:` is dropped: C and C++ tags (CXX-15), macros outside headers, and Fortran `l` and `L` (FTN-7). Qualified copies go with them.
+- **EX-3 [S][V] anonymous.** Without it, tags named for unnamed entities are dropped: anonymous structs, unions, classes, enums, namespaces, lambdas and unnamed parameters, and Fortran's anonymous components, interfaces and enums. Their members and typerefs keep the `__anon` names. Global module fragments (`__gmod_`) are not anonymous extras. Unnamed parameters are not even created, so they take no anonymous number (CXX-12) and the numbers after them shift down.
+- **EX-4 [S][V] qualified** (`cxx_tag.c cxxTagCommit`), C and C++ only. After each C/C++ tag that has a scope field, the same tag again, named by the scope:
+  - The name is the scope name, then `::` (`:` when the innermost scope is a module, so a partition is `m:part`), then the tag's name: `ns::Class::member`, `point::x` in C, `__anon…::member`.
+  - Not in a function or prototype scope, so there are none for locals, parameters, labels and template parameters of prototypes.
+  - An enumerator is qualified by its enum's own scope, without the enum: `ns::Class::Red`, also for `enum class`. An enumerator of an enum at global scope gets none.
+  - Macros and macro parameters never have one, nor does Fortran.
+  - The scope type is read when the tag is committed, its name when it began; they agree everywhere here.
+- **EX-5 [S] pseudo.** Without it, no pseudo-tags are written. With it given explicitly, Universal Ctags also writes them to stdout.
+- **EX-6** `inputFile`, `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (file-kind entries with an `epoch` field, guest parsers, reference tags with roles, subparsers, empty names).
+
 ---
 
 ## 2. Universal Ctags inaccuracies
@@ -671,7 +691,8 @@ Decided for this program, deliberately different from Universal Ctags.
   to an earlier identical line (4.5% of tags in a llama.cpp sample).
 - **LF line endings**, also on Windows, where Universal Ctags writes CRLF.
 - **Minimal pseudo-tags**: `!_TAG_FILE_FORMAT`, `!_TAG_FILE_SORTED`,
-  `!_TAG_PROGRAM_NAME`, `!_TAG_PROGRAM_VERSION`, only in a tags file.
+  `!_TAG_PROGRAM_NAME`, `!_TAG_PROGRAM_VERSION`, only in a tags file,
+  and not with `--extras=-p` (EX-5).
 - **The tags file is replaced atomically** (written to `NAME.tmpN`, then
   renamed), so Vim never sees a partial file, and no temporary files leak.
 - **D1** `.C` is C++ (on Windows, Universal Ctags makes it C).
@@ -686,7 +707,9 @@ Decided for this program, deliberately different from Universal Ctags.
 - **O2** A lone CR ends the pattern without the `$` anchor.
 - Options apply to every file wherever they appear on the command line.
   Only `-R`, `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
-  `--LANG-types`), `--jobs`, `--version`, and `--help` are accepted.
+  `--LANG-types`), `--extras` (and `--extra`, `--file-scope`), `--jobs`,
+  `--version`, and `--help` are accepted. Of the extras, only
+  `anonymous`, `F`, `p` and `q` have effects (EX-6).
 
 ### Lexing (built in from the start)
 

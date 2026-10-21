@@ -269,6 +269,7 @@ struct Token {
     i32    line;
     iz     linepos;        // offset of its line's first byte
     b32    space;          // followed by white space
+    b32    anon;           // a made-up name for an unnamed entity
     b32    scopeexported;  // scope bookkeeping, see the scope stack
     u8     scopetype;
     u8     scopeaccess;

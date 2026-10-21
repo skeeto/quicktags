@@ -104,6 +104,7 @@ struct Cxx {
     Chain *scope;
     Word   scopename;
     b32    scopedirty;
+    Word   qualname;   // for --extras=+q
     Token *module;     // the current C++20 module
     b32    dryrun;     // tags are not written
     b32    skipnums;   // numbers and commas may be skipped (skipnumbers)
@@ -323,6 +324,7 @@ static Tag *cxxtag(Cxx *c, i32 kind, Token *t)
     Tag *tag = &c->tag;
     *tag = {};
     tag->name    = wordstr(t);
+    tag->anon    = t->anon;
     tag->kind    = kind;
     tag->line    = t->line;
     tag->linepos = t->linepos;
@@ -333,11 +335,45 @@ static Tag *cxxtag(Cxx *c, i32 kind, Token *t)
     return tag;
 }
 
+// Write a finished tag. With the qualified extra, a tag in a scope is
+// written again named by its scope, as in ns::Class::name, unless the
+// scope is a function or prototype. An enumerator is qualified by its
+// enum's scope, so one in a global enum gets no second tag.
 static void cxxcommit(Cxx *c, Tag *tag)
 {
-    if (tag->name.len && !c->dryrun) {
-        tagemit(c->f, tag);
+    if (!tag->name.len || c->dryrun) {
+        return;
     }
+    tagemit(c->f, tag);
+    if (!(c->f->extras & EXTRA_QUALIFIED) || !tag->scope.data) {
+        return;
+    }
+
+    u8    type = S_NAMESPACE;
+    Word *w    = &c->qualname;
+    if (!scopeisglobal(c)) {
+        type = c->scope->tail->scopetype;
+    }
+    w->len = 0;
+    switch (type) {
+    case S_FUNCTION:
+    case S_PROTOTYPE:
+        return;
+    case S_ENUM:
+        if (c->scope->count < 2) {
+            return;
+        }
+        joinrange(&c->pool, c->scope->head, c->scope->tail->prev, w, "::", 1);
+        break;
+    default:
+        wordcat(&c->pool, w, tag->scope);
+    }
+    wordcat(&c->pool, w, type==S_MODULE ? Str(":") : "::");
+    wordcat(&c->pool, w, tag->name);
+
+    Tag q = *tag;
+    q.name = {w->data, w->len};
+    tagemit(c->f, &q);
 }
 
 // Is the range plausible as a type? Rejects long runs, too many
@@ -418,6 +454,7 @@ static Token *settype(Cxx *c, Tag *tag, Token *start, Token *end)
 }
 
 // An identifier token for an unnamed entity, at the current position.
+// Its tags are anonymous extras unless the name has its own prefix.
 static Token *anontoken(Cxx *c, i32 kind, Str prefix)
 {
     Token *t = newtoken(&c->pool);
@@ -426,6 +463,7 @@ static Token *anontoken(Cxx *c, i32 kind, Str prefix)
     wordcat(&c->pool, &t->word, cuthead(name, 6));
     t->type    = T_IDENT;
     t->space   = 1;
+    t->anon    = !prefix.data;
     t->line    = cppline(&c->cpp);
     t->linepos = cpppos(&c->cpp);
     return t;

@@ -98,6 +98,23 @@ static void test_walk(Test *t)
         r = run(os, a, "-R");
         expect(t, "rerun status", num(&a, r.status), "0");
         expect(t, "rerun tags", vfsfind(os, "tags", 0)->data, header);
+
+        // Without the pseudo extra, and still a tags file to replace
+        Str bare = cuthead(header, find(header, "\nx\t")+1);
+        for (i32 i = 0; i < 2; i++) {
+            r = run(os, a, "--extras=-p -R");
+            expect(t, "-p status", num(&a, r.status), "0");
+            expect(t, "-p tags", vfsfind(os, "tags", 0)->data, bare);
+        }
+    }
+    {
+        Os *os = newos(&a);
+        Run r = run(os, a, "--help");
+        Str s = r.out.len ? r.out : r.err;
+        expect(t, "help status", num(&a, r.status), "0");
+        expect(t, "help usage", num(&a, startswith(s, "usage: ctags ")), "1");
+        expect(t, "help extras", num(&a, find(s, "\n  --extras=")>0), "1");
+        expect(t, "help kinds", num(&a, find(s, "\n  Fortran: b* blockData ")>0), "1");
     }
     {
         Os *os = newos(&a);

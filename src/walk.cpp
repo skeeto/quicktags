@@ -355,6 +355,7 @@ static void visitfile(Worker *w, Item *it)
     File f = {};
     f.src    = &src;
     f.kinds  = &c->opt->kinds;
+    f.extras = c->opt->extras;
     f.out    = &w->tags;
     f.mark   = w->tags.len;
     f.nofast = c->opt->nofast;

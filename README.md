@@ -6,10 +6,14 @@ tags files match [Universal Ctags][] 6.2.1 where that is correct, with a
 
     $ ctags -R
     $ ctags -R --kinds-C=+p -f tags.local src
+    $ ctags -R --extras=+q
 
 Options: `-R` (`--recurse`), `-f`/`-o FILE` (`-` for standard output),
 `--kinds-LANG=[+|-]KINDS` for C, C++, and Fortran (also `--LANG-kinds`),
-and `--jobs=N`. Files are tagged by extension, as Universal Ctags does.
+`--extras=[+|-]EXTRAS` (`q` adds C and C++ tags qualified by scope, such
+as `ns::Class::name`; `F` and `p` drop file-scoped tags and pseudo-tags
+when turned off), and `--jobs=N`. `--help` lists the kinds. Files are
+tagged by extension, as Universal Ctags does.
 
 On a 24-thread machine it tags llama.cpp in 0.1 seconds and llvm-project
 (800 MB in 77,000 files) in 1.3 seconds, where Universal Ctags takes 5

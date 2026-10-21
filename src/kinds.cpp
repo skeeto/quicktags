@@ -1,4 +1,5 @@
-// Tag kinds: a table per language, and the --kinds-<LANG> option
+// Tag kinds and extras: their tables, and the --kinds-<LANG> and
+// --extras options
 // This is free and unencumbered software released into the public domain.
 
 enum : i32 { LANG_NONE, LANG_C, LANG_CXX, LANG_FORTRAN };
@@ -237,6 +238,119 @@ static b32 kindspec(Kinds *k, i32 lang, Str spec, Str option, Buf *log)
             *t.bits |= (u32)1 << kind;
         } else {
             *t.bits &= ~((u32)1 << kind);
+        }
+    }
+    return 1;
+}
+
+
+// Extras
+
+// Universal Ctags' extras, one bit per table index. Only fileScope,
+// pseudo, and qualified change the output here. The rest are accepted
+// and do nothing, as their tags come from features not ported.
+enum : u32 {
+    EXTRA_ANONYMOUS = 1u<<0,
+    EXTRA_FILESCOPE = 1u<<1,
+    EXTRA_INPUTFILE = 1u<<2,
+    EXTRA_GUEST     = 1u<<3,
+    EXTRA_PSEUDO    = 1u<<4,
+    EXTRA_QUALIFIED = 1u<<5,
+    EXTRA_REFERENCE = 1u<<6,
+    EXTRA_SUBPARSER = 1u<<7,
+    EXTRA_NULLTAG   = 1u<<8,
+};
+
+static Kind extras[] = {
+    {0,   "anonymous", 1},  // named only in full
+    {'F', "fileScope", 1},
+    {'f', "inputFile", 0},
+    {'g', "guest",     0},
+    {'p', "pseudo",    1},
+    {'q', "qualified", 0},
+    {'r', "reference", 0},
+    {'s', "subparser", 1},
+    {'z', "nulltag",   0},
+};
+
+static u32 defaultextras()
+{
+    u32 r = 0;
+    for (i32 i = 0; i < countof(extras); i++) {
+        r |= (u32)extras[i].on << i;
+    }
+    return r;
+}
+
+static b32 badextra(Buf *log, u8 c)
+{
+    print(log, "ctags: unexpected character in extra specification: '");
+    putbyte(log, c);
+    print(log, "'\n");
+    return 0;
+}
+
+// Apply an --extras specification, which has the kinds grammar with
+// small differences, as in Universal Ctags: "+" and "-" within braces
+// are part of the name, an unclosed name is ignored, and the messages
+// differ. The option names itself in warnings, "extras" or "extra".
+static b32 extraspec(u32 *bits, Str spec, Str option, Buf *log)
+{
+    u32 all = ((u32)1 << countof(extras)) - 1;
+    iz  i   = 0;
+    if (i<spec.len && spec[i]=='*') {
+        *bits |= all;
+        i++;
+    } else if (i==spec.len || (spec[i]!='+' && spec[i]!='-')) {
+        *bits &= ~all;
+    }
+
+    b32 on = 1;
+    for (; i < spec.len; i++) {
+        u8  c    = spec[i];
+        Str name = {};
+        if (c == '+') {
+            on = 1;
+            continue;
+        } else if (c == '-') {
+            on = 0;
+            continue;
+        } else if (c == '{') {
+            iz end = i + 1;
+            for (; end<spec.len && spec[end]!='}' && spec[end]!='{'; end++) {}
+            if (end == spec.len) {
+                break;
+            } else if (spec[end] == '{') {
+                return badextra(log, '{');
+            }
+            name = span(spec.data+i+1, spec.data+end);
+            i = end;
+        } else if (c == '}') {
+            return badextra(log, c);
+        }
+
+        i32 extra = -1;
+        for (i32 j = 0; j<countof(extras) && extra<0; j++) {
+            if (name.data ? extras[j].name==name : extras[j].letter==c) {
+                extra = j;
+            }
+        }
+        if (extra < 0) {
+            print(log, "ctags: Warning: Unsupported parameter '");
+            if (name.data) {
+                putbyte(log, '{');
+                print(log, name);
+                putbyte(log, '}');
+            } else {
+                putbyte(log, c);
+            }
+            print(log, "' for \"");
+            print(log, option);
+            print(log, "\" option\n");
+        } else if (on) {
+            *bits |= (u32)1 << extra;
+        } else {
+            *bits &= ~((u32)1 << extra);
         }
     }
     return 1;

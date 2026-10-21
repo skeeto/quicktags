@@ -257,10 +257,12 @@ static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
     }
 
     Out *o = newout(os, &scratch, 3);
-    print(o, pseudotags);
-    print(o, "!_TAG_PROGRAM_VERSION\t");
-    print(o, version);
-    print(o, "\t//\n");
+    if (opt->extras & EXTRA_PSEUDO) {
+        print(o, pseudotags);
+        print(o, "!_TAG_PROGRAM_VERSION\t");
+        print(o, version);
+        print(o, "\t//\n");
+    }
     *count = mergelines(o, s, n, scratch);
     flush(o);
     b32 ok = !o->err;

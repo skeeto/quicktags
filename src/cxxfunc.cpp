@@ -809,24 +809,28 @@ static b32 looksparams(Cxx *c, Chain *tc, Params *ps)
                     }
                 }
 
-                i32 n = ps->count;
-                ps->typestart[n] = start;
-                ps->typeend[n]   = prev;
-                ps->anon &= ~(1u << n);
-                if (!id) {
-                    id = anontoken(c, K_PARAMETER, {});
-                    id->line    = prev->line;
-                    id->linepos = prev->linepos;
-                    ps->anon |= 1u << n;
+                // Without the anonymous extra, unnamed parameters are
+                // left out, and take no anonymous number
+                if (id || c->f->extras&EXTRA_ANONYMOUS) {
+                    i32 n = ps->count;
+                    ps->typestart[n] = start;
+                    ps->typeend[n]   = prev;
+                    ps->anon &= ~(1u << n);
+                    if (!id) {
+                        id = anontoken(c, K_PARAMETER, {});
+                        id->line    = prev->line;
+                        id->linepos = prev->linepos;
+                        ps->anon |= 1u << n;
+                    }
+                    ps->ids[n] = id;
+                    ps->count++;
                 }
-                ps->ids[n] = id;
-                ps->count++;
             } else {
                 ps = 0;
             }
 
         } else if (ps && ps->count<PARAMMAX && !iskeyword(start, KW_void) &&
-                   start->type!=T_DOTS) {
+                   start->type!=T_DOTS && c->f->extras&EXTRA_ANONYMOUS) {
             // An unnamed parameter of one token: int f(int)
             Token *type = copytoken(&c->pool, start);
             Token *id   = anontoken(c, K_PARAMETER, {});

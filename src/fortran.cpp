@@ -91,6 +91,7 @@ struct FtnName {
     i32 tag;      // kind, or -1: an enclosing unit without a tag
     i32 line;
     iz  linepos;
+    b32 anon;     // made up for an unnamed entity
 };
 
 // The state of reading, kept apart so that a look ahead can return.
@@ -224,7 +225,7 @@ static i32 ftnmargin(Ftn *p)
         }
     }
     if (nlabel) {
-        FtnName n = {{label, nlabel}, FT_NUMBER, -1, p->in.line, p->in.linepos};
+        FtnName n = {{label, nlabel}, FT_NUMBER, -1, p->in.line, p->in.linepos, 0};
         ftntag(p, &n, F_LABEL);
     }
     return type;
@@ -613,6 +614,7 @@ static void ftntag(Ftn *p, FtnName *n, i32 kind)
     t.filescope = kind==F_LABEL || kind==F_LOCAL;
     t.truncate  = kind != F_LABEL;
     t.lineaddr  = kind == F_COMMON;
+    t.anon      = n->anon;
     for (iz i = p->scopes.len-1; i >= 0; i--) {
         FtnName *s = &p->scopes[i];
         if (s->type==FT_IDENT && s->tag>=0) {
@@ -661,6 +663,7 @@ static FtnName ftnanon(Ftn *p, i32 kind)
     FtnName r = ftnview(p);
     r.text = anonname(p->f, p->a, kind);
     r.type = FT_IDENT;
+    r.anon = 1;
     p->tok.hassub = 0;
     return r;
 }

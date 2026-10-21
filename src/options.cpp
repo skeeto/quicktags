@@ -6,6 +6,7 @@ struct Options {
     Str  *files;
     iz    nfiles;
     Kinds kinds;
+    u32   extras;   // EXTRA_*
     i32   jobs;     // 0: one per processor
     b32   recurse;
     b32   stats;
@@ -20,6 +21,9 @@ static Str usage =
 "                          (default: tags)\n"
 "  --kinds-LANG=[+|-]KINDS enable or disable tag kinds for C, C++, or\n"
 "                          Fortran, as letters or {names}\n"
+"  --extras=[+|-]EXTRAS    q: also tag C and C++ names qualified by\n"
+"                          scope (ns::Class::f), F: file-scoped tags,\n"
+"                          p: pseudo-tags (default: Fp)\n"
 "  --jobs=N                threads, 0 for one per processor (default: 0)\n"
 "  --version               print the version\n"
 "  --help                  print this message\n";
@@ -102,6 +106,7 @@ static i32 parseargs(Options *opt, Str *args, i32 nargs, Arena *perm, Buf *log)
 {
     opt->output = "tags";
     opt->kinds  = defaultkinds();
+    opt->extras = defaultextras();
     opt->files  = alloc<Str>(perm, nargs);
 
     b32 seen = 0;  // -f given
@@ -184,6 +189,28 @@ static i32 parseargs(Options *opt, Str *args, i32 nargs, Arena *perm, Buf *log)
                 } else if (!kindspec(&opt->kinds, lang, value, name, log)) {
                     return ARGS_FATAL;
                 }
+
+            } else if (name=="extras" || name=="extra") {
+                if (name == "extra") {
+                    print(log, "ctags: Warning: --extra option is obsolete; "
+                               "use --extras instead\n");
+                }
+                if (!extraspec(&opt->extras, value, name, log)) {
+                    return ARGS_FATAL;
+                }
+
+            } else if (name == "file-scope") {
+                i32 b = parsebool(value);
+                if (b < 0) {
+                    fatal(log, "Invalid value for \"file-scope\" option", "", "");
+                    return ARGS_FATAL;
+                }
+                print(log, "ctags: Warning: \"--file-scope\" option is "
+                           "obsolete; use \"--extras=");
+                print(log, b ? Str("+F") : "-F");
+                print(log, "\" instead\n");
+                opt->extras &= ~EXTRA_FILESCOPE;
+                opt->extras |= b ? EXTRA_FILESCOPE : 0u;
 
             } else if (name == "version") {
                 print(log, "ctags ");

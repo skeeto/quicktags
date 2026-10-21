@@ -839,6 +839,18 @@ static TagCase fortrancases[] = {
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
      "s\tx.f90\t/^  subroutine s$/;\"\ts\tline:3\tmodule:m\n"
      "t\tx.f90\t/^  subroutine t$/;\"\ts\tline:12\n"},
+    {SHARED, "extras without fileScope", "f.f90", "--extras=-F --kinds-Fortran=+L",
+     "program main\n"
+     "  integer :: i\n"
+     "10 continue\n"
+     "end program\n"
+     "subroutine s(n)\n"
+     "  integer :: n, k\n"
+     "end subroutine\n",
+     "i\tf.f90\t/^  integer :: i$/;\"\tv\tline:2\tprogram:main\n"
+     "main\tf.f90\t/^program main$/;\"\tp\tline:1\n"
+     "s\tf.f90\t/^subroutine s(/;\"\ts\tline:5\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

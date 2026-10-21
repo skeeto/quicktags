@@ -158,6 +158,42 @@ static TagCase ccases[] = {
      "handler\tp8.c\t/^static inline int (*handler)(void);$/;\"\tv\tline:3\ttyperef:typename:int (*)(void)\tfile:\n"
      "p\tp8.c\t/^int * restrict p;$/;\"\tv\tline:1\ttyperef:typename:int * \n"
      "q\tp8.c\t/^int * restrict * q;$/;\"\tv\tline:2\ttyperef:typename:int * *\n"},
+    {SHARED, "qualified C members", "q.c", "--extras=+q",
+     "struct point { int x, y; };\n"
+     "union value { int i; struct { int a; } s; };\n"
+     "enum color { RED };\n"
+     "typedef struct { int z; } zt;\n",
+     "RED\tq.c\t/^enum color { RED };$/;\"\te\tline:3\tenum:color\tfile:\n"
+     "__anon0b8899e70108\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\ts\tline:2\tunion:value\tfile:\n"
+     "__anon0b8899e70208\tq.c\t/^typedef struct { int z; } zt;$/;\"\ts\tline:4\tfile:\n"
+     "__anon0b8899e70208::z\tq.c\t/^typedef struct { int z; } zt;$/;\"\tm\tline:4\tstruct:__anon0b8899e70208\ttyperef:typename:int\tfile:\n"
+     "a\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tstruct:value::__anon0b8899e70108\ttyperef:typename:int\tfile:\n"
+     "color\tq.c\t/^enum color { RED };$/;\"\tg\tline:3\tfile:\n"
+     "i\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tunion:value\ttyperef:typename:int\tfile:\n"
+     "point\tq.c\t/^struct point { int x, y; };$/;\"\ts\tline:1\tfile:\n"
+     "point::x\tq.c\t/^struct point { int x, y; };$/;\"\tm\tline:1\tstruct:point\ttyperef:typename:int\tfile:\n"
+     "point::y\tq.c\t/^struct point { int x, y; };$/;\"\tm\tline:1\tstruct:point\ttyperef:typename:int\tfile:\n"
+     "s\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tunion:value\ttyperef:struct:value::__anon0b8899e70108\tfile:\n"
+     "value\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tu\tline:2\tfile:\n"
+     "value::__anon0b8899e70108\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\ts\tline:2\tunion:value\tfile:\n"
+     "value::__anon0b8899e70108::a\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tstruct:value::__anon0b8899e70108\ttyperef:typename:int\tfile:\n"
+     "value::i\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tunion:value\ttyperef:typename:int\tfile:\n"
+     "value::s\tq.c\t/^union value { int i; struct { int a; } s; };$/;\"\tm\tline:2\tunion:value\ttyperef:struct:value::__anon0b8899e70108\tfile:\n"
+     "x\tq.c\t/^struct point { int x, y; };$/;\"\tm\tline:1\tstruct:point\ttyperef:typename:int\tfile:\n"
+     "y\tq.c\t/^struct point { int x, y; };$/;\"\tm\tline:1\tstruct:point\ttyperef:typename:int\tfile:\n"
+     "z\tq.c\t/^typedef struct { int z; } zt;$/;\"\tm\tline:4\tstruct:__anon0b8899e70208\ttyperef:typename:int\tfile:\n"
+     "zt\tq.c\t/^typedef struct { int z; } zt;$/;\"\tt\tline:4\ttyperef:struct:__anon0b8899e70208\tfile:\n",
+     ""},
+    {SHARED, "extras without fileScope", "f.c", "--extras=-F --kinds-C=+l",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "int total;\n"
+     "struct pair { int a, b; };\n"
+     "static void helper(void) { int i; }\n"
+     "int api(void) { return 0; }\n",
+     "api\tf.c\t/^int api(void) { return 0; }$/;\"\tf\tline:6\ttyperef:typename:int\n"
+     "total\tf.c\t/^int total;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -459,6 +495,96 @@ static TagCase cxxcases[] = {
      "Flags\tp1.cpp\t/^struct Flags {$/;\"\ts\tline:7\tfile:\n"
      "Foo\tp1.cpp\t/^Foo::Foo()$/;\"\tf\tline:12\tclass:Foo\n"
      "INITIALIZE_PASS_DEPENDENCY\tp1.cpp\t/^INITIALIZE_PASS_DEPENDENCY(AAResults)$/;\"\tf\tline:2\ttyperef:typename:Lint,\"lint\",\"Lint\",false,true\n"},
+    {SHARED, "qualified extra", "q.cpp", "--kinds-C++=+plz --extras=+q",
+     "namespace geo {\n"
+     "class Shape {\n"
+     "public:\n"
+     "    Shape(int n);\n"
+     "    int sides() const { return n; }\n"
+     "    enum Fill { Solid, Hollow };\n"
+     "    enum class Edge { Sharp };\n"
+     "    struct Box { int w; } box;\n"
+     "    typedef int Count;\n"
+     "private:\n"
+     "    int n;\n"
+     "};\n"
+     "enum Unit { Mm };\n"
+     "void draw(int scale) { int done = scale; }\n"
+     "}\n"
+     "enum Global { G1 };\n"
+     "void geo::Shape::grow() {}\n",
+     "Box\tq.cpp\t/^    struct Box { int w; } box;$/;\"\ts\tline:8\tclass:geo::Shape\tfile:\n"
+     "Count\tq.cpp\t/^    typedef int Count;$/;\"\tt\tline:9\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "Edge\tq.cpp\t/^    enum class Edge { Sharp };$/;\"\tg\tline:7\tclass:geo::Shape\tfile:\n"
+     "Fill\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\tg\tline:6\tclass:geo::Shape\tfile:\n"
+     "G1\tq.cpp\t/^enum Global { G1 };$/;\"\te\tline:16\tenum:Global\tfile:\n"
+     "Global\tq.cpp\t/^enum Global { G1 };$/;\"\tg\tline:16\tfile:\n"
+     "Hollow\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\te\tline:6\tenum:geo::Shape::Fill\tfile:\n"
+     "Mm\tq.cpp\t/^enum Unit { Mm };$/;\"\te\tline:13\tenum:geo::Unit\tfile:\n"
+     "Shape\tq.cpp\t/^    Shape(int n);$/;\"\tp\tline:4\tclass:geo::Shape\tfile:\n"
+     "Shape\tq.cpp\t/^class Shape {$/;\"\tc\tline:2\tnamespace:geo\tfile:\n"
+     "Sharp\tq.cpp\t/^    enum class Edge { Sharp };$/;\"\te\tline:7\tenum:geo::Shape::Edge\tfile:\n"
+     "Solid\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\te\tline:6\tenum:geo::Shape::Fill\tfile:\n"
+     "Unit\tq.cpp\t/^enum Unit { Mm };$/;\"\tg\tline:13\tnamespace:geo\tfile:\n"
+     "box\tq.cpp\t/^    struct Box { int w; } box;$/;\"\tm\tline:8\tclass:geo::Shape\ttyperef:struct:geo::Shape::Box\tfile:\n"
+     "done\tq.cpp\t/^void draw(int scale) { int done = scale; }$/;\"\tl\tline:14\tfunction:geo::draw\ttyperef:typename:int\tfile:\n"
+     "draw\tq.cpp\t/^void draw(int scale) { int done = scale; }$/;\"\tf\tline:14\tnamespace:geo\ttyperef:typename:void\n"
+     "geo\tq.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\n"
+     "geo::Mm\tq.cpp\t/^enum Unit { Mm };$/;\"\te\tline:13\tenum:geo::Unit\tfile:\n"
+     "geo::Shape\tq.cpp\t/^class Shape {$/;\"\tc\tline:2\tnamespace:geo\tfile:\n"
+     "geo::Shape::Box\tq.cpp\t/^    struct Box { int w; } box;$/;\"\ts\tline:8\tclass:geo::Shape\tfile:\n"
+     "geo::Shape::Box::w\tq.cpp\t/^    struct Box { int w; } box;$/;\"\tm\tline:8\tstruct:geo::Shape::Box\ttyperef:typename:int\tfile:\n"
+     "geo::Shape::Count\tq.cpp\t/^    typedef int Count;$/;\"\tt\tline:9\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "geo::Shape::Edge\tq.cpp\t/^    enum class Edge { Sharp };$/;\"\tg\tline:7\tclass:geo::Shape\tfile:\n"
+     "geo::Shape::Fill\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\tg\tline:6\tclass:geo::Shape\tfile:\n"
+     "geo::Shape::Hollow\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\te\tline:6\tenum:geo::Shape::Fill\tfile:\n"
+     "geo::Shape::Shape\tq.cpp\t/^    Shape(int n);$/;\"\tp\tline:4\tclass:geo::Shape\tfile:\n"
+     "geo::Shape::Sharp\tq.cpp\t/^    enum class Edge { Sharp };$/;\"\te\tline:7\tenum:geo::Shape::Edge\tfile:\n"
+     "geo::Shape::Solid\tq.cpp\t/^    enum Fill { Solid, Hollow };$/;\"\te\tline:6\tenum:geo::Shape::Fill\tfile:\n"
+     "geo::Shape::box\tq.cpp\t/^    struct Box { int w; } box;$/;\"\tm\tline:8\tclass:geo::Shape\ttyperef:struct:geo::Shape::Box\tfile:\n"
+     "geo::Shape::grow\tq.cpp\t/^void geo::Shape::grow() {}$/;\"\tf\tline:17\tclass:geo::Shape\ttyperef:typename:void\n"
+     "geo::Shape::n\tq.cpp\t/^    int n;$/;\"\tm\tline:11\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "geo::Shape::sides\tq.cpp\t/^    int sides() const { return n; }$/;\"\tf\tline:5\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "geo::Unit\tq.cpp\t/^enum Unit { Mm };$/;\"\tg\tline:13\tnamespace:geo\tfile:\n"
+     "geo::draw\tq.cpp\t/^void draw(int scale) { int done = scale; }$/;\"\tf\tline:14\tnamespace:geo\ttyperef:typename:void\n"
+     "grow\tq.cpp\t/^void geo::Shape::grow() {}$/;\"\tf\tline:17\tclass:geo::Shape\ttyperef:typename:void\n"
+     "n\tq.cpp\t/^    Shape(int n);$/;\"\tz\tline:4\tprototype:geo::Shape::Shape\ttyperef:typename:int\tfile:\n"
+     "n\tq.cpp\t/^    int n;$/;\"\tm\tline:11\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "scale\tq.cpp\t/^void draw(int scale) { int done = scale; }$/;\"\tz\tline:14\tfunction:geo::draw\ttyperef:typename:int\tfile:\n"
+     "sides\tq.cpp\t/^    int sides() const { return n; }$/;\"\tf\tline:5\tclass:geo::Shape\ttyperef:typename:int\tfile:\n"
+     "w\tq.cpp\t/^    struct Box { int w; } box;$/;\"\tm\tline:8\tstruct:geo::Shape::Box\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "qualified module partition", "m.cpp", "--extras=+q",
+     "export module shapes:circle;\n"
+     "export int radius;\n",
+     "circle\tm.cpp\t/^export module shapes:circle;$/;\"\tP\tline:1\tmodule:shapes\n"
+     "radius\tm.cpp\t/^export int radius;$/;\"\tv\tline:2\ttyperef:typename:int\n"
+     "shapes:circle\tm.cpp\t/^export module shapes:circle;$/;\"\tP\tline:1\tmodule:shapes\n",
+     ""},
+    {SHARED, "extras reset drops anonymous", "a.cpp", "--kinds-C++=+pz --extras=q",
+     "int f(int, char *);\n"
+     "void g(int (*)(int), int x) {}\n"
+     "struct { int a; } v;\n"
+     "enum { E1 } e;\n"
+     "namespace ns { struct { int b; } w; }\n"
+     "auto l = [](int y) { return y; };\n",
+     "e\ta.cpp\t/^enum { E1 } e;$/;\"\tv\tline:4\ttyperef:enum:__anon0ef536770203\n"
+     "g\ta.cpp\t/^void g(int (*)(int), int x) {}$/;\"\tf\tline:2\ttyperef:typename:void\n"
+     "l\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tv\tline:6\ttyperef:typename:auto\n"
+     "ns::w\ta.cpp\t/^namespace ns { struct { int b; } w; }$/;\"\tv\tline:5\tnamespace:ns\ttyperef:struct:ns::__anon0ef536770308\n"
+     "v\ta.cpp\t/^struct { int a; } v;$/;\"\tv\tline:3\ttyperef:struct:__anon0ef536770108\n"
+     "w\ta.cpp\t/^namespace ns { struct { int b; } w; }$/;\"\tv\tline:5\tnamespace:ns\ttyperef:struct:ns::__anon0ef536770308\n",
+     ""},
+    {SHARED, "anonymous extra off", "a.cpp", "--kinds-C++=+pz --extras=-{anonymous}",
+     "int f(int, char *);\n"
+     "struct { int a; } v;\n"
+     "auto l = [](int y) { return y; };\n",
+     "a\ta.cpp\t/^struct { int a; } v;$/;\"\tm\tline:2\tstruct:__anon0ef536770108\ttyperef:typename:int\tfile:\n"
+     "f\ta.cpp\t/^int f(int, char *);$/;\"\tp\tline:1\ttyperef:typename:int\tfile:\n"
+     "l\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tv\tline:3\ttyperef:typename:auto\n"
+     "v\ta.cpp\t/^struct { int a; } v;$/;\"\tv\tline:2\ttyperef:struct:__anon0ef536770108\n"
+     "y\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tz\tline:3\tfunction:__anon0ef536770202\ttyperef:typename:int\tfile:\n",
+     ""},
 };
 
 static void test_c(Test *t)

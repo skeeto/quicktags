@@ -26,8 +26,10 @@ if(NOT inputs)
   cmake_language(EXIT 77)
 endif()
 
-# Options: the case's --kinds options are kept for the "args" mode, and
-# the rest ignored, as features this program does not have
+# Options: the case's --kinds and --extras options are kept for the
+# "args" mode, and the rest ignored, as features this program does not
+# have. So are the reference (r) and guest (g) extras, whose tags come
+# from those features.
 set(opts "")
 if(MODE STREQUAL "allkinds")
   set(opts --kinds-C=* --kinds-C++=* --kinds-Fortran=*)
@@ -39,11 +41,20 @@ elseif(MODE STREQUAL "args")
       string(TOLOWER "${line}" lower)
       if(lower MATCHES "^--(kinds-(c|c\\+\\+|fortran)|(c|c\\+\\+|fortran)-(kinds|types))=")
         list(APPEND opts "${line}")
+      elseif(line MATCHES "^(--extras?=)(.*)$")
+        set(name "${CMAKE_MATCH_1}")
+        set(spec "${CMAKE_MATCH_2}")
+        if(NOT spec MATCHES "{")
+          string(REGEX REPLACE "[rg]" "" spec "${spec}")
+        endif()
+        if(NOT spec STREQUAL "+")
+          list(APPEND opts "${name}${spec}")
+        endif()
       endif()
     endforeach()
   endif()
   if(NOT opts)
-    message("no --kinds options")
+    message("no --kinds or --extras options")
     cmake_language(EXIT 77)
   endif()
 endif()

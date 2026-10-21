@@ -12,9 +12,10 @@ static Str fmttag(Arena *a, Str path, i32 lang, Str text, Tag tag)
     Kinds k = {0xffffffff, 0xffffffff};
     Buf   b(a, 256);
     File  f = {};
-    f.src   = &src;
-    f.kinds = &k;
-    f.out   = &b;
+    f.src    = &src;
+    f.kinds  = &k;
+    f.extras = defaultextras();
+    f.out    = &b;
     tagemit(&f, &tag);
     return finish(&b);
 }
