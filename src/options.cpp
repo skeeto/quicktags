@@ -1290,8 +1290,8 @@ static void etagsmode(Options *opt)
 
 enum : i32 {
     OPT_APPEND, OPT_EXCLUDE, OPT_EXCEPTION, OPT_EXCMD, OPT_EXTRAS,
-    OPT_FIELDS, OPT_FILESCOPE, OPT_FILETAGS, OPT_FORMAT, OPT_HELP, OPT_IF0,
-    OPT_JOBS, OPT_FORCE, OPT_LANGUAGES, OPT_LANGDEF, OPT_LANGMAP,
+    OPT_FIELDS, OPT_FILESCOPE, OPT_FILETAGS, OPT_FORMAT, OPT_GUESS, OPT_HELP,
+    OPT_IF0, OPT_JOBS, OPT_FORCE, OPT_LANGUAGES, OPT_LANGDEF, OPT_LANGMAP,
     OPT_LINEDIRS, OPT_LINKS, OPT_LISTEXTRAS, OPT_LISTFIELDS, OPT_LISTKINDS,
     OPT_LISTLANGS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
     OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
@@ -1299,44 +1299,45 @@ enum : i32 {
 };
 
 static struct { Str name; i32 id; } longopts[] = {
-    {"append",               OPT_APPEND},
-    {"exclude",              OPT_EXCLUDE},
-    {"exclude-exception",    OPT_EXCEPTION},
-    {"excmd",                OPT_EXCMD},
-    {"extra",                OPT_EXTRAS},
-    {"extras",               OPT_EXTRAS},
-    {"fields",               OPT_FIELDS},
-    {"file-scope",           OPT_FILESCOPE},
-    {"file-tags",            OPT_FILETAGS},
-    {"format",               OPT_FORMAT},
-    {"help",                 OPT_HELP},
-    {"if0",                  OPT_IF0},
-    {"jobs",                 OPT_JOBS},
-    {"lang",                 OPT_FORCE},
-    {"language",             OPT_FORCE},
-    {"language-force",       OPT_FORCE},
-    {"languages",            OPT_LANGUAGES},
-    {"langdef",              OPT_LANGDEF},
-    {"langmap",              OPT_LANGMAP},
-    {"line-directives",      OPT_LINEDIRS},
-    {"links",                OPT_LINKS},
-    {"list-extras",          OPT_LISTEXTRAS},
-    {"list-fields",          OPT_LISTFIELDS},
-    {"list-kinds",           OPT_LISTKINDS},
-    {"list-kinds-full",      OPT_LISTKINDS},
-    {"list-languages",       OPT_LISTLANGS},
-    {"options",              OPT_OPTIONS},
-    {"output-format",        OPT_OUTFORMAT},
-    {"pattern-length-limit", OPT_PATLIMIT},
-    {"quiet",                OPT_QUIET},
-    {"recurse",              OPT_RECURSE},
-    {"sort",                 OPT_SORT},
-    {"tag-relative",         OPT_TAGRELATIVE},
-    {"totals",               OPT_TOTALS},
-    {"verbose",              OPT_VERBOSE},
-    {"version",              OPT_VERSION},
-    {"_nofast",              OPT_NOFAST},
-    {"_stats",               OPT_STATS},
+    {"append",                 OPT_APPEND},
+    {"exclude",                OPT_EXCLUDE},
+    {"exclude-exception",      OPT_EXCEPTION},
+    {"excmd",                  OPT_EXCMD},
+    {"extra",                  OPT_EXTRAS},
+    {"extras",                 OPT_EXTRAS},
+    {"fields",                 OPT_FIELDS},
+    {"file-scope",             OPT_FILESCOPE},
+    {"file-tags",              OPT_FILETAGS},
+    {"format",                 OPT_FORMAT},
+    {"guess-language-eagerly", OPT_GUESS},
+    {"help",                   OPT_HELP},
+    {"if0",                    OPT_IF0},
+    {"jobs",                   OPT_JOBS},
+    {"lang",                   OPT_FORCE},
+    {"language",               OPT_FORCE},
+    {"language-force",         OPT_FORCE},
+    {"languages",              OPT_LANGUAGES},
+    {"langdef",                OPT_LANGDEF},
+    {"langmap",                OPT_LANGMAP},
+    {"line-directives",        OPT_LINEDIRS},
+    {"links",                  OPT_LINKS},
+    {"list-extras",            OPT_LISTEXTRAS},
+    {"list-fields",            OPT_LISTFIELDS},
+    {"list-kinds",             OPT_LISTKINDS},
+    {"list-kinds-full",        OPT_LISTKINDS},
+    {"list-languages",         OPT_LISTLANGS},
+    {"options",                OPT_OPTIONS},
+    {"output-format",          OPT_OUTFORMAT},
+    {"pattern-length-limit",   OPT_PATLIMIT},
+    {"quiet",                  OPT_QUIET},
+    {"recurse",                OPT_RECURSE},
+    {"sort",                   OPT_SORT},
+    {"tag-relative",           OPT_TAGRELATIVE},
+    {"totals",                 OPT_TOTALS},
+    {"verbose",                OPT_VERBOSE},
+    {"version",                OPT_VERSION},
+    {"_nofast",                OPT_NOFAST},
+    {"_stats",                 OPT_STATS},
 };
 
 // Families of options that name a language, by prefix, in the order
@@ -1408,9 +1409,9 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
 
     i32 b = 0;
     switch (id) {
-    case OPT_APPEND: case OPT_FILESCOPE: case OPT_FILETAGS: case OPT_IF0:
-    case OPT_LINEDIRS: case OPT_LINKS: case OPT_QUIET: case OPT_RECURSE:
-    case OPT_VERBOSE:
+    case OPT_APPEND: case OPT_FILESCOPE: case OPT_FILETAGS: case OPT_GUESS:
+    case OPT_IF0: case OPT_LINEDIRS: case OPT_LINKS: case OPT_QUIET:
+    case OPT_RECURSE: case OPT_VERBOSE:
         b = parsebool(value);
         if (b < 0) {
             return badvalue(p, name);
@@ -1491,6 +1492,7 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         return ARGS_EXIT;
     }
 
+    case OPT_GUESS:  // reads files of unknown names, such as for modelines
     case OPT_IF0:
     case OPT_LINEDIRS:
         return b ? unsupported(p, "--", name) : ARGS_OK;
@@ -1669,9 +1671,12 @@ static i32 shortopt(Parse *p, u8 c, Str param)
     case 'u': opt->sort    = SORT_NO;       return ARGS_OK;
     case 'F': return ARGS_OK;  // forward patterns, the only kind
     case 'V': return ARGS_OK;  // verbose
+    case 'w': return ARGS_OK;  // ignored, also by Universal Ctags
+    case '?': return exactopt(p, OPT_HELP, "help", {});
 
     case 'B':  // backward patterns
     case 'D':  // macro definitions
+    case 'G':  // --guess-language-eagerly
     case 'x':  // a cross reference
         return unsupported(p, "-", {&c, 1});
 

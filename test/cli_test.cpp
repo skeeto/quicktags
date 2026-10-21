@@ -327,6 +327,14 @@ static void test_cli(Test *t)
         {"-b 1 a",        FATAL, "ctags: Unknown option: -b\n"},
         {"-V -F -VF a",   OK,    ""},
         {"-RV",           OK,    ""},
+        {"-w -wR",        OK,    ""},
+        {"-G a",          FATAL, "ctags: -G: not supported\n"},
+        {"-RG",           FATAL, "ctags: -G: not supported\n"},
+        {"--guess-language-eagerly a", FATAL,
+         "ctags: --guess-language-eagerly: not supported\n"},
+        {"--guess-language-eagerly=no a", OK, ""},
+        {"--guess-language-eagerly=x a", FATAL,
+         "ctags: Invalid value for \"guess-language-eagerly\" option\n"},
         {"-a a",          FATAL, "ctags: --append: not yet supported\n"},
         {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
                                  "tags to stdout\n"},
@@ -1124,6 +1132,16 @@ static void test_cli(Test *t)
         Parsed r   = parsecmd(&tmp, ps[i].args);
         Str    row = concat(&tmp, "\np       pseudo    ", ps[i].row);
         expect(t, ps[i].args, num(&tmp, find(r.opt.print, row) > 0), "1");
+    }
+
+    {
+        // -? is --help, at once
+        Arena  tmp  = a;
+        Parsed help = parsecmd(&tmp, "--help");
+        Parsed q    = parsecmd(&tmp, "-R? --bogus");
+        expect(t, "-? status", num(&tmp, q.status), num(&tmp, ARGS_EXIT));
+        expect(t, "-? print", q.opt.print, help.opt.print);
+        expect(t, "-? log", q.log, "");
     }
 
     {
