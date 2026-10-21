@@ -3,6 +3,7 @@
 # stripped. Of the rest, the "args" mode keeps those that change which
 # tags exist, and the "fmt" mode those that change only how tags are
 # written. The lists of regular expressions below grow as features land.
+# Also the options of any run compared by key with a base run.
 
 # A regular expression matching regardless of case, from one written in
 # lowercase without character classes or escaped letters.
@@ -127,6 +128,20 @@ function(ctags_keepopt var opt)
     ctags_filterfields(opt "${CMAKE_MATCH_1}")
   endif()
   set(${var} "${opt}" PARENT_SCOPE)
+endfunction()
+
+# The options after VAR, for a run compared by key (tagdiff --base) with
+# a base run, whose keys name files as given, from the directory both
+# run in. Etags output (-e) names them from the TAGS file's directory
+# instead, which is elsewhere, so --tag-relative=no follows it.
+function(ctags_keyedopts var)
+  set(r ${ARGN})
+  list(FIND r -e short)
+  list(FIND r --output-format=etags long)
+  if(short GREATER -1 OR long GREATER -1)
+    list(APPEND r --tag-relative=no)
+  endif()
+  set(${var} "${r}" PARENT_SCOPE)
 endfunction()
 
 # Sort a case's option lines into ctags_args and ctags_fmt, the options

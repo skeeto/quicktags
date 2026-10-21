@@ -16,7 +16,9 @@ option(CTAGS_CORPUS_REUSE_REF
 # by tag (tagdiff --base) against the default run of the same tree. The
 # set NAME gives both tools the options ctags_fmt_NAME, and tagdiff the
 # flags ctags_fmt_NAME_diff. Sets listed in ctags_fmt_sets run on
-# llama.cpp, those in ctags_fmt_llvm on llvm-project. For example:
+# llama.cpp, those in ctags_fmt_llvm on llvm-project. A set with -e also
+# gets --tag-relative=no, so that TAGS paths start at the tree's root as
+# the base's do (ctags_keyedopts in caseopts.cmake). For example:
 #   set(ctags_fmt_sortno --sort=no)
 #   set(ctags_fmt_sortno_diff --ordered)
 #   list(APPEND ctags_fmt_sets sortno)

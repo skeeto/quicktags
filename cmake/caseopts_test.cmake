@@ -79,6 +79,14 @@ set(ctags_fmt_keep "^--fields=" "^--sort=")
 ctags_caseopts("${lines}")
 expect("fmt kept" "${ctags_fmt}" "--fields=+K;--sort=no")
 
+# A run compared by key names files as its base run does
+ctags_keyedopts(got --sort=no)
+expect("keyed" "${got}" "--sort=no")
+ctags_keyedopts(got -e --sort=no)
+expect("keyed -e" "${got}" "-e;--sort=no;--tag-relative=no")
+ctags_keyedopts(got --output-format=etags)
+expect("keyed etags" "${got}" "--output-format=etags;--tag-relative=no")
+
 if(failed)
   message(FATAL_ERROR "${failed} caseopts checks failed")
 endif()

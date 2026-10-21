@@ -56,7 +56,7 @@ elseif(MODE STREQUAL "fmt")
     cmake_language(EXIT 77)
   endif()
   set(base ${ctags_args})
-  set(opts ${ctags_args} ${ctags_fmt})
+  ctags_keyedopts(opts ${ctags_args} ${ctags_fmt})
 endif()
 
 file(REMOVE_RECURSE ${WORK})

@@ -7,7 +7,10 @@
 # the work directory of a run without ARGS, its ref.tags and ours.tags
 # are the base of a keyed comparison (tagdiff --base): only the tags on
 # which they agree are compared. If they are missing, or ctags is newer,
-# the base is made here instead.
+# the base is made here instead. ARGS then name files as the base does
+# (ctags_keyedopts).
+
+include(${CMAKE_CURRENT_LIST_DIR}/caseopts.cmake)
 
 # Tag the tree with both tools, into OUT/ref.tags and OUT/ours.tags,
 # keeping an earlier ref.tags if asked to reuse it
@@ -33,6 +36,7 @@ function(ctags_runboth out reuse)
 endfunction()
 
 set(diff ${DIFF})
+set(args ${ARGS})
 if(BASE)
   set(base ${BASE})
   if(NOT EXISTS ${BASE}/ref.tags OR "${OURS}" IS_NEWER_THAN ${BASE}/ours.tags)
@@ -40,8 +44,9 @@ if(BASE)
     ctags_runboth(${base} "${REUSE}")
   endif()
   list(APPEND diff --base ${base}/ref.tags ${base}/ours.tags)
+  ctags_keyedopts(args ${ARGS})
 endif()
-ctags_runboth(${WORK} "${REUSE}" ${ARGS})
+ctags_runboth(${WORK} "${REUSE}" ${args})
 
 if(ONLY)
   list(APPEND diff --only ${ONLY})
