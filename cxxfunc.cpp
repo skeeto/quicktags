@@ -395,8 +395,13 @@ static b32 lookforsig(Cxx *c, Chain *ch, Sig *sig, Params *params)
             }
         }
 
-        // type (*name)(params) and such, with the name nested
+        // type (*name)(params) and such, with the name nested, but
+        // (departure P2) not within arguments: v("x", f(y)), v(1, f(y))
         Chain *idchain = 0;
+        Token *first   = chainat(t->chain, 1);
+        if (firstof(t->chain, T_COMMA) || first->type&(T_STRING|T_CHAR|T_NUMBER)) {
+            continue;
+        }
         idstart = firstnestedid(c, t->chain, &idchain);
         if (idstart && idstart->next && idstart->next->type==T_PARENS &&
                 looksparams(c, idstart->next->chain, 0)) {

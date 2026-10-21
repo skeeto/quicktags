@@ -394,6 +394,12 @@ static TagCase cxxcases[] = {
      "loose\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\tv\tline:3\ttyperef:struct:PACKED\n"
      "maker\tp7.cpp\t/^typedef struct Vec (*maker)(int);$/;\"\tt\tline:4\ttyperef:struct:Vec (*)(int)\tfile:\n"
      "v\tp7.cpp\t/^struct ALIGNAS(16) Vec { float v[4]; };$/;\"\tm\tline:1\tstruct:Vec\ttyperef:typename:float[4]\tfile:\n"},
+    {IMPROVED, "P2 constructor arguments with calls", "p2.cpp", "",
+     "static cl::opt<bool> PrintStats(\"print-stats\", cl::init(false), cl::Hidden);\n"
+     "static std::string Name(\"x\", make(1));\n",
+     "Name\tp2.cpp\t/^static std::string Name(\"x\", make(1));$/;\"\tv\tline:2\ttyperef:typename:std::string\tfile:\n"
+     "PrintStats\tp2.cpp\t/^static cl::opt<bool> PrintStats(\"print-stats\", cl::init(false), cl::Hidden);$/;\"\tv\tline:1\ttyperef:typename:cl::opt<bool>\tfile:\n",
+     "Name\tp2.cpp\t/^static std::string Name(\"x\", make(1));$/;\"\tv\tline:2\ttyperef:typename:std::string\tfile:\n"},
 };
 
 static void test_c(Test *t)
