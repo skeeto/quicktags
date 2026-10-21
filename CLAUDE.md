@@ -47,7 +47,16 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 - `main_win32.cpp`, `main_posix.cpp`, `main_test.cpp`: platform layers.
 - `cxx.cpp`, `fortran.cpp`: the parsers, called by `parsefile` in
   `ctags.cpp`, which retries a failed first pass with the second pass's
-  rules.
+  rules. `cxx.cpp` includes `cxxtoken.cpp` (tokens, chains, keywords),
+  `cxxlex.cpp` (the preprocessor's character filter), `cxxparse.cpp`
+  (tokenizer, statements, blocks, scopes, tags), `cxxdecl.cpp` (enum,
+  class, typedef, namespace, using, templates, lambdas, modules), and
+  `cxxfunc.cpp` (K&R, signatures, parameters, variables).
+- Fast paths (`skipnumbers` for data tables) have a slow twin under
+  `--_nofast`; the `fast` unit group and the `same` corpus tests require
+  identical output.
+- `main_fuzz.cpp`: an AFL++ layer; the `fuzz` unit group is a short
+  in-process campaign (`-DFUZZRUNS=N` for a longer one).
 - `test/`: unit tests (`*_test.cpp`, included by `main_test.cpp`, one
   CTest per group listed in `CTAGS_TEST_GROUPS`), `vfs.cpp` (the test
   platform), `tagdiff.cpp` (differential comparison), `ledger.txt`.
@@ -67,7 +76,9 @@ configure time and never committed.
 The differential tests compare against
 `ctags --options=NONE --languages=C,C++,Fortran --fields=+n`. Every
 difference must be either fixed or recorded in `test/ledger.txt` with a
-reason. Triage a difference by minimizing it, then:
+reason: exact lines, `= N PATH` for N differences in a file, or a named
+rewrite (`! NAME`, defined in `test/tagdiff.cpp`) for a systematic one.
+Triage a difference by minimizing it, then:
 
 - Universal Ctags is right: add a unit case with its output, then fix ours.
 - Universal Ctags is wrong (a bogus or lost tag, an unmatchable pattern,

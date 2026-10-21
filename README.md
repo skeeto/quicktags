@@ -11,6 +11,11 @@ Options: `-R` (`--recurse`), `-f`/`-o FILE` (`-` for standard output),
 `--kinds-LANG=[+|-]KINDS` for C, C++, and Fortran (also `--LANG-kinds`),
 and `--jobs=N`. Files are tagged by extension, as Universal Ctags does.
 
+On a 24-thread machine it tags llama.cpp in 0.1 seconds and llvm-project
+(800 MB in 77,000 files) in 1.3 seconds, where Universal Ctags takes 5
+and 39 seconds. Where it departs from Universal Ctags, and why, is in
+`docs/spec.md`, section 4.
+
 ## Build
 
 No dependencies, and on Windows no C runtime:
