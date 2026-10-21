@@ -12,7 +12,8 @@ struct Source {
 };
 
 // One parse of one file. A failed first pass discards its lines but
-// keeps the anonymous counter, so a second pass numbers on from it.
+// keeps the anonymous counter, so a second pass numbers on from it, and
+// may leave the second pass other state, as Universal Ctags does.
 struct File {
     Source *src;
     Kinds  *kinds;
@@ -20,6 +21,7 @@ struct File {
     iz      mark;   // where this file's lines begin in out
     iz      ntags;
     i32     anon;
+    i32     carry;  // left by a failed pass for the next, 0 for nothing
     b32     nofast;
 };
 

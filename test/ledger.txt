@@ -612,3 +612,1303 @@
 = 18 mlir/lib/IR/BuiltinAttributes.cpp
 = 5 mlir/lib/IR/Dominance.cpp
 = 1 mlir/lib/Pass/PassRegistry.cpp
+
+@ corpus/llvm/flang: X4, NUL is data. Universal Ctags drops the rest of a line after a NUL and joins the next line to it, so in folding05.f90 each NUL string swallows the next declaration, and the module loses most of its variables (and gains one named "parameter").
++ c1_adjustl8	flang/test/Evaluate/folding05.f90	/^  character(kind=1, len=*), parameter :: c1_adjustl8(/;"	v	line:69	module:character_intrinsic_tests
++ c1aok	flang/test/Evaluate/folding05.f90	/^  character(kind=1, len=*), parameter :: c1aok(/;"	v	line:36	module:character_intrinsic_tests
++ c4_adjustr8	flang/test/Evaluate/folding05.f90	/^  character(kind=4, len=*), parameter :: c4_adjustr8(/;"	v	line:78	module:character_intrinsic_tests
++ c4aok	flang/test/Evaluate/folding05.f90	/^  character(kind=4, len=*), parameter :: c4aok(/;"	v	line:29	module:character_intrinsic_tests
++ ck	flang/test/Evaluate/folding05.f90	/^  integer, parameter :: ck /;"	v	line:81	module:character_intrinsic_tests
++ cks	flang/test/Evaluate/folding05.f90	/^  character(kind=ck, len=*), parameter :: cks /;"	v	line:82	module:character_intrinsic_tests
++ ds	flang/test/Evaluate/folding05.f90	/^  character(len=1), parameter :: ds /;"	v	line:83	module:character_intrinsic_tests
+- parameter	flang/test/Evaluate/folding05.f90	/^  logical, parameter /;"	v	line:11	module:character_intrinsic_tests
++ s1	flang/test/Evaluate/folding05.f90	/^  character(kind=1, len=10) s1(/;"	v	line:88	module:character_intrinsic_tests
++ s2	flang/test/Evaluate/folding05.f90	/^  character(kind=2, len=10) s2(/;"	v	line:89	module:character_intrinsic_tests
++ s4	flang/test/Evaluate/folding05.f90	/^  character(kind=4, len=10) s4(/;"	v	line:90	module:character_intrinsic_tests
++ test_achar4_ok1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_achar4_ok1 /;"	v	line:33	module:character_intrinsic_tests
++ test_achar4_ok2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_achar4_ok2 /;"	v	line:34	module:character_intrinsic_tests
++ test_c1_adjustl1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl1 /;"	v	line:62	module:character_intrinsic_tests
++ test_c1_adjustl2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl2 /;"	v	line:63	module:character_intrinsic_tests
++ test_c1_adjustl3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl3 /;"	v	line:64	module:character_intrinsic_tests
++ test_c1_adjustl4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl4 /;"	v	line:65	module:character_intrinsic_tests
++ test_c1_adjustl5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl5 /;"	v	line:66	module:character_intrinsic_tests
++ test_c1_adjustl6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl6 /;"	v	line:67	module:character_intrinsic_tests
++ test_c1_adjustl7	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl7 /;"	v	line:68	module:character_intrinsic_tests
++ test_c1_adjustl8	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_adjustl8 /;"	v	line:70	module:character_intrinsic_tests
++ test_c1_index1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index1 /;"	v	line:101	module:character_intrinsic_tests
++ test_c1_index2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index2 /;"	v	line:102	module:character_intrinsic_tests
++ test_c1_index3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index3 /;"	v	line:103	module:character_intrinsic_tests
++ test_c1_index4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index4 /;"	v	line:104	module:character_intrinsic_tests
++ test_c1_index5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index5 /;"	v	line:105	module:character_intrinsic_tests
++ test_c1_index6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index6 /;"	v	line:106	module:character_intrinsic_tests
++ test_c1_index7	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index7 /;"	v	line:107	module:character_intrinsic_tests
++ test_c1_index8	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_index8 /;"	v	line:115	module:character_intrinsic_tests
++ test_c1_len_trim1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_len_trim1 /;"	v	line:143	module:character_intrinsic_tests
++ test_c1_len_trim2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_len_trim2 /;"	v	line:144	module:character_intrinsic_tests
++ test_c1_len_trim3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_len_trim3 /;"	v	line:145	module:character_intrinsic_tests
++ test_c1_len_trim4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_len_trim4 /;"	v	line:146	module:character_intrinsic_tests
++ test_c1_new_line1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_new_line1 /;"	v	line:85	module:character_intrinsic_tests
++ test_c1_new_line2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_new_line2 /;"	v	line:91	module:character_intrinsic_tests
++ test_c1_new_line3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_new_line3 /;"	v	line:94	module:character_intrinsic_tests
++ test_c1_new_line4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_new_line4 /;"	v	line:97	module:character_intrinsic_tests
++ test_c1_repeat1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_repeat1 /;"	v	line:152	module:character_intrinsic_tests
++ test_c1_repeat2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_repeat2 /;"	v	line:153	module:character_intrinsic_tests
++ test_c1_repeat3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_repeat3 /;"	v	line:154	module:character_intrinsic_tests
++ test_c1_scan1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan1 /;"	v	line:116	module:character_intrinsic_tests
++ test_c1_scan2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan2 /;"	v	line:117	module:character_intrinsic_tests
++ test_c1_scan3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan3 /;"	v	line:118	module:character_intrinsic_tests
++ test_c1_scan4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan4 /;"	v	line:119	module:character_intrinsic_tests
++ test_c1_scan5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan5 /;"	v	line:120	module:character_intrinsic_tests
++ test_c1_scan6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_scan6 /;"	v	line:121	module:character_intrinsic_tests
++ test_c1_trim1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_trim1 /;"	v	line:159	module:character_intrinsic_tests
++ test_c1_trim2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_trim2 /;"	v	line:160	module:character_intrinsic_tests
++ test_c1_trim3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_trim3 /;"	v	line:161	module:character_intrinsic_tests
++ test_c1_trim4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_trim4 /;"	v	line:162	module:character_intrinsic_tests
++ test_c1_trim5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_trim5 /;"	v	line:163	module:character_intrinsic_tests
++ test_c1_verify1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify1 /;"	v	line:128	module:character_intrinsic_tests
++ test_c1_verify2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify2 /;"	v	line:129	module:character_intrinsic_tests
++ test_c1_verify3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify3 /;"	v	line:130	module:character_intrinsic_tests
++ test_c1_verify4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify4 /;"	v	line:131	module:character_intrinsic_tests
++ test_c1_verify4a	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify4a /;"	v	line:132	module:character_intrinsic_tests
++ test_c1_verify5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify5 /;"	v	line:133	module:character_intrinsic_tests
++ test_c1_verify6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c1_verify6 /;"	v	line:134	module:character_intrinsic_tests
++ test_c2_new_line1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c2_new_line1 /;"	v	line:86	module:character_intrinsic_tests
++ test_c2_new_line2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c2_new_line2 /;"	v	line:92	module:character_intrinsic_tests
++ test_c2_new_line3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c2_new_line3 /;"	v	line:95	module:character_intrinsic_tests
++ test_c2_new_line4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c2_new_line4 /;"	v	line:98	module:character_intrinsic_tests
++ test_c4_adjustr1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr1 /;"	v	line:72	module:character_intrinsic_tests
++ test_c4_adjustr3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr3 /;"	v	line:73	module:character_intrinsic_tests
++ test_c4_adjustr4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr4 /;"	v	line:74	module:character_intrinsic_tests
++ test_c4_adjustr5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr5 /;"	v	line:75	module:character_intrinsic_tests
++ test_c4_adjustr6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr6 /;"	v	line:76	module:character_intrinsic_tests
++ test_c4_adjustr7	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr7 /;"	v	line:77	module:character_intrinsic_tests
++ test_c4_adjustr8	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_adjustr8 /;"	v	line:79	module:character_intrinsic_tests
++ test_c4_index1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index1 /;"	v	line:108	module:character_intrinsic_tests
++ test_c4_index2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index2 /;"	v	line:109	module:character_intrinsic_tests
++ test_c4_index3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index3 /;"	v	line:110	module:character_intrinsic_tests
++ test_c4_index4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index4 /;"	v	line:111	module:character_intrinsic_tests
++ test_c4_index5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index5 /;"	v	line:112	module:character_intrinsic_tests
++ test_c4_index6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index6 /;"	v	line:113	module:character_intrinsic_tests
++ test_c4_index7	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_index7 /;"	v	line:114	module:character_intrinsic_tests
++ test_c4_len_trim1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_len_trim1 /;"	v	line:147	module:character_intrinsic_tests
++ test_c4_len_trim2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_len_trim2 /;"	v	line:148	module:character_intrinsic_tests
++ test_c4_len_trim3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_len_trim3 /;"	v	line:149	module:character_intrinsic_tests
++ test_c4_len_trim4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_len_trim4 /;"	v	line:150	module:character_intrinsic_tests
++ test_c4_new_line1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_new_line1 /;"	v	line:87	module:character_intrinsic_tests
++ test_c4_new_line2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_new_line2 /;"	v	line:93	module:character_intrinsic_tests
++ test_c4_new_line3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_new_line3 /;"	v	line:96	module:character_intrinsic_tests
++ test_c4_new_line4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_new_line4 /;"	v	line:99	module:character_intrinsic_tests
++ test_c4_repeat1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_repeat1 /;"	v	line:155	module:character_intrinsic_tests
++ test_c4_repeat2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_repeat2 /;"	v	line:156	module:character_intrinsic_tests
++ test_c4_repeat3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_repeat3 /;"	v	line:157	module:character_intrinsic_tests
++ test_c4_scan1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan1 /;"	v	line:122	module:character_intrinsic_tests
++ test_c4_scan2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan2 /;"	v	line:123	module:character_intrinsic_tests
++ test_c4_scan3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan3 /;"	v	line:124	module:character_intrinsic_tests
++ test_c4_scan4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan4 /;"	v	line:125	module:character_intrinsic_tests
++ test_c4_scan5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan5 /;"	v	line:126	module:character_intrinsic_tests
++ test_c4_scan6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_scan6 /;"	v	line:127	module:character_intrinsic_tests
++ test_c4_trim1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_trim1 /;"	v	line:164	module:character_intrinsic_tests
++ test_c4_trim2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_trim2 /;"	v	line:165	module:character_intrinsic_tests
++ test_c4_trim3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_trim3 /;"	v	line:166	module:character_intrinsic_tests
++ test_c4_trim4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_trim4 /;"	v	line:167	module:character_intrinsic_tests
++ test_c4_trim5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_trim5 /;"	v	line:168	module:character_intrinsic_tests
++ test_c4_verify1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify1 /;"	v	line:135	module:character_intrinsic_tests
++ test_c4_verify2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify2 /;"	v	line:136	module:character_intrinsic_tests
++ test_c4_verify3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify3 /;"	v	line:137	module:character_intrinsic_tests
++ test_c4_verify4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify4 /;"	v	line:138	module:character_intrinsic_tests
++ test_c4_verify4a	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify4a /;"	v	line:139	module:character_intrinsic_tests
++ test_c4_verify5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify5 /;"	v	line:140	module:character_intrinsic_tests
++ test_c4_verify6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_c4_verify6 /;"	v	line:141	module:character_intrinsic_tests
++ test_char1_array	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_array /;"	v	line:37	module:character_intrinsic_tests
++ test_char1_ok2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_ok2 /;"	v	line:11	module:character_intrinsic_tests
++ test_char1_ok3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_ok3 /;"	v	line:12	module:character_intrinsic_tests
++ test_char1_ok4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_ok4 /;"	v	line:13	module:character_intrinsic_tests
++ test_char1_ok5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_ok5 /;"	v	line:15	module:character_intrinsic_tests
++ test_char1_ok6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char1_ok6 /;"	v	line:17	module:character_intrinsic_tests
++ test_char2_ok1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char2_ok1 /;"	v	line:19	module:character_intrinsic_tests
++ test_char2_ok2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char2_ok2 /;"	v	line:20	module:character_intrinsic_tests
++ test_char2_ok3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char2_ok3 /;"	v	line:21	module:character_intrinsic_tests
++ test_char4_array	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char4_array /;"	v	line:30	module:character_intrinsic_tests
++ test_char4_ok1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char4_ok1 /;"	v	line:23	module:character_intrinsic_tests
++ test_char4_ok2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char4_ok2 /;"	v	line:24	module:character_intrinsic_tests
++ test_char4_ok3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char4_ok3 /;"	v	line:25	module:character_intrinsic_tests
++ test_char4_ok4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_char4_ok4 /;"	v	line:27	module:character_intrinsic_tests
++ test_iachar1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_iachar1 /;"	v	line:50	module:character_intrinsic_tests
++ test_iachar2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_iachar2 /;"	v	line:51	module:character_intrinsic_tests
++ test_iachar3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_iachar3 /;"	v	line:54	module:character_intrinsic_tests
++ test_iachar5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_iachar5 /;"	v	line:55	module:character_intrinsic_tests
++ test_iachar6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_iachar6 /;"	v	line:57	module:character_intrinsic_tests
++ test_ichar1	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar1 /;"	v	line:41	module:character_intrinsic_tests
++ test_ichar2	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar2 /;"	v	line:42	module:character_intrinsic_tests
++ test_ichar3	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar3 /;"	v	line:45	module:character_intrinsic_tests
++ test_ichar4	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar4 /;"	v	line:46	module:character_intrinsic_tests
++ test_ichar5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar5 /;"	v	line:47	module:character_intrinsic_tests
++ test_ichar6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar6 /;"	v	line:49	module:character_intrinsic_tests
++ test_selected_char_kind	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_selected_char_kind /;"	v	line:84	module:character_intrinsic_tests
+
+@ corpus/llvm/flang: F3, names may start with an underscore: modules like __fortran_builtins are tagged and scope their contents, interfaces like __fadd_rn are named instead of anonymous (renumbering the anonymous ones after them), and the dummies of prototypes named so are no longer variables.
++ _	flang/test/Semantics/bind-c14.f90	/^subroutine _(/;"	s	line:31
++ __builtin_c_funptr	flang/test/Semantics/modfile59.f90	/^  real, private :: __builtin_c_ptr, __builtin_c_funptr$/;"	v	line:7	module:m
++ __builtin_c_ptr	flang/test/Semantics/modfile59.f90	/^  real, private :: __builtin_c_ptr,/;"	v	line:7	module:m
++ component	flang/test/Semantics/modfile59.f90	/^    type(c_funptr) :: component /;"	k	line:9	type:mydt
++ mydt	flang/test/Semantics/modfile59.f90	/^  type mydt$/;"	t	line:8	module:m
++ namedConst	flang/test/Semantics/modfile59.f90	/^  type(c_ptr), parameter :: namedConst /;"	v	line:11	module:m
+- a	flang/test/Lower/OpenACC/acc-data-cuda-device.f90	/^      real(4), intent(in) :: a(/;"	v	line:14	interface:doit
+- a	flang/test/Lower/OpenACC/acc-host-data-cuda-device.f90	/^    real(4), intent(in) :: a(/;"	v	line:14	interface:doit
+- a	flang/test/Semantics/bind-c20.f90	/^      real, intent(in) :: a(/;"	v	line:67	interface:__anon5b62e2ed0505
+- namedConst	flang/test/Semantics/modfile59.f90	/^  type(c_ptr), parameter :: namedConst /;"	v	line:11
+
+@ corpus/llvm/flang-rt: F3, names may start with an underscore: modules like __fortran_builtins are tagged and scope their contents, interfaces like __fadd_rn are named instead of anonymous (renumbering the anonymous ones after them), and the dummies of prototypes named so are no longer variables.
++ /=	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(\/=)/;"	i	line:184	module:__fortran_builtins
++ ==	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(==)/;"	i	line:178	module:__fortran_builtins
++ Binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Binding$/;"	t	line:59	module:__fortran_type_info
++ Component	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Component /;"	t	line:91	module:__fortran_type_info
++ DerivedType	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: DerivedType$/;"	t	line:26	module:__fortran_type_info
++ ProcPtrComponent	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: ProcPtrComponent /;"	t	line:108	module:__fortran_type_info
++ SpecialBinding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: SpecialBinding$/;"	t	line:122	module:__fortran_type_info
++ Value	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: Value$/;"	t	line:71	module:__fortran_type_info
++ __CUDA_builtins	flang-rt/lib/runtime/__cuda_builtins.f90	/^module __CUDA_builtins$/;"	m	line:12
++ __address	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __address$/;"	k	line:47	type:__builtin_c_ptr
++ __address	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __address$/;"	k	line:51	type:__builtin_c_funptr
++ __allocatable_data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=1), allocatable :: __allocatable_data(/;"	k	line:41	type:ieee_modes_type
++ __allocatable_data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=1), allocatable :: __allocatable_data(/;"	k	line:47	type:ieee_status_type
++ __anon0a1744d20505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:90
++ __anon0a1744d20605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:97
++ __anon0a1744d20705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:367
++ __anon0a1744d20805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:374
++ __anon0a1744d20905	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:386
++ __anon0a1744d20a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:393
++ __anon0a1744d20b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:405
++ __anon0a1744d20c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:453
++ __anon0a1744d20d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:482
++ __anon0a1744d20e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:487
++ __anon0a1744d20f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface  $/;"	i	line:497
++ __anon0a1744d21005	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:502
++ __anon0a1744d21105	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1400
++ __anon0a1744d21205	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1405
++ __anon0a1744d21305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1410
++ __anon0a1744d21405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2061
++ __anon0a1744d21505	flang-rt/lib/runtime/cudadevice.f90	/^  interface $/;"	i	line:2080
++ __anon0a1744d21605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2087
++ __anon0a1744d21705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2094
++ __anon0a1744d21805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2102
++ __anon0a1744d21905	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2107
++ __anon0a1744d21a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2112
++ __anon0a1744d21b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2124
++ __anon0a1744d21c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2202
++ __anond4434a4b0103	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Value::Genre$/;"	E	line:67	module:__fortran_type_info
++ __anond4434a4b0203	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::Genre$/;"	E	line:77	module:__fortran_type_info
++ __anond4434a4b0303	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::MemorySpace$/;"	E	line:81	module:__fortran_type_info
++ __anond4434a4b0403	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! common::TypeCategory$/;"	E	line:85	module:__fortran_type_info
++ __anond4434a4b0503	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! SpecialBinding::Which$/;"	E	line:114	module:__fortran_type_info
++ __anond9e0c82b0105	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  abstract interface$/;"	i	line:15	module:__ppc_intrinsics
++ __brev	flang-rt/lib/runtime/cudadevice.f90	/^  interface __brev$/;"	i	line:1168
++ __builtin_atomic_int_kind	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter, public :: __builtin_atomic_int_kind /;"	v	line:115	module:__fortran_builtins
++ __builtin_atomic_logical_kind	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_atomic_logical_kind /;"	v	line:117	module:__fortran_builtins
++ __builtin_blockDim	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx, __builtin_blockDim,/;"	v	line:123	module:__fortran_builtins
++ __builtin_blockIdx	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx, __builtin_blockDim, __builtin_blockIdx,/;"	v	line:123	module:__fortran_builtins
++ __builtin_c_associated	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface __builtin_c_associated$/;"	i	line:190	module:__fortran_builtins
++ __builtin_c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public, bind(c) :: __builtin_c_devptr$/;"	t	line:127	module:__fortran_builtins
++ __builtin_c_devptr_eq	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_devptr_eq(/;"	f	line:220	module:__fortran_builtins
++ __builtin_c_devptr_ne	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_devptr_ne(/;"	f	line:225	module:__fortran_builtins
++ __builtin_c_funloc	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure function __builtin_c_funloc(/;"	f	line:233	module:__fortran_builtins
++ __builtin_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, bind(c), public :: __builtin_c_funptr$/;"	t	line:50	module:__fortran_builtins
++ __builtin_c_null_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type(__builtin_c_devptr), parameter, public :: __builtin_c_null_devptr /;"	v	line:198	module:__fortran_builtins
++ __builtin_c_null_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_c_null_funptr /;"	v	line:200	module:__fortran_builtins
++ __builtin_c_null_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type(__builtin_c_ptr), parameter, public :: __builtin_c_null_ptr /;"	v	line:197	module:__fortran_builtins
++ __builtin_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, bind(c), public :: __builtin_c_ptr$/;"	t	line:46	module:__fortran_builtins
++ __builtin_c_ptr_eq	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_ptr_eq(/;"	f	line:210	module:__fortran_builtins
++ __builtin_c_ptr_ne	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_ptr_ne(/;"	f	line:215	module:__fortran_builtins
++ __builtin_dim3	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_dim3$/;"	t	line:119	module:__fortran_builtins
++ __builtin_dummy_team_descriptor_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, private :: __builtin_dummy_team_descriptor_type$/;"	t	line:102	module:__fortran_builtins
++ __builtin_event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_event_type$/;"	t	line:54	module:__fortran_builtins
++ __builtin_gridDim	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_gridDim$/;"	v	line:124	module:__fortran_builtins
++ __builtin_ieee_away	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_away /;"	v	line:97	module:__fortran_builtins
++ __builtin_ieee_denorm	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_denorm /;"	v	line:81	module:__fortran_builtins
++ __builtin_ieee_divide_by_zero	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_divide_by_zero /;"	v	line:75	module:__fortran_builtins
++ __builtin_ieee_down	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_down /;"	v	line:95	module:__fortran_builtins
++ __builtin_ieee_flag_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_ieee_flag_type$/;"	t	line:66	module:__fortran_builtins
++ __builtin_ieee_inexact	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_inexact /;"	v	line:79	module:__fortran_builtins
++ __builtin_ieee_invalid	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_invalid /;"	v	line:71	module:__fortran_builtins
++ __builtin_ieee_nearest	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_nearest /;"	v	line:91	module:__fortran_builtins
++ __builtin_ieee_other	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_other /;"	v	line:99	module:__fortran_builtins
++ __builtin_ieee_overflow	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_overflow /;"	v	line:73	module:__fortran_builtins
++ __builtin_ieee_round_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_ieee_round_type$/;"	t	line:84	module:__fortran_builtins
++ __builtin_ieee_to_zero	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_to_zero /;"	v	line:89	module:__fortran_builtins
++ __builtin_ieee_underflow	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_underflow /;"	v	line:77	module:__fortran_builtins
++ __builtin_ieee_up	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_up /;"	v	line:93	module:__fortran_builtins
++ __builtin_integer_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_integer_kinds /;"	v	line:80	module:iso_fortran_env_impl
++ __builtin_lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_lock_type$/;"	t	line:62	module:__fortran_builtins
++ __builtin_logical_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_logical_kinds /;"	v	line:91	module:iso_fortran_env_impl
++ __builtin_notify_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_notify_type$/;"	t	line:58	module:__fortran_builtins
++ __builtin_ppc_intrinsic_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_intrinsic_vector(/;"	t	line:18	module:__ppc_types
++ __builtin_ppc_pair_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_pair_vector$/;"	t	line:23	module:__ppc_types
++ __builtin_ppc_quad_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_quad_vector$/;"	t	line:28	module:__ppc_types
++ __builtin_prif_coarray_handle_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public, bind(C) :: __builtin_prif_coarray_handle_type$/;"	t	line:111	module:__fortran_builtins
++ __builtin_real_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_real_kinds /;"	v	line:138	module:iso_fortran_env_impl
++ __builtin_team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_team_type$/;"	t	line:107	module:__fortran_builtins
++ __builtin_threadIdx	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx,/;"	v	line:123	module:__fortran_builtins
++ __builtin_warpsize	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter, public :: __builtin_warpsize /;"	v	line:125	module:__fortran_builtins
++ __clz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __clz$/;"	i	line:1135
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:55	type:__builtin_event_type
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:59	type:__builtin_notify_type
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:63	type:__builtin_lock_type
++ __cuda_device	flang-rt/lib/runtime/__cuda_device.f90	/^module __cuda_device$/;"	m	line:11
++ __dadd_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rd$/;"	i	line:265
++ __dadd_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rn$/;"	i	line:244
++ __dadd_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_ru$/;"	i	line:258
++ __dadd_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rz$/;"	i	line:251
++ __data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=4) :: __data(/;"	k	line:40	type:ieee_modes_type
++ __data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=4) :: __data(/;"	k	line:46	type:ieee_status_type
++ __ddiv_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rd$/;"	i	line:1128
++ __ddiv_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rn$/;"	i	line:1107
++ __ddiv_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_ru$/;"	i	line:1121
++ __ddiv_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rz$/;"	i	line:1114
++ __dmul_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rd$/;"	i	line:293
++ __dmul_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rn$/;"	i	line:272
++ __dmul_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_ru$/;"	i	line:286
++ __dmul_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rz$/;"	i	line:279
++ __double2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rd$/;"	i	line:771
++ __double2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rn$/;"	i	line:750
++ __double2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_ru$/;"	i	line:764
++ __double2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rz$/;"	i	line:757
++ __double2hiint	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2hiint$/;"	i	line:785
++ __double2int_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rd$/;"	i	line:694
++ __double2int_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rn$/;"	i	line:701
++ __double2int_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_ru$/;"	i	line:708
++ __double2int_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rz$/;"	i	line:715
++ __double2ll_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rd$/;"	i	line:869
++ __double2ll_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rn$/;"	i	line:876
++ __double2ll_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_ru$/;"	i	line:883
++ __double2ll_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rz$/;"	i	line:890
++ __double2loint	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2loint$/;"	i	line:778
++ __double2uint_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rd$/;"	i	line:722
++ __double2uint_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rn$/;"	i	line:729
++ __double2uint_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_ru$/;"	i	line:736
++ __double2uint_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rz$/;"	i	line:743
++ __double2ull_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rd$/;"	i	line:897
++ __double2ull_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rn$/;"	i	line:904
++ __double2ull_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_ru$/;"	i	line:911
++ __double2ull_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rz$/;"	i	line:918
++ __drcp_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rd$/;"	i	line:1051
++ __drcp_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rn$/;"	i	line:1058
++ __drcp_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_ru$/;"	i	line:1065
++ __drcp_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rz$/;"	i	line:1072
++ __dsqrt_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rd$/;"	i	line:1079
++ __dsqrt_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rn$/;"	i	line:1086
++ __dsqrt_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_ru$/;"	i	line:1093
++ __dsqrt_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rz$/;"	i	line:1100
++ __exp10f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __exp10f$/;"	i	line:411
++ __expf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __expf$/;"	i	line:418
++ __fadd_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rn$/;"	i	line:76
++ __fadd_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rz$/;"	i	line:83
++ __fdiv_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rd$/;"	i	line:237
++ __fdiv_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rn$/;"	i	line:216
++ __fdiv_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_ru$/;"	i	line:230
++ __fdiv_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rz$/;"	i	line:223
++ __fdividef	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdividef$/;"	i	line:425
++ __ffs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ffs$/;"	i	line:1146
++ __float2half_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2half_rn$/;"	i	line:554
++ __float2int_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rd$/;"	i	line:561
++ __float2int_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rn$/;"	i	line:568
++ __float2int_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_ru$/;"	i	line:575
++ __float2int_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rz$/;"	i	line:582
++ __float2ll_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rd$/;"	i	line:617
++ __float2ll_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rn$/;"	i	line:624
++ __float2ll_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_ru$/;"	i	line:631
++ __float2ll_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rz$/;"	i	line:638
++ __float2uint_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rd$/;"	i	line:589
++ __float2uint_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rn$/;"	i	line:596
++ __float2uint_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_ru$/;"	i	line:603
++ __float2uint_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rz$/;"	i	line:610
++ __float2ull_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rd$/;"	i	line:645
++ __float2ull_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rn$/;"	i	line:652
++ __float2ull_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_ru$/;"	i	line:659
++ __float2ull_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rz$/;"	i	line:666
++ __fma_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rd$/;"	i	line:321
++ __fma_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rn$/;"	i	line:300
++ __fma_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_ru$/;"	i	line:314
++ __fma_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rz$/;"	i	line:307
++ __fmaf_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rd$/;"	i	line:153
++ __fmaf_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rn$/;"	i	line:132
++ __fmaf_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_ru$/;"	i	line:146
++ __fmaf_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rz$/;"	i	line:139
++ __fmul_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rd$/;"	i	line:125
++ __fmul_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rn$/;"	i	line:104
++ __fmul_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_ru$/;"	i	line:118
++ __fmul_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rz$/;"	i	line:111
++ __force_derived_type_instantiations	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type :: __force_derived_type_instantiations$/;"	t	line:166	module:__fortran_builtins
++ __fortran_builtins	flang-rt/lib/runtime/__fortran_builtins.f90	/^module __fortran_builtins$/;"	m	line:15
++ __fortran_ieee_exceptions	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^module __fortran_ieee_exceptions$/;"	m	line:16
++ __fortran_type_info	flang-rt/lib/runtime/__fortran_type_info.f90	/^module __fortran_type_info$/;"	m	line:14
++ __frcp_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rd$/;"	i	line:181
++ __frcp_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rn$/;"	i	line:160
++ __frcp_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_ru$/;"	i	line:174
++ __frcp_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rz$/;"	i	line:167
++ __fsqrt_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rd$/;"	i	line:209
++ __fsqrt_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rn$/;"	i	line:188
++ __fsqrt_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_ru$/;"	i	line:202
++ __fsqrt_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rz$/;"	i	line:195
++ __half2float	flang-rt/lib/runtime/cudadevice.f90	/^  interface __half2float$/;"	i	line:673
++ __hiloint2double	flang-rt/lib/runtime/cudadevice.f90	/^  interface __hiloint2double$/;"	i	line:792
++ __int2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2double_rn$/;"	i	line:827
++ __int2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rd$/;"	i	line:799
++ __int2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rn$/;"	i	line:806
++ __int2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_ru$/;"	i	line:813
++ __int2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rz$/;"	i	line:820
++ __ldca	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldca$/;"	i	line:1554
++ __ldcg	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcg$/;"	i	line:1489
++ __ldcs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcs$/;"	i	line:1619
++ __ldcv	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcv$/;"	i	line:1749
++ __ldlu	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldlu$/;"	i	line:1684
++ __ll2double_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rd$/;"	i	line:953
++ __ll2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rn$/;"	i	line:960
++ __ll2double_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_ru$/;"	i	line:967
++ __ll2double_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rz$/;"	i	line:974
++ __ll2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rd$/;"	i	line:925
++ __ll2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rn$/;"	i	line:932
++ __ll2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_ru$/;"	i	line:939
++ __ll2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rz$/;"	i	line:946
++ __log10f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log10f$/;"	i	line:432
++ __log2f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log2f$/;"	i	line:439
++ __logf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __logf$/;"	i	line:446
++ __mul24	flang-rt/lib/runtime/cudadevice.f90	/^  interface __mul24$/;"	i	line:1037
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:127	type:SpecialBinding
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:56	type:DerivedType
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:73	type:Value
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:98	type:Component
++ __placeholder	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __placeholder /;"	k	line:104	type:__builtin_dummy_team_descriptor_type
++ __popc	flang-rt/lib/runtime/cudadevice.f90	/^  interface __popc$/;"	i	line:1157
++ __ppc_fcfi	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfi$/;"	v	line:722
++ __ppc_fcfid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfid$/;"	v	line:728
++ __ppc_fcfud	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfud$/;"	v	line:734
++ __ppc_fctid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctid$/;"	v	line:679
++ __ppc_fctidz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctidz$/;"	v	line:685
++ __ppc_fctiw	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctiw$/;"	v	line:691
++ __ppc_fctiwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctiwz$/;"	v	line:697
++ __ppc_fctudz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctudz$/;"	v	line:703
++ __ppc_fctuwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctuwz$/;"	v	line:709
++ __ppc_fmadd_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fmadd_r4$/;"	v	line:637
++ __ppc_fmadd_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fmadd_r8$/;"	v	line:638
++ __ppc_fmsub_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fmsub_r4$/;"	v	line:645
++ __ppc_fmsub_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fmsub_r8$/;"	v	line:646
++ __ppc_fnabs_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_fnabs_r4$/;"	v	line:741
++ __ppc_fnabs_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fnabs_r8$/;"	v	line:742
++ __ppc_fnmadd_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fnmadd_r4$/;"	v	line:653
++ __ppc_fnmadd_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fnmadd_r8$/;"	v	line:654
++ __ppc_fnmsub_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fnmsub_r4$/;"	v	line:661
++ __ppc_fnmsub_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fnmsub_r8$/;"	v	line:662
++ __ppc_fre	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fre$/;"	v	line:750
++ __ppc_fres	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_fres$/;"	v	line:756
++ __ppc_frsqrte	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_frsqrte$/;"	v	line:763
++ __ppc_frsqrtes	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_frsqrtes$/;"	v	line:769
++ __ppc_intrinsics	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^module __ppc_intrinsics$/;"	m	line:9
++ __ppc_mma_disassemble_acc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_atvq) :: __ppc_mma_disassemble_acc$/;"	v	line:1090
++ __ppc_mma_disassemble_pair	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_atvp) :: __ppc_mma_disassemble_pair$/;"	v	line:1097
++ __ppc_mma_xxmfacc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxmfacc$/;"	v	line:1104
++ __ppc_mma_xxmtacc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxmtacc$/;"	v	line:1111
++ __ppc_mma_xxsetaccz	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxsetaccz$/;"	v	line:1118
++ __ppc_types	flang-rt/lib/runtime/__ppc_types.f90	/^module __ppc_types$/;"	m	line:9
++ __ppc_vec_stxvp_vpi0i0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0i0) :: __ppc_vec_stxvp_vpi0i0$/;"	v	line:1879
++ __ppc_vec_stxvp_vpi0i0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0i0) :: __ppc_vec_stxvp_vpi0i0$/;"	v	line:415
++ __ppc_vec_stxvp_vpi0r0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0r0) :: __ppc_vec_stxvp_vpi0r0$/;"	v	line:1880
++ __ppc_vec_stxvp_vpi0r0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0r0) :: __ppc_vec_stxvp_vpi0r0$/;"	v	line:416
++ __ppc_vec_stxvp_vpi0vp0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0vp) :: __ppc_vec_stxvp_vpi0vp0$/;"	v	line:1878
++ __ppc_vec_stxvp_vpi0vp0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0vp) :: __ppc_vec_stxvp_vpi0vp0$/;"	v	line:414
++ __sad	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sad$/;"	i	line:344
++ __sincosf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sincosf$/;"	i	line:460
++ __sinf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sinf$/;"	i	line:468
++ __stcg	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcg$/;"	i	line:1876
++ __stcs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcs$/;"	i	line:1938
++ __stwb	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwb$/;"	i	line:1814
++ __stwt	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwt$/;"	i	line:2000
++ __tanf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __tanf$/;"	i	line:475
++ __uint2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2double_rn$/;"	i	line:862
++ __uint2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rd$/;"	i	line:834
++ __uint2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rn$/;"	i	line:841
++ __uint2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_ru$/;"	i	line:848
++ __uint2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rz$/;"	i	line:855
++ __ull2double_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rd$/;"	i	line:981
++ __ull2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rn$/;"	i	line:988
++ __ull2double_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_ru$/;"	i	line:995
++ __ull2double_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rz$/;"	i	line:1002
++ __ull2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rd$/;"	i	line:1009
++ __ull2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rn$/;"	i	line:1016
++ __ull2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_ru$/;"	i	line:1023
++ __ull2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rz$/;"	i	line:1030
++ __umul24	flang-rt/lib/runtime/cudadevice.f90	/^  interface __umul24$/;"	i	line:1044
++ __usad	flang-rt/lib/runtime/cudadevice.f90	/^  interface __usad$/;"	i	line:351
++ bfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    bfloat16 /;"	v	line:125	module:iso_fortran_env_impl
++ c_associated_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_funptr(/;"	f	line:251	module:__fortran_builtins
++ c_associated_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_ptr(/;"	f	line:239	module:__fortran_builtins
++ c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr) :: c_devptr$/;"	k	line:168	type:__force_derived_type_instantiations
++ c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_funptr) :: c_funptr$/;"	k	line:169	type:__force_derived_type_instantiations
++ c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: c_ptr$/;"	k	line:167	type:__force_derived_type_instantiations
++ cptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: cptr$/;"	k	line:128	type:__builtin_c_devptr
++ element_category	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category,/;"	k	line:19	type:__builtin_ppc_intrinsic_vector
++ element_kind	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category, element_kind$/;"	k	line:19	type:__builtin_ppc_intrinsic_vector
++ event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_event_type) :: event_type$/;"	k	line:170	type:__force_derived_type_instantiations
++ fcfi	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfi$/;"	i	line:723
++ fcfid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfid$/;"	i	line:729
++ fcfud	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfud$/;"	i	line:735
++ fctid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctid$/;"	i	line:680
++ fctidz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctidz$/;"	i	line:686
++ fctiw	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctiw$/;"	i	line:692
++ fctiwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctiwz$/;"	i	line:698
++ fctudz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctudz$/;"	i	line:704
++ fctuwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctuwz$/;"	i	line:710
++ flag	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: flag /;"	k	line:67	type:__builtin_ieee_flag_type
++ fmadd	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fmadd$/;"	i	line:639
++ fmsub	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fmsub$/;"	i	line:647
++ fnabs	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnabs$/;"	i	line:743
++ fnmadd	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnmadd$/;"	i	line:655
++ fnmsub	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnmsub$/;"	i	line:663
++ fre	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fre$/;"	i	line:751
++ fres	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fres$/;"	i	line:757
++ frsqrte	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface frsqrte$/;"	i	line:764
++ frsqrtes	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface frsqrtes$/;"	i	line:770
++ ieee_all	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_all(/;"	v	line:36	module:__fortran_ieee_exceptions
++ ieee_modes_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_modes_type /;"	t	line:38	module:__fortran_ieee_exceptions
++ ieee_status_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_status_type /;"	t	line:44	module:__fortran_ieee_exceptions
++ ieee_usual	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_usual(/;"	v	line:35	module:__fortran_ieee_exceptions
++ info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), private :: info$/;"	k	line:112	type:__builtin_prif_coarray_handle_type
++ info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_dummy_team_descriptor_type), pointer, private :: info /;"	k	line:108	type:__builtin_team_type
++ int64	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter :: int64 /;"	v	line:44	module:__fortran_builtins
++ int64	flang-rt/lib/runtime/__fortran_type_info.f90	/^  integer, parameter :: int64 /;"	v	line:24	module:__fortran_type_info
++ lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_lock_type) :: lock_type$/;"	k	line:171	type:__force_derived_type_instantiations
++ logical16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 /;"	v	line:89	module:iso_fortran_env_impl
++ logical32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 = int16, logical32 /;"	v	line:89	module:iso_fortran_env_impl
++ logical64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 = int16, logical32 = int32, logical64 /;"	v	line:89	module:iso_fortran_env_impl
++ logical8	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 /;"	v	line:89	module:iso_fortran_env_impl
++ mma_disassemble_acc	flang-rt/lib/runtime/mma.f90	/^  interface mma_disassemble_acc$/;"	i	line:1091
++ mma_disassemble_pair	flang-rt/lib/runtime/mma.f90	/^  interface mma_disassemble_pair$/;"	i	line:1098
++ mma_xxmfacc	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxmfacc$/;"	i	line:1105
++ mma_xxmtacc	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxmtacc$/;"	i	line:1112
++ mma_xxsetaccz	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxsetaccz$/;"	i	line:1119
++ mode	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: mode /;"	k	line:85	type:__builtin_ieee_round_type
++ real128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real128 /;"	v	line:135	module:iso_fortran_env_impl
++ real16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real16 /;"	v	line:123	module:iso_fortran_env_impl
++ real32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real32 /;"	v	line:127	module:iso_fortran_env_impl
++ real64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real64 /;"	v	line:129	module:iso_fortran_env_impl
++ real64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real64x2 /;"	v	line:133	module:iso_fortran_env_impl
++ real80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real80 /;"	v	line:131	module:iso_fortran_env_impl
++ safeBfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeBfloat16 /;"	v	line:109	module:iso_fortran_env_impl
++ safeReal128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal128 /;"	v	line:119	module:iso_fortran_env_impl
++ safeReal16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal16 /;"	v	line:107	module:iso_fortran_env_impl
++ safeReal32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal32 /;"	v	line:111	module:iso_fortran_env_impl
++ safeReal64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal64 /;"	v	line:113	module:iso_fortran_env_impl
++ safeReal64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal64x2 /;"	v	line:117	module:iso_fortran_env_impl
++ safeReal80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal80 /;"	v	line:115	module:iso_fortran_env_impl
++ selectedBfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedBfloat16 /;"	v	line:101	module:iso_fortran_env_impl
++ selectedReal128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal128 /;"	v	line:106	module:iso_fortran_env_impl
++ selectedReal16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal16 /;"	v	line:100	module:iso_fortran_env_impl
++ selectedReal32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal32 /;"	v	line:102	module:iso_fortran_env_impl
++ selectedReal64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal64 /;"	v	line:103	module:iso_fortran_env_impl
++ selectedReal64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal64x2 /;"	v	line:105	module:iso_fortran_env_impl
++ selectedReal80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal80 /;"	v	line:104	module:iso_fortran_env_impl
++ storage	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage$/;"	k	line:20	type:__builtin_ppc_intrinsic_vector
++ storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	k	line:24	type:__builtin_ppc_pair_vector
++ storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	k	line:29	type:__builtin_ppc_quad_vector
++ storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	k	line:25	type:__builtin_ppc_pair_vector
++ storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	k	line:30	type:__builtin_ppc_quad_vector
++ storage3	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage3$/;"	k	line:31	type:__builtin_ppc_quad_vector
++ storage4	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage4$/;"	k	line:32	type:__builtin_ppc_quad_vector
++ team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_team_type) :: team_type$/;"	k	line:172	type:__force_derived_type_instantiations
++ x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=/;"	k	line:120	type:__builtin_dim3
++ y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=1, y=/;"	k	line:120	type:__builtin_dim3
++ z	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=1, y=1, z=/;"	k	line:120	type:__builtin_dim3
+- /=	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(\/=)/;"	i	line:184
+- ==	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(==)/;"	i	line:178
+- Binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Binding$/;"	t	line:59
+- Component	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Component /;"	t	line:91
+- DerivedType	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: DerivedType$/;"	t	line:26
+- ProcPtrComponent	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: ProcPtrComponent /;"	t	line:108
+- SpecialBinding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: SpecialBinding$/;"	t	line:122
+- Value	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: Value$/;"	t	line:71
+- __anon0a1744d20505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rn$/;"	i	line:76
+- __anon0a1744d20605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rz$/;"	i	line:83
+- __anon0a1744d20705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:90
+- __anon0a1744d20805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:97
+- __anon0a1744d20905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rn$/;"	i	line:104
+- __anon0a1744d20a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rz$/;"	i	line:111
+- __anon0a1744d20b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_ru$/;"	i	line:118
+- __anon0a1744d20c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rd$/;"	i	line:125
+- __anon0a1744d20d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rn$/;"	i	line:132
+- __anon0a1744d20e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rz$/;"	i	line:139
+- __anon0a1744d20f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_ru$/;"	i	line:146
+- __anon0a1744d21005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rd$/;"	i	line:153
+- __anon0a1744d21105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rn$/;"	i	line:160
+- __anon0a1744d21205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rz$/;"	i	line:167
+- __anon0a1744d21305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_ru$/;"	i	line:174
+- __anon0a1744d21405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rd$/;"	i	line:181
+- __anon0a1744d21505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rn$/;"	i	line:188
+- __anon0a1744d21605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rz$/;"	i	line:195
+- __anon0a1744d21705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_ru$/;"	i	line:202
+- __anon0a1744d21805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rd$/;"	i	line:209
+- __anon0a1744d21905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rn$/;"	i	line:216
+- __anon0a1744d21a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rz$/;"	i	line:223
+- __anon0a1744d21b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_ru$/;"	i	line:230
+- __anon0a1744d21c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rd$/;"	i	line:237
+- __anon0a1744d21d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rn$/;"	i	line:244
+- __anon0a1744d21e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rz$/;"	i	line:251
+- __anon0a1744d21f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_ru$/;"	i	line:258
+- __anon0a1744d22005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rd$/;"	i	line:265
+- __anon0a1744d22105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rn$/;"	i	line:272
+- __anon0a1744d22205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rz$/;"	i	line:279
+- __anon0a1744d22305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_ru$/;"	i	line:286
+- __anon0a1744d22405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rd$/;"	i	line:293
+- __anon0a1744d22505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rn$/;"	i	line:300
+- __anon0a1744d22605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rz$/;"	i	line:307
+- __anon0a1744d22705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_ru$/;"	i	line:314
+- __anon0a1744d22805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rd$/;"	i	line:321
+- __anon0a1744d22905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sad$/;"	i	line:344
+- __anon0a1744d22a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __usad$/;"	i	line:351
+- __anon0a1744d22b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:367
+- __anon0a1744d22c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:374
+- __anon0a1744d22d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:386
+- __anon0a1744d22e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:393
+- __anon0a1744d22f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:405
+- __anon0a1744d23005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __exp10f$/;"	i	line:411
+- __anon0a1744d23105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __expf$/;"	i	line:418
+- __anon0a1744d23205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdividef$/;"	i	line:425
+- __anon0a1744d23305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log10f$/;"	i	line:432
+- __anon0a1744d23405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log2f$/;"	i	line:439
+- __anon0a1744d23505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __logf$/;"	i	line:446
+- __anon0a1744d23605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:453
+- __anon0a1744d23705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sincosf$/;"	i	line:460
+- __anon0a1744d23805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sinf$/;"	i	line:468
+- __anon0a1744d23905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __tanf$/;"	i	line:475
+- __anon0a1744d23a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:482
+- __anon0a1744d23b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:487
+- __anon0a1744d23c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface  $/;"	i	line:497
+- __anon0a1744d23d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:502
+- __anon0a1744d23e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2half_rn$/;"	i	line:554
+- __anon0a1744d23f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rd$/;"	i	line:561
+- __anon0a1744d24005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rn$/;"	i	line:568
+- __anon0a1744d24105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_ru$/;"	i	line:575
+- __anon0a1744d24205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rz$/;"	i	line:582
+- __anon0a1744d24305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rd$/;"	i	line:589
+- __anon0a1744d24405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rn$/;"	i	line:596
+- __anon0a1744d24505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_ru$/;"	i	line:603
+- __anon0a1744d24605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rz$/;"	i	line:610
+- __anon0a1744d24705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rd$/;"	i	line:617
+- __anon0a1744d24805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rn$/;"	i	line:624
+- __anon0a1744d24905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_ru$/;"	i	line:631
+- __anon0a1744d24a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rz$/;"	i	line:638
+- __anon0a1744d24b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rd$/;"	i	line:645
+- __anon0a1744d24c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rn$/;"	i	line:652
+- __anon0a1744d24d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_ru$/;"	i	line:659
+- __anon0a1744d24e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rz$/;"	i	line:666
+- __anon0a1744d24f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __half2float$/;"	i	line:673
+- __anon0a1744d25005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rd$/;"	i	line:694
+- __anon0a1744d25105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rn$/;"	i	line:701
+- __anon0a1744d25205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_ru$/;"	i	line:708
+- __anon0a1744d25305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rz$/;"	i	line:715
+- __anon0a1744d25405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rd$/;"	i	line:722
+- __anon0a1744d25505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rn$/;"	i	line:729
+- __anon0a1744d25605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_ru$/;"	i	line:736
+- __anon0a1744d25705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rz$/;"	i	line:743
+- __anon0a1744d25805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rn$/;"	i	line:750
+- __anon0a1744d25905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rz$/;"	i	line:757
+- __anon0a1744d25a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_ru$/;"	i	line:764
+- __anon0a1744d25b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rd$/;"	i	line:771
+- __anon0a1744d25c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2loint$/;"	i	line:778
+- __anon0a1744d25d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2hiint$/;"	i	line:785
+- __anon0a1744d25e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __hiloint2double$/;"	i	line:792
+- __anon0a1744d25f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rd$/;"	i	line:799
+- __anon0a1744d26005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rn$/;"	i	line:806
+- __anon0a1744d26105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_ru$/;"	i	line:813
+- __anon0a1744d26205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rz$/;"	i	line:820
+- __anon0a1744d26305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2double_rn$/;"	i	line:827
+- __anon0a1744d26405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rd$/;"	i	line:834
+- __anon0a1744d26505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rn$/;"	i	line:841
+- __anon0a1744d26605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_ru$/;"	i	line:848
+- __anon0a1744d26705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rz$/;"	i	line:855
+- __anon0a1744d26805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2double_rn$/;"	i	line:862
+- __anon0a1744d26905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rd$/;"	i	line:869
+- __anon0a1744d26a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rn$/;"	i	line:876
+- __anon0a1744d26b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_ru$/;"	i	line:883
+- __anon0a1744d26c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rz$/;"	i	line:890
+- __anon0a1744d26d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rd$/;"	i	line:897
+- __anon0a1744d26e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rn$/;"	i	line:904
+- __anon0a1744d26f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_ru$/;"	i	line:911
+- __anon0a1744d27005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rz$/;"	i	line:918
+- __anon0a1744d27105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rd$/;"	i	line:925
+- __anon0a1744d27205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rn$/;"	i	line:932
+- __anon0a1744d27305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_ru$/;"	i	line:939
+- __anon0a1744d27405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rz$/;"	i	line:946
+- __anon0a1744d27505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rd$/;"	i	line:953
+- __anon0a1744d27605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rn$/;"	i	line:960
+- __anon0a1744d27705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_ru$/;"	i	line:967
+- __anon0a1744d27805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rz$/;"	i	line:974
+- __anon0a1744d27905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rd$/;"	i	line:981
+- __anon0a1744d27a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rn$/;"	i	line:988
+- __anon0a1744d27b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_ru$/;"	i	line:995
+- __anon0a1744d27c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rz$/;"	i	line:1002
+- __anon0a1744d27d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rd$/;"	i	line:1009
+- __anon0a1744d27e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rn$/;"	i	line:1016
+- __anon0a1744d27f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_ru$/;"	i	line:1023
+- __anon0a1744d28005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rz$/;"	i	line:1030
+- __anon0a1744d28105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __mul24$/;"	i	line:1037
+- __anon0a1744d28205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __umul24$/;"	i	line:1044
+- __anon0a1744d28305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rd$/;"	i	line:1051
+- __anon0a1744d28405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rn$/;"	i	line:1058
+- __anon0a1744d28505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_ru$/;"	i	line:1065
+- __anon0a1744d28605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rz$/;"	i	line:1072
+- __anon0a1744d28705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rd$/;"	i	line:1079
+- __anon0a1744d28805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rn$/;"	i	line:1086
+- __anon0a1744d28905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_ru$/;"	i	line:1093
+- __anon0a1744d28a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rz$/;"	i	line:1100
+- __anon0a1744d28b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rn$/;"	i	line:1107
+- __anon0a1744d28c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rz$/;"	i	line:1114
+- __anon0a1744d28d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_ru$/;"	i	line:1121
+- __anon0a1744d28e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rd$/;"	i	line:1128
+- __anon0a1744d28f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __clz$/;"	i	line:1135
+- __anon0a1744d29005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ffs$/;"	i	line:1146
+- __anon0a1744d29105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __popc$/;"	i	line:1157
+- __anon0a1744d29205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __brev$/;"	i	line:1168
+- __anon0a1744d29305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1400
+- __anon0a1744d29405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1405
+- __anon0a1744d29505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1410
+- __anon0a1744d29605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcg$/;"	i	line:1489
+- __anon0a1744d29705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldca$/;"	i	line:1554
+- __anon0a1744d29805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcs$/;"	i	line:1619
+- __anon0a1744d29905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldlu$/;"	i	line:1684
+- __anon0a1744d29a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcv$/;"	i	line:1749
+- __anon0a1744d29b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwb$/;"	i	line:1814
+- __anon0a1744d29c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcg$/;"	i	line:1876
+- __anon0a1744d29d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcs$/;"	i	line:1938
+- __anon0a1744d29e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwt$/;"	i	line:2000
+- __anon0a1744d29f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2061
+- __anon0a1744d2a005	flang-rt/lib/runtime/cudadevice.f90	/^  interface $/;"	i	line:2080
+- __anon0a1744d2a105	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2087
+- __anon0a1744d2a205	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2094
+- __anon0a1744d2a305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2102
+- __anon0a1744d2a405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2107
+- __anon0a1744d2a505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2112
+- __anon0a1744d2a605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2124
+- __anon0a1744d2a705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2202
+- __anonce61a4c80105	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface __builtin_c_associated$/;"	i	line:190
+- __anond4434a4b0103	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Value::Genre$/;"	E	line:67
+- __anond4434a4b0203	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::Genre$/;"	E	line:77
+- __anond4434a4b0303	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::MemorySpace$/;"	E	line:81
+- __anond4434a4b0403	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! common::TypeCategory$/;"	E	line:85
+- __anond4434a4b0503	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! SpecialBinding::Which$/;"	E	line:114
+- __anond9e0c82b0105	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  abstract interface$/;"	i	line:15
+- bf	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: bf$/;"	v	line:786	interface:mtfsfi
+- c_associated_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_funptr(/;"	f	line:251
+- c_associated_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_ptr(/;"	f	line:239
+- c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr) :: c_devptr$/;"	v	line:168
+- c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_funptr) :: c_funptr$/;"	v	line:169
+- c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: c_ptr$/;"	v	line:167
+- element_category	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category,/;"	v	line:19
+- element_kind	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category, element_kind$/;"	v	line:19
+- event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_event_type) :: event_type$/;"	v	line:170
+- flag	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: flag /;"	v	line:67
+- i	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: i$/;"	v	line:787	interface:mtfsfi
+- ieee_all	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_all(/;"	v	line:36
+- ieee_modes_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_modes_type /;"	t	line:38
+- ieee_status_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_status_type /;"	t	line:44
+- ieee_usual	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_usual(/;"	v	line:35
+- info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), private :: info$/;"	v	line:112
+- info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_dummy_team_descriptor_type), pointer, private :: info /;"	v	line:108
+- int64	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter :: int64 /;"	v	line:44
+- int64	flang-rt/lib/runtime/__fortran_type_info.f90	/^  integer, parameter :: int64 /;"	v	line:24
+- lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_lock_type) :: lock_type$/;"	v	line:171
+- mask	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: mask$/;"	v	line:778	interface:mtfsf
+- r	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      real(8), intent(in) :: r$/;"	v	line:779	interface:mtfsf
+- storage	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage$/;"	v	line:20
+- storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	v	line:24
+- storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	v	line:29
+- storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	v	line:25
+- storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	v	line:30
+- storage3	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage3$/;"	v	line:31
+- storage4	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage4$/;"	v	line:32
+- team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_team_type) :: team_type$/;"	v	line:172
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x,/;"	v	line:221
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x,/;"	v	line:226
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x,/;"	v	line:211
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x,/;"	v	line:216
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x, y$/;"	v	line:221
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x, y$/;"	v	line:226
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:211
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:216
+
+@ corpus/llvm/flang: F6, a subprogram named by a keyword (subroutine inline) is the scope of what it contains.
++ f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113	subroutine:inline
++ g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118	subroutine:inline
+- f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113
+- g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118
+
+@ corpus/llvm/flang: F5, a joined END (endmodule, endblock) ends a specification part instead of being skipped as a statement function with the next unit's header: subroutines one and four, modules m2 and m4, and s7 come back. In keyword-optional-spaces.f90, subroutine one's declarations now end at the joined doubleprecision (FTN-12), so its enum is no longer tagged at the top level, and its dummy and local are no longer variables there.
++ __anonfa7f6f280105	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
++ four	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine four$/;"	s	line:91
++ m2	flang/test/Parser/keyword-optional-spaces.f90	/^module m2$/;"	m	line:124
++ m4	flang/test/Parser/keyword-optional-spaces.f90	/^module m4$/;"	m	line:128
++ one	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine one(/;"	s	line:9
++ s7	flang/test/Semantics/resolve57.f90	/^pure subroutine s7(/;"	s	line:117
+- __anonfa7f6f280103	flang/test/Parser/keyword-optional-spaces.f90	/^  enum, bind(c)$/;"	E	line:15
+- __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
+- __anonfa7f6f280305	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117
+- assigned	flang/test/Parser/keyword-optional-spaces.f90	/^  integer assigned$/;"	v	line:19
+- e2	flang/test/Parser/keyword-optional-spaces.f90	/^    enumerator :: e2=/;"	N	line:16	enum:__anonfa7f6f280103
+- p	flang/test/Parser/keyword-optional-spaces.f90	/^  class(*), pointer :: p$/;"	v	line:18
+
+@ corpus/llvm/flang: F4, END CRITICAL, END TEAM, and END FILE no longer end the unit, so later labels keep its scope, and the units after it (test3, s13, s14) are tagged and scoped again.
++ 10	flang/test/Parser/keyword-optional-spaces.f90	/^10 go to 20$/;"	l	line:72	subroutine:one	file:
++ 10	flang/test/Semantics/critical03.f90	/^    10 i = i + 1$/;"	l	line:32	subroutine:test3	file:
++ 10	flang/test/Semantics/critical05.f90	/^    10 continue$/;"	l	line:34	program:testcriticalconstruct	file:
++ 20	flang/test/Parser/keyword-optional-spaces.f90	/^20 goto assigned$/;"	l	line:74	subroutine:one	file:
++ 20	flang/test/Semantics/critical03.f90	/^20 i = i - 1$/;"	l	line:34	subroutine:test3	file:
++ 5	flang/test/Semantics/label19.f90	/^5 end$/;"	l	line:19	program:main	file:
++ s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201	module:m
++ s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205	module:m
++ test3	flang/test/Semantics/critical03.f90	/^subroutine test3(/;"	s	line:27
+- 10	flang/test/Parser/keyword-optional-spaces.f90	/^10 go to 20$/;"	l	line:72	file:
+- 10	flang/test/Semantics/critical03.f90	/^    10 i = i + 1$/;"	l	line:32	file:
+- 10	flang/test/Semantics/critical05.f90	/^    10 continue$/;"	l	line:34	file:
+- 20	flang/test/Parser/keyword-optional-spaces.f90	/^20 goto assigned$/;"	l	line:74	file:
+- 20	flang/test/Semantics/critical03.f90	/^20 i = i - 1$/;"	l	line:34	file:
+- 5	flang/test/Semantics/label19.f90	/^5 end$/;"	l	line:19	file:
+- s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201
+- s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205
+
+@ corpus/llvm/flang: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope.
++ barearg	flang/test/Semantics/elemental01.f90	/^impure elemental subroutine barearg(/;"	s	line:28
++ bug	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^simple impure subroutine bug(/;"	s	line:7
++ bug2	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^impure simple subroutine bug2(/;"	s	line:12
++ f01	flang/test/Semantics/call01.f90	/^non_recursive function f01(/;"	f	line:4
++ f01b	flang/test/Semantics/call01.f90	/^  entry f01b(/;"	e	line:7	function:f01
++ f02	flang/test/Semantics/call01.f90	/^non_recursive function f02(/;"	f	line:18
++ fct3	flang/test/Lower/func-attrs.f90	/^non_recursive function fct3(/;"	f	line:33
++ foo	flang/test/Parser/simple-unparse.f90	/^simple function foo(/;"	f	line:6
++ foo	flang/test/Parser/simple.f90	/^simple function foo(/;"	f	line:4
++ impureFunc	flang/test/Semantics/resolve89.f90	/^impure function impureFunc(/;"	f	line:13
++ needs_simple	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine needs_simple(/;"	s	line:22	module:pure_not_enough_for_simple
++ nested	flang/test/Semantics/call01.f90	/^  integer function nested(/;"	f	line:27	function:f02
++ notPureFunc	flang/test/Semantics/doconcurrent01.f90	/^    integer function notPureFunc(/;"	f	line:254	subroutine:s7
++ p0	flang/test/Semantics/intrinsics03.f90	/^  procedure(index), pointer :: p0$/;"	v	line:40	program:test
++ p1	flang/test/Semantics/intrinsics03.f90	/^  procedure(index1), pointer :: p1$/;"	v	line:41	program:test
++ p2	flang/test/Semantics/intrinsics03.f90	/^  procedure(index2), pointer :: p2$/;"	v	line:42	program:test
++ p3	flang/test/Semantics/intrinsics03.f90	/^  procedure(index3), pointer :: p3$/;"	v	line:43	program:test
++ p4	flang/test/Semantics/intrinsics03.f90	/^  procedure(index4), pointer :: p4$/;"	v	line:44	program:test
++ procTypeNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypeNotPure$/;"	t	line:205	subroutine:s7
++ procTypePure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypePure$/;"	t	line:209	subroutine:s7
++ pureFunc	flang/test/Semantics/doconcurrent01.f90	/^    pure integer function pureFunc(/;"	f	line:258	subroutine:s7
++ pure_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  pure real function pure_fn(/;"	f	line:18	module:simple_intrinsic_function
++ pure_only	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  pure subroutine pure_only(/;"	s	line:25	module:pure_not_enough_for_simple
++ s3	flang/test/Semantics/pure02.f90	/^impure elemental subroutine s3(/;"	s	line:43
++ simple_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  simple real function simple_fn(/;"	f	line:22	module:simple_intrinsic_function
++ sub3	flang/test/Lower/func-attrs.f90	/^non_recursive subroutine sub3(/;"	s	line:13
++ sub4	flang/test/Lower/func-attrs.f90	/^impure elemental subroutine sub4(/;"	s	line:18
++ t1	flang/test/Semantics/pure02.f90	/^  subroutine t1$/;"	s	line:46	subroutine:s3
++ t2	flang/test/Semantics/pure02.f90	/^  pure subroutine t2$/;"	s	line:48	subroutine:s3
++ t3	flang/test/Semantics/pure02.f90	/^  elemental subroutine t3(/;"	s	line:50	subroutine:s3
++ t4	flang/test/Semantics/pure02.f90	/^  impure elemental subroutine t4(/;"	s	line:53	subroutine:s3
++ t5	flang/test/Semantics/pure02.f90	/^  elemental impure subroutine t5(/;"	s	line:56	subroutine:s3
++ take_intrinsic	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_intrinsic(/;"	s	line:29	module:simple_intrinsic_function
++ take_pure	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_pure(/;"	s	line:26	module:simple_intrinsic_function
++ test	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine test(/;"	s	line:32	module:simple_intrinsic_function
++ test	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine test(/;"	s	line:27	module:pure_not_enough_for_simple
+- A	flang/test/Semantics/procinterface02.f90	/^  real :: A(/;"	v	line:14
+- B	flang/test/Semantics/procinterface02.f90	/^  real :: A(:), B(/;"	v	line:14
+- P	flang/test/Semantics/procinterface02.f90	/^  procedure(sqrt), pointer :: P$/;"	v	line:16
+- f01b	flang/test/Semantics/call01.f90	/^  entry f01b(/;"	e	line:7
+- foo_nonelemental	flang/test/Semantics/procinterface02.f90	/^    real function foo_nonelemental(/;"	f	line:10
+- ivar	flang/test/Semantics/doconcurrent01.f90	/^  integer :: ivar$/;"	v	line:215
+- needs_simple	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine needs_simple(/;"	s	line:22
+- nested	flang/test/Semantics/call01.f90	/^  integer function nested(/;"	f	line:27
+- notPureFunc	flang/test/Semantics/doconcurrent01.f90	/^    integer function notPureFunc(/;"	f	line:254
+- p0	flang/test/Semantics/intrinsics03.f90	/^  procedure(index), pointer :: p0$/;"	v	line:40
+- p1	flang/test/Semantics/intrinsics03.f90	/^  procedure(index1), pointer :: p1$/;"	v	line:41
+- p2	flang/test/Semantics/intrinsics03.f90	/^  procedure(index2), pointer :: p2$/;"	v	line:42
+- p3	flang/test/Semantics/intrinsics03.f90	/^  procedure(index3), pointer :: p3$/;"	v	line:43
+- p4	flang/test/Semantics/intrinsics03.f90	/^  procedure(index4), pointer :: p4$/;"	v	line:44
+- procTypeNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypeNotPure$/;"	t	line:205
+- procTypePure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypePure$/;"	t	line:209
+- procVarNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type(procTypeNotPure) :: procVarNotPure$/;"	v	line:213
+- procVarPure	flang/test/Semantics/doconcurrent01.f90	/^  type(procTypePure) :: procVarPure$/;"	v	line:214
+- pureFunc	flang/test/Semantics/doconcurrent01.f90	/^    pure integer function pureFunc(/;"	f	line:258
+- pure_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  pure real function pure_fn(/;"	f	line:18
+- pure_only	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  pure subroutine pure_only(/;"	s	line:25
+- rvar	flang/test/Semantics/doconcurrent01.f90	/^  real :: rvar$/;"	v	line:216
+- s0	flang/test/Semantics/intrinsics03.f90	/^    subroutine s0(/;"	s	line:19
+- s1	flang/test/Semantics/intrinsics03.f90	/^    subroutine s1(/;"	s	line:22
+- s2	flang/test/Semantics/intrinsics03.f90	/^    subroutine s2(/;"	s	line:26
+- s3	flang/test/Semantics/intrinsics03.f90	/^    subroutine s3(/;"	s	line:30
+- s4	flang/test/Semantics/intrinsics03.f90	/^    subroutine s4(/;"	s	line:34
+- t1	flang/test/Semantics/pure02.f90	/^  subroutine t1$/;"	s	line:46
+- t2	flang/test/Semantics/pure02.f90	/^  pure subroutine t2$/;"	s	line:48
+- t3	flang/test/Semantics/pure02.f90	/^  elemental subroutine t3(/;"	s	line:50
+- take_intrinsic	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_intrinsic(/;"	s	line:29
+- take_pure	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_pure(/;"	s	line:26
+- test	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine test(/;"	s	line:32
+- test	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine test(/;"	s	line:27
+- x	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(/;"	v	line:26
+- y	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(/;"	v	line:26
+- z	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(:), z(/;"	v	line:26
+
+@ corpus/llvm/flang-rt: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope.
++ /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150	module:ieee_arithmetic
+- /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150
+
+@ corpus/llvm/flang: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ __anon0d8368020205	flang/test/Semantics/separate-mp05.f90	/^   interface$/;"	i	line:14	prototype:smp
++ __anonc4bcf2870205	flang/test/Semantics/pure-function-result-pointer.f90	/^  interface$/;"	i	line:31	module:associated_func_call
++ __anoneb931a780505	flang/test/Semantics/resolve118.f90	/^      interface$/;"	i	line:68	prototype:sub
++ __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117	module:m1
++ chlen	flang/test/Semantics/separate-mp06.f90	/^      type :: chlen$/;"	t	line:19	prototype:s3
++ e	flang/test/Semantics/OpenMP/bad_module_subroutine.f90	/^impure elemental module subroutine e(/;"	s	line:5
++ elementalFunc	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalFunc(/;"	f	line:31	module:m
++ ent	flang/test/Semantics/entry01.f90	/^      entry ent$/;"	e	line:12	prototype:hasentry
++ f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:29	module:m1
++ f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:76	module:m2
++ f3	flang/test/Semantics/separate-mp03.f90	/^  module function f3(/;"	f	line:36
++ f3	flang/test/Semantics/separate-mp03.f90	/^  module function f3(/;"	f	line:85
++ f4	flang/test/Semantics/separate-mp03.f90	/^  module subroutine f4$/;"	s	line:91
++ foo	flang/test/Lower/pre-fir-tree01.f90	/^  subroutine foo(/;"	s	line:47	module:test_mod
++ foo2	flang/test/Lower/pre-fir-tree01.f90	/^  function foo2(/;"	f	line:64	module:test_mod
++ func1	flang/test/Semantics/separate-mp01.f90	/^    real module function func1()   ! implementation of func1 /;"	f	line:93	submodule:m4sub
++ g1	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g1$/;"	i	line:119	module:m1
++ g2	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g2$/;"	i	line:121	module:m1
++ generic	flang/test/Semantics/resolve15.f90	/^  interface generic$/;"	i	line:44	module:m2
++ i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:18	module:m1
++ i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:48	module:m2
++ i	flang/test/Semantics/resolve36.f90	/^  module subroutine i$/;"	s	line:33
++ i	flang/test/Semantics/resolve36.f90	/^  module subroutine i$/;"	s	line:61
++ implementation	flang/test/Semantics/implicit-module-prefix-modfile.f90	/^  subroutine implementation(/;"	s	line:29	submodule:implicit_prefix_child
++ impureFunc	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureFunc(/;"	f	line:37	module:m
++ impurePureFunc	flang/test/Semantics/resolve83.f90	/^    impure real pure function impurePureFunc(/;"	f	line:45	module:m
++ inside_one	flang/test/Semantics/modfile86.f90	/^  subroutine inside_one(/;"	s	line:25	submodule:modfile86b
++ local1	flang/test/Semantics/smp-def02.f90	/^  subroutine local1$/;"	s	line:27	submodule:sm2
++ local2	flang/test/Semantics/smp-def02.f90	/^  subroutine local2(/;"	s	line:32	submodule:sm2
++ m3subr1	flang/test/Semantics/entry01.f90	/^  subroutine m3subr1$/;"	s	line:182	module:m3
++ missing2	flang/test/Semantics/resolve36.f90	/^  module subroutine missing2$/;"	s	line:27
++ missing2	flang/test/Semantics/resolve36.f90	/^  module subroutine missing2$/;"	s	line:54
++ modproc	flang/test/Semantics/entry01.f90	/^  subroutine modproc$/;"	s	line:16	module:m1
++ modsub	flang/test/Semantics/self-use.f90	/^  subroutine modsub$/;"	s	line:8	module:m
++ n	flang/test/Semantics/separate-mp06.f90	/^        integer :: n$/;"	k	line:14	type:seq
++ non_recursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveFunc(/;"	f	line:53	module:m
++ non_recursiveRecursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveRecursiveFunc(/;"	f	line:57	module:m
++ nonseq	flang/test/Semantics/separate-mp06.f90	/^      type :: nonseq$/;"	t	line:6	prototype:s1
++ pdt	flang/test/Semantics/separate-mp06.f90	/^      type :: pdt(/;"	t	line:27	prototype:s4
++ pressure	flang/test/Lower/pre-fir-tree01.f90	/^ real, allocatable :: pressure(/;"	v	line:44	module:test_mod
++ pureFunc	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureFunc(/;"	f	line:41	module:m
++ realFunc	flang/test/Semantics/resolve83.f90	/^    real pure real function realFunc(/;"	f	line:27	module:m
++ recursiveFunc	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveFunc(/;"	f	line:49	module:m
++ s	flang/test/Semantics/symbol02.f90	/^ subroutine s$/;"	s	line:23	module:m
++ s	flang/test/Semantics/symbol28.f90	/^ module subroutine s$/;"	s	line:18	module:m1
++ s1	flang/test/Semantics/separate-mp03.f90	/^  module function s1$/;"	f	line:94
++ s1	flang/test/Semantics/separate-mp03.f90	/^  module subroutine s1$/;"	s	line:44
++ s2	flang/test/Semantics/separate-mp03.f90	/^  impure module subroutine s2$/;"	s	line:97
++ s2	flang/test/Semantics/separate-mp03.f90	/^  pure module subroutine s2$/;"	s	line:46
++ s2	flang/test/Semantics/symbol28.f90	/^ module subroutine s2 /;"	s	line:51
++ seq	flang/test/Semantics/separate-mp06.f90	/^      type :: seq$/;"	t	line:12	prototype:s2
++ sm	flang/test/Semantics/modproc01.f90	/^  integer sm$/;"	v	line:25	module:m
++ smp2	flang/test/Semantics/smp-def02.f90	/^  module subroutine smp2(/;"	s	line:36
++ smp3	flang/test/Semantics/smp-def02.f90	/^  module subroutine smp3(/;"	s	line:38
++ specific	flang/test/Semantics/modfile07.f90	/^  pure integer function specific(/;"	f	line:639	module:m12
++ t	flang/test/Semantics/resolve34.f90	/^  type  :: t$/;"	t	line:160	module:m9
++ t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:16	module:m1
++ t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:45	module:m2
++ t15	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t15(/;"	s	line:103	module:m
++ t16	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t16(/;"	s	line:109	module:m
++ t17	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t17(/;"	s	line:115	module:m
++ t18	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t18(/;"	s	line:122	module:m
++ t19	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t19(/;"	s	line:129	module:m
++ t20	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t20(/;"	s	line:138	module:m
++ t22	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t22(/;"	s	line:146	module:m
++ t23	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t23(/;"	s	line:152	module:m
++ test	flang/test/Semantics/bug181353.f90	/^  pure subroutine test(/;"	s	line:24	module:m
++ test_designator	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_designator$/;"	s	line:22	module:test_use_device
++ test_shadowed	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_shadowed$/;"	s	line:26	module:test_use_device
++ test_simple	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_simple$/;"	s	line:17	module:test_use_device
++ x	flang/test/Semantics/bug124731.f90	/^  real x$/;"	v	line:8	module:m1
++ x002	flang/test/Semantics/separate-mp04.f90	/^  module subroutine x002$/;"	s	line:23
++ x003	flang/test/Semantics/separate-mp04.f90	/^  module subroutine x003$/;"	s	line:25
++ x1	flang/test/Semantics/resolve113.f90	/^  integer, bind(c, name="a") :: x1$/;"	v	line:8	module:m
++ x2	flang/test/Semantics/resolve113.f90	/^  integer, bind(c) :: x2$/;"	v	line:9	module:m
++ xdim	flang/test/Lower/pre-fir-tree01.f90	/^ integer :: xdim$/;"	v	line:43	module:test_mod
+- __anonc4bcf2870205	flang/test/Semantics/pure-function-result-pointer.f90	/^  interface$/;"	i	line:31
+- chlen	flang/test/Semantics/separate-mp06.f90	/^      type :: chlen$/;"	t	line:19	module:subroutine
+- elemental	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalF/;"	v	line:31
+- elementalFunc	flang/test/Semantics/resolve83.f90	/^    elemental real elemental function elementalFunc(/;"	f	line:31
+- f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:29
+- f1	flang/test/Semantics/separate-mp03.f90	/^  integer module function f1(/;"	f	line:76
+- f3	flang/test/Semantics/separate-mp02.f90	/^      real :: f3$/;"	v	line:275	module:function
+- ff3	flang/test/Lower/submodule.f90	/^      integer ff3(/;"	v	line:13	module:function
+- foo	flang/test/Lower/pre-fir-tree01.f90	/^  subroutine foo(/;"	s	line:47
+- foo2	flang/test/Lower/pre-fir-tree01.f90	/^  function foo2(/;"	f	line:64
+- func1	flang/test/Semantics/separate-mp01.f90	/^    real module function func1()   ! implementation of func1 /;"	f	line:93
+- function	flang/test/Lower/submodule.f90	/^    module function /;"	m	line:12
+- function	flang/test/Semantics/separate-mp02.f90	/^    module function /;"	m	line:274
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:13
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:17
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:62
+- function	flang/test/Semantics/separate-mp03.f90	/^    module function /;"	m	line:66
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:36
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:85
+- function	flang/test/Semantics/separate-mp03.f90	/^  module function /;"	m	line:94
+- g1	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g1$/;"	i	line:119
+- g2	flang/test/Parser/keyword-optional-spaces.f90	/^  interface g2$/;"	i	line:121
+- generic	flang/test/Semantics/resolve15.f90	/^  interface generic$/;"	i	line:44
+- i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:18
+- i	flang/test/Semantics/resolve36.f90	/^  integer i$/;"	v	line:48
+- implementation	flang/test/Semantics/implicit-module-prefix-modfile.f90	/^  subroutine implementation(/;"	s	line:29
+- inside_one	flang/test/Semantics/modfile86.f90	/^  subroutine inside_one(/;"	s	line:25
+- j	flang/test/Semantics/symbol28.f90	/^  integer, intent(in) :: j$/;"	v	line:53	module:subroutine
+- local1	flang/test/Semantics/smp-def02.f90	/^  subroutine local1$/;"	s	line:27
+- local2	flang/test/Semantics/smp-def02.f90	/^  subroutine local2(/;"	s	line:32
+- m3subr1	flang/test/Semantics/entry01.f90	/^  subroutine m3subr1$/;"	s	line:182
+- modproc	flang/test/Semantics/entry01.f90	/^  subroutine modproc$/;"	s	line:16
+- modsub	flang/test/Semantics/self-use.f90	/^  subroutine modsub$/;"	s	line:8
+- module	flang/test/Semantics/resolve76.f90	/^    logical module /;"	v	line:12	module:m1
+- module	flang/test/Semantics/separate-mp01.f90	/^    real module /;"	v	line:93
+- module	flang/test/Semantics/separate-mp01.f90	/^    real module function func3()   ! module /;"	v	line:89	submodule:m4sub
+- module	flang/test/Semantics/separate-mp03.f90	/^    integer module /;"	v	line:10	module:m1
+- module	flang/test/Semantics/separate-mp03.f90	/^    integer module /;"	v	line:59	module:m2
+- module	flang/test/Semantics/separate-mp03.f90	/^  integer module /;"	v	line:29
+- module	flang/test/Semantics/separate-mp03.f90	/^  integer module /;"	v	line:76
+- nonseq	flang/test/Semantics/separate-mp06.f90	/^      type :: nonseq$/;"	t	line:6	interface:__anon0d9580830105
+- pdt	flang/test/Semantics/separate-mp06.f90	/^      type :: pdt(/;"	t	line:27	module:subroutine
+- pressure	flang/test/Lower/pre-fir-tree01.f90	/^ real, allocatable :: pressure(/;"	v	line:44
+- procedure	flang/test/Lower/submodule.f90	/^  module procedure /;"	m	line:42
+- procedure	flang/test/Semantics/pure-function-result-pointer.f90	/^    module procedure /;"	m	line:40
+- procedure	flang/test/Semantics/resolve36.f90	/^  module procedure /;"	m	line:51
+- procedure	flang/test/Semantics/resolve36.f90	/^  module procedure /;"	m	line:72
+- procedure	flang/test/Semantics/separate-mp03.f90	/^  module procedure /;"	m	line:33
+- procedure	flang/test/Semantics/separate-mp03.f90	/^  module procedure /;"	m	line:82
+- procedure	flang/test/Semantics/separate-mp04.f90	/^  module procedure /;"	m	line:21
+- procedure	flang/test/Semantics/smp-def02.f90	/^  module procedure /;"	m	line:34
+- procedure	flang/test/Semantics/symbol28.f90	/^ module procedure /;"	m	line:21
+- procedure	flang/test/Semantics/symbol28.f90	/^ module procedure /;"	m	line:47
+- pure	flang/test/Semantics/resolve83.f90	/^    real pure /;"	v	line:27
+- real	flang/test/Semantics/resolve83.f90	/^    real pure real function realF/;"	v	line:27
+- realFunc	flang/test/Semantics/resolve83.f90	/^    real pure real function realFunc(/;"	f	line:27
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:14	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:18	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:63	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^      integer :: res$/;"	v	line:67	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^    integer :: res$/;"	v	line:37	module:function
+- res	flang/test/Semantics/separate-mp03.f90	/^    real :: res$/;"	v	line:86	module:function
+- s	flang/test/Semantics/symbol02.f90	/^ subroutine s$/;"	s	line:23
+- sm	flang/test/Semantics/modproc01.f90	/^  integer sm$/;"	v	line:25
+- specific	flang/test/Semantics/modfile07.f90	/^  pure integer function specific(/;"	f	line:639
+- subroutine	flang/test/Parser/keyword-optional-spaces.f90	/^    module subroutine /;"	m	line:112
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:27
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:33
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:54
+- subroutine	flang/test/Semantics/resolve36.f90	/^  module subroutine /;"	m	line:61
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:103
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:143
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:145
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:147
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:149
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:151
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:22
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:27
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:32
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:38
+- subroutine	flang/test/Semantics/separate-mp02.f90	/^    module subroutine /;"	m	line:99
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:21
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    module subroutine /;"	m	line:70
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    pure module subroutine /;"	m	line:23
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^    pure module subroutine /;"	m	line:72
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  module subroutine /;"	m	line:44
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  module subroutine /;"	m	line:91
+- subroutine	flang/test/Semantics/separate-mp03.f90	/^  pure module subroutine /;"	m	line:46
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^    module subroutine /;"	m	line:10
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^  module subroutine /;"	m	line:23
+- subroutine	flang/test/Semantics/separate-mp04.f90	/^  module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/separate-mp06.f90	/^    module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/separate-mp06.f90	/^    module subroutine /;"	m	line:25
+- subroutine	flang/test/Semantics/smp-def02.f90	/^  module subroutine /;"	m	line:36
+- subroutine	flang/test/Semantics/smp-def02.f90	/^  module subroutine /;"	m	line:38
+- subroutine	flang/test/Semantics/symbol28.f90	/^ module subroutine /;"	m	line:18
+- subroutine	flang/test/Semantics/symbol28.f90	/^ module subroutine /;"	m	line:51
+- t	flang/test/Semantics/resolve34.f90	/^  type  :: t$/;"	t	line:160
+- t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:16
+- t	flang/test/Semantics/resolve36.f90	/^  type t$/;"	t	line:45
+- t15	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t15(/;"	s	line:103
+- t16	flang/test/Semantics/ignore_tkr01.f90	/^    subroutine t16(/;"	s	line:109
+- t17	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t17(/;"	s	line:115
+- t18	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t18(/;"	s	line:122
+- t19	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t19(/;"	s	line:129
+- t20	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t20(/;"	s	line:138
+- t22	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t22(/;"	s	line:146
+- t23	flang/test/Semantics/ignore_tkr01.f90	/^  subroutine t23(/;"	s	line:152
+- test	flang/test/Semantics/bug181353.f90	/^  pure subroutine test(/;"	s	line:24
+- test_designator	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_designator$/;"	s	line:22
+- test_shadowed	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_shadowed$/;"	s	line:26
+- test_simple	flang/test/Lower/host_module_variable_instantiation_use_device.f90	/^  subroutine test_simple$/;"	s	line:17
+- w	flang/test/Semantics/separate-mp02.f90	/^      character(len=*) :: w$/;"	v	line:36	module:subroutine
+- w	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(:), z(0:*), w(/;"	v	line:39	module:subroutine
+- x	flang/test/Semantics/bug124731.f90	/^  real x$/;"	v	line:8
+- x	flang/test/Semantics/separate-mp02.f90	/^      character(len=4) :: x$/;"	v	line:33	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x$/;"	v	line:19	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x(/;"	v	line:23	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real :: x(/;"	v	line:28	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real x(/;"	v	line:39	module:subroutine
+- x	flang/test/Semantics/separate-mp02.f90	/^      real(4) :: x$/;"	v	line:100	module:subroutine
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:15	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:19	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:64	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^      real, intent(in) :: x$/;"	v	line:68	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^    real, intent(in) :: x$/;"	v	line:38	module:function
+- x	flang/test/Semantics/separate-mp03.f90	/^    real, intent(in) :: x$/;"	v	line:87	module:function
+- x	flang/test/Semantics/separate-mp05.f90	/^   real, intent(in) :: x$/;"	v	line:26	module:m
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(chlen), intent(in) :: x$/;"	v	line:23	module:subroutine
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(pdt(4)), intent(in) :: x$/;"	v	line:32	module:subroutine
+- x	flang/test/Semantics/separate-mp06.f90	/^      type(seq), intent(in) :: x$/;"	v	line:16
+- x1	flang/test/Semantics/resolve113.f90	/^  integer, bind(c, name="a") :: x1$/;"	v	line:8
+- x2	flang/test/Semantics/resolve113.f90	/^  integer, bind(c) :: x2$/;"	v	line:9
+- xdim	flang/test/Lower/pre-fir-tree01.f90	/^ integer :: xdim$/;"	v	line:43
+- y	flang/test/Semantics/separate-mp02.f90	/^      character(len=4) :: y$/;"	v	line:34	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      procedure(real) :: y$/;"	v	line:101	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y$/;"	v	line:20	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y(/;"	v	line:24	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real :: y(/;"	v	line:29	module:subroutine
+- y	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(/;"	v	line:39	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      character(len=*) :: z$/;"	v	line:35	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real :: z(/;"	v	line:25	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real :: z(/;"	v	line:30	module:subroutine
+- z	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(:), z(/;"	v	line:39	module:subroutine
+
+@ units/parser-fortran.r/fortran-submodule.d/*: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ g3	input.f90	/^    module function g3(/;"	f	line:22
+- function	input.f90	/^    module function /;"	m	line:22
+- x	input.f90	/^        integer :: x,/;"	v	line:23	module:function
+- y	input.f90	/^        integer :: x,y$/;"	v	line:23	module:function
+
+@ units/parser-fortran.r/fortran-submodule.d/allkinds: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ x	input.f90	/^        integer :: x,/;"	L	line:23	function:g3	file:
++ y	input.f90	/^        integer :: x,y$/;"	L	line:23	function:g3	file:
+
+@ corpus/llvm/flang: F7, a GENERIC statement outside a type declares a generic interface: its name or operator is tagged as an interface, as INTERFACE would declare it, instead of the name, a variable named operator, and the specific procedures, all as variables.
++ +	flang/test/Semantics/modfile07.f90	/^  generic :: operator ( + /;"	i	line:14	module:m1
++ +	flang/test/Semantics/resolve25.f90	/^  generic :: operator(+)/;"	i	line:39	module:m2
++ +	flang/test/Semantics/resolve25.f90	/^  generic :: operator(+)/;"	i	line:41	module:m2
++ -	flang/test/Semantics/resolve67.f90	/^    generic :: operator(-)/;"	i	line:76	subroutine:s
++ .eq.	flang/test/Semantics/resolve110.f90	/^  generic :: operator(.eq.)/;"	i	line:35	module:m2
++ .false.	flang/test/Semantics/resolve47.f90	/^  generic :: operator(.false.)/;"	i	line:7	module:m1
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:27	module:m
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:28	module:m
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:30	module:m
++ .gt.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.gt.)/;"	i	line:54	module:m3
++ .ne.	flang/test/Semantics/modfile07.f90	/^  generic :: operator(.ne.)/;"	i	line:31	module:m1
++ <>	flang/test/Semantics/modfile07.f90	/^  generic :: operator(<>)/;"	i	line:32	module:m1
++ ==	flang/test/Semantics/resolve110.f90	/^  generic :: operator(==)/;"	i	line:10	module:m1
++ >	flang/test/Semantics/resolve25.f90	/^  generic :: operator(>) => /;"	i	line:52	module:m3
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:22	module:m
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:23	module:m
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:25	module:m
++ g1	flang/test/Semantics/resolve53.f90	/^  generic :: g1 /;"	i	line:160	module:m12
++ g2	flang/test/Semantics/resolve53.f90	/^  generic :: g2 /;"	i	line:162	module:m12
++ g3	flang/test/Semantics/resolve53.f90	/^  generic :: g3 /;"	i	line:164	module:m12
++ gen	flang/test/Semantics/bug2381.f90	/^  generic :: gen /;"	i	line:3	module:m
++ gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	i	line:18	module:modfile71a
++ gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	i	line:57	module:modfile71a
++ gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 /;"	i	line:195	module:m14
++ gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 => gen2$/;"	i	line:206	module:m15
++ generic	flang/test/Semantics/pointer02.f90	/^  generic :: generic /;"	i	line:14	subroutine:sub
++ private	flang/test/Semantics/resolve120.f90	/^  generic :: private /;"	i	line:13	program:main
++ private	flang/test/Semantics/resolve120.f90	/^  generic, private :: private /;"	i	line:5	module:m
++ public	flang/test/Semantics/resolve120.f90	/^  generic :: public /;"	i	line:12	program:main
++ public	flang/test/Semantics/resolve120.f90	/^  generic, public :: public /;"	i	line:4	module:m
++ xIntercept	flang/test/Semantics/generic06.f90	/^  generic :: xIntercept /;"	i	line:10	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:22	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:23	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:25	module:m
+- g1	flang/test/Semantics/resolve53.f90	/^  generic :: g1 /;"	v	line:160	module:m12
+- g2	flang/test/Semantics/resolve53.f90	/^  generic :: g2 /;"	v	line:162	module:m12
+- g3	flang/test/Semantics/resolve53.f90	/^  generic :: g3 /;"	v	line:164	module:m12
+- gen	flang/test/Semantics/bug2381.f90	/^  generic :: gen /;"	v	line:3	module:m
+- gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	v	line:18	module:modfile71a
+- gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	v	line:57	module:modfile71a
+- gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 /;"	v	line:195	module:m14
+- gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 => gen2$/;"	v	line:206	module:m15
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator /;"	v	line:14	module:m1
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator(/;"	v	line:31	module:m1
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator(/;"	v	line:32	module:m1
+- operator	flang/test/Semantics/resolve110.f90	/^  generic :: operator(/;"	v	line:10	module:m1
+- operator	flang/test/Semantics/resolve110.f90	/^  generic :: operator(/;"	v	line:35	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:27	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:28	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:30	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:39	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:41	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:52	module:m3
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:54	module:m3
+- operator	flang/test/Semantics/resolve47.f90	/^  generic :: operator(/;"	v	line:7	module:m1
+- private	flang/test/Semantics/resolve120.f90	/^  generic :: private /;"	v	line:13	program:main
+- private	flang/test/Semantics/resolve120.f90	/^  generic, private :: private /;"	v	line:5	module:m
+- public	flang/test/Semantics/resolve120.f90	/^  generic :: public /;"	v	line:12	program:main
+- public	flang/test/Semantics/resolve120.f90	/^  generic, public :: public /;"	v	line:4	module:m
+- s2	flang/test/Semantics/modfile07.f90	/^  generic :: operator ( + ) => s1, s2$/;"	v	line:14	module:m1
+- s2	flang/test/Semantics/resolve53.f90	/^  generic :: g1 => s1, s2 /;"	v	line:160	module:m12
+- s3	flang/test/Semantics/resolve53.f90	/^  generic :: g2 => s2, s3 /;"	v	line:162	module:m12
+- s4	flang/test/Semantics/resolve53.f90	/^  generic :: g3 => s1, s4 /;"	v	line:164	module:m12
+- spec1	flang/test/Semantics/bug2381.f90	/^  generic :: gen => spec2, spec1$/;"	v	line:3	module:m
+- xIntercept	flang/test/Semantics/generic06.f90	/^  generic :: xIntercept /;"	v	line:10	module:m
+
+@ corpus/llvm/flang: F8, an unknown attribute in a list (contiguous, volatile, device, ...) is skipped instead of losing the statement's entities, and the attribute statements BIND, CODIMENSION, ASYNCHRONOUS, and CONTIGUOUS no longer end the specification part, which made the unit skip its later declarations and its contained subprograms up to the first END.
++ MONDAY	flang/test/Semantics/bind-c02.f90	/^    enumerator :: SUNDAY, MONDAY$/;"	N	line:33	enum:__anon56dcc2ad0203
++ SUNDAY	flang/test/Semantics/bind-c02.f90	/^    enumerator :: SUNDAY,/;"	N	line:33	enum:__anon56dcc2ad0203
++ __anon4f336e000305	flang/test/Semantics/resolve20.f90	/^  abstract interface$/;"	i	line:76	module:m
++ __anon56dcc2ad0203	flang/test/Semantics/bind-c02.f90	/^  enum, bind(c) ! no error$/;"	E	line:32	module:m
++ __anoncea4a8b00105	flang/test/Semantics/maxrank.f90	/^  interface$/;"	i	line:22	module:m
++ a	flang/test/Fir/CUDA/cuda-register-allocator-0.f90	/^  integer, device, allocatable :: a(/;"	v	line:4	module:m0
++ a	flang/test/Lower/volatile-openmp1.f90	/^integer,volatile::a$/;"	v	line:4	program:main
++ a	flang/test/Semantics/resolve14.f90	/^  real, target :: a(/;"	v	line:30	program:p2
++ aaa	flang/test/Semantics/declarations03.f90	/^  integer aaa /;"	v	line:81	module:c
++ ahost	flang/test/Fir/CUDA/cuda-constructor.f90	/^  real, allocatable, device :: ahost(/;"	v	line:10	program:main
++ allocatable	flang/test/Semantics/contiguous01.f90	/^  real, contiguous, allocatable :: allocatable$/;"	v	line:17	module:m
++ arr	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1/;"	v	line:16	program:dataptrvolatile
++ arr	flang/test/Lower/volatile1.f90	/^  integer,volatile::i,arr(/;"	v	line:4	program:p
++ arr	flang/test/Lower/volatile4.f90	/^  integer,volatile::i,arr(/;"	v	line:4	program:p
++ arr1	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1(/;"	v	line:16	program:dataptrvolatile
++ array1	flang/test/Lower/volatile-openmp.f90	/^integer, volatile, pointer :: array1(/;"	v	line:5
++ asynchVar	flang/test/Semantics/resolve81.f90	/^  real, asynchronous, public, asynchronous :: asynchVar$/;"	v	line:21	module:m
++ b	flang/test/Lower/CUDA/cuda-gpu-pinned.f90	/^integer, allocatable, device :: b(/;"	v	line:4
++ b	flang/test/Semantics/modfile21.f90	13;"	c	line:13	module:m
++ badContigField	flang/test/Semantics/resolve90.f90	/^    real, dimension(:), contiguous, allocatable :: badContigField$/;"	k	line:16	type:derivedType
++ bar	flang/test/Semantics/maxrank.f90	/^  function bar(/;"	f	line:29	module:m
++ bar	flang/test/Semantics/resolve20.f90	/^  subroutine bar$/;"	s	line:82	module:m
++ baz	flang/test/Semantics/resolve20.f90	/^  subroutine baz(/;"	s	line:92	module:m
++ bindVar	flang/test/Semantics/resolve81.f90	/^  integer, bind(c), volatile, bind(c) :: bindVar$/;"	v	line:35	module:m
++ blk	flang/test/Semantics/bind-c02.f90	37;"	c	line:37	module:m
++ blk	flang/test/Semantics/bind-c18.f90	4;"	c	line:4
++ blk3	flang/test/Semantics/declarations03.f90	14;"	c	line:14	module:m
++ blk4	flang/test/Semantics/declarations03.f90	19;"	c	line:19	module:m
++ blk5	flang/test/Semantics/declarations03.f90	23;"	c	line:23	module:m
++ blk6	flang/test/Semantics/declarations03.f90	28;"	c	line:28	module:m
++ blk7	flang/test/Semantics/declarations03.f90	28;"	c	line:28	module:m
++ c	flang/test/Semantics/equivalence01.f90	56;"	c	line:56	subroutine:s5
++ c2	flang/test/Semantics/call08.f90	/^  real, volatile :: c2[/;"	v	line:7	module:m
++ cb	flang/test/Semantics/modfile21.f90	6;"	c	line:6	module:m
++ cb	flang/test/Semantics/modfile21.f90	7;"	c	line:7	module:m
++ cb2	flang/test/Semantics/modfile21.f90	6;"	c	line:6	module:m
++ coarr1	flang/test/Semantics/coarrays02.f90	/^  real :: coarr1[/;"	v	line:13	program:main
++ container	flang/test/Lower/volatile-openmp.f90	/^type(t), volatile :: container$/;"	v	line:6
++ contigVar	flang/test/Semantics/resolve81.f90	/^  real, contiguous, pointer, contiguous :: contigVar(/;"	v	line:25	module:m
++ d	flang/test/Semantics/modfile85.f90	/^  real, device :: d$/;"	v	line:11	module:modfile84m
++ dp	flang/test/Semantics/modfile85.f90	/^    real, device, pointer :: dp$/;"	k	line:27	type:dt
++ dvar	flang/test/Driver/cuda-option.f90	/^  integer, device :: dvar$/;"	v	line:8	program:main
++ e	flang/test/Semantics/contiguous01.f90	/^    entry e() res/;"	e	line:32	function:func
++ e	flang/test/Semantics/modfile24.f90	/^  real :: e$/;"	v	line:12	module:m1
++ event	flang/test/Semantics/coarrays02.f90	/^  type(event_type) event$/;"	v	line:16	program:main
++ f	flang/test/Lower/volatile-derived-type.f90	/^  type(t), volatile :: f$/;"	v	line:6
++ f10	flang/test/Semantics/OpenMP/declare-target-resolve.f90	/^subroutine f10$/;"	s	line:90	module:f09
++ field6	flang/test/Semantics/resolve78.f90	/^    real, public, contiguous, pointer, contiguous, dimension(:) :: field6$/;"	k	line:25	type:derived
++ fp	flang/test/Semantics/contiguous01.f90	/^  function fp(/;"	f	line:35	module:m
++ func	flang/test/Semantics/contiguous01.f90	/^  function func(/;"	f	line:20	module:m
++ goodContigField	flang/test/Semantics/resolve90.f90	/^    real, dimension(:), contiguous, pointer :: goodContigField$/;"	k	line:14	type:derivedType
++ i	flang/test/Lower/call-copy-in-out.f90	/^    character(:), pointer, contiguous :: i(/;"	k	line:246	type:t
++ i	flang/test/Lower/call-copy-in-out.f90	/^    integer, pointer, contiguous :: i(/;"	k	line:233	type:t
++ i	flang/test/Lower/volatile1.f90	/^  integer,volatile::i,/;"	v	line:4	program:p
++ i	flang/test/Lower/volatile4.f90	/^  integer,volatile::i,/;"	v	line:4	program:p
++ i	flang/test/Semantics/bind-c02.f90	/^    integer :: i$/;"	k	line:27	type:my_type
++ i	flang/test/Semantics/resolve20.f90	/^    integer :: i$/;"	k	line:69	type:t1
++ local	flang/test/Semantics/coarrays02.f90	/^  integer :: local[/;"	v	line:21	program:main
++ lock	flang/test/Semantics/coarrays02.f90	/^  type(lock_type) lock$/;"	v	line:18	program:main
++ modsub	flang/test/Semantics/resolve119.f90	/^  subroutine modsub$/;"	s	line:14	module:m
++ my_type	flang/test/Semantics/bind-c02.f90	/^  type my_type$/;"	t	line:26	module:m
++ my_type1	flang/test/Semantics/declarations02.f90	/^  type :: my_type1$/;"	t	line:27	module:m
++ my_type2	flang/test/Semantics/declarations02.f90	/^  type, bind(c) :: my_type2$/;"	t	line:30	module:m
++ notify	flang/test/Semantics/coarrays02.f90	/^  type(notify_type) notify$/;"	v	line:20	program:main
++ p	flang/test/Semantics/maxrank.f90	/^  integer, parameter :: p(/;"	v	line:21	module:m
++ p	flang/test/Semantics/resolve14.f90	/^  real, contiguous, pointer :: p(/;"	v	line:31	program:p2
++ p1	flang/test/Semantics/contiguous01.f90	/^  real, pointer, contiguous :: p1(/;"	v	line:3	module:m0
++ p1	flang/test/Semantics/resolve20.f90	/^    procedure(proc), deferred :: p1$/;"	M	line:73	type:t1
++ p_contiguous	flang/test/Lower/HLFIR/allocatable-and-pointer-components.f90	/^    real, pointer, contiguous :: p_contiguous(/;"	k	line:12	type:t3
++ pinned_real	flang/test/Lower/OpenACC/acc-host-data-cuda-device.f90	/^real, allocatable, pinned :: pinned_real(/;"	v	line:6	module:m
++ ptr	flang/test/Lower/volatile-derived-type-pointer.f90	/^  class(dt), volatile , pointer :: ptr(/;"	v	line:17	program:dataptrvolatile
++ ptr	flang/test/Lower/volatile4.f90	/^  integer,volatile,pointer,dimension(:)::ptr$/;"	v	line:6	program:p
++ s1	flang/test/Semantics/declarations03.f90	/^  integer :: s1$/;"	v	line:33	module:m
++ s2	flang/test/Semantics/declarations03.f90	/^  integer :: s2,/;"	v	line:39	module:m
++ s3	flang/test/Semantics/declarations03.f90	/^  integer :: s2, s3$/;"	v	line:39	module:m
++ s4	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="ss1") :: s4$/;"	v	line:44	module:m
++ s5	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="ss2") :: s5$/;"	v	line:51	module:m
++ s6	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="s6explicit") :: s6$/;"	v	line:53	module:m
++ scalar	flang/test/Semantics/contiguous01.f90	/^  real, contiguous, pointer :: scalar$/;"	v	line:15	module:m
++ string	flang/test/Lower/volatile-string.f90	/^  character(3), volatile :: string /;"	v	line:3	program:p
++ sub	flang/test/Semantics/bind-c02.f90	/^  subroutine sub(/;"	s	line:47	module:m
++ t	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1(10000), t(/;"	v	line:16	program:dataptrvolatile
++ t	flang/test/Semantics/declarations03.f90	/^  integer :: t$/;"	v	line:12	module:m
++ t1	flang/test/Semantics/declarations02.f90	/^  type(my_type1), bind(c), parameter :: t1 /;"	v	line:36	module:m
++ t1	flang/test/Semantics/resolve20.f90	/^  type, abstract :: t1$/;"	t	line:68	module:m
++ t2	flang/test/Semantics/declarations02.f90	/^  type(my_type2), bind(c), parameter :: t2 /;"	v	line:38	module:m
++ t2	flang/test/Semantics/declarations03.f90	/^  integer :: t2$/;"	v	line:17	module:m
++ t3	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t3 /;"	v	line:40	module:m
++ t4	flang/test/Semantics/declarations02.f90	/^  type(my_type1), parameter :: t4 /;"	v	line:43	module:m
++ t5	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t5 /;"	v	line:45	module:m
++ test	flang/test/Semantics/resolve20.f90	/^  subroutine test$/;"	s	line:85	module:m
++ tgt	flang/test/Lower/volatile4.f90	/^  integer,volatile,target::tgt(/;"	v	line:5	program:p
++ use_asynchronous_x	flang/test/Lower/split-sum-expression-tree-lowering.f90	/^  real(8), asynchronous :: use_asynchronous_x$/;"	v	line:1191	module:split_sum_guard_mod
++ use_volatile_x	flang/test/Lower/split-sum-expression-tree-lowering.f90	/^  real(8), volatile :: use_volatile_x$/;"	v	line:1190	module:split_sum_guard_mod
++ v	flang/test/Lower/volatile-openmp2.f03	/^class(x),allocatable,volatile,asynchronous::v(/;"	v	line:5
++ volatile	flang/test/Semantics/call10.f90	/^  real, volatile, target :: volatile$/;"	v	line:18	module:m
++ volatileVar	flang/test/Semantics/resolve81.f90	/^  real, volatile, volatile :: volatileVar$/;"	v	line:47	module:m
++ volatile_array	flang/test/Lower/volatile3.f90	/^   integer, volatile              :: volatile_integer, volatile_array(/;"	v	line:7	program:p
++ volatile_array_2d	flang/test/Lower/volatile3.f90	/^                                     volatile_array_2d(/;"	v	line:8	program:p
++ volatile_array_pointer	flang/test/Lower/volatile3.f90	/^            pointer, dimension(:) :: volatile_array_pointer$/;"	v	line:14	program:p
++ volatile_array_target	flang/test/Lower/volatile3.f90	/^   integer, volatile, target      :: volatile_integer_target, volatile_array_target(/;"	v	line:11	program:p
++ volatile_integer	flang/test/Lower/volatile3.f90	/^   integer, volatile              :: volatile_integer,/;"	v	line:7	program:p
++ volatile_integer_pointer	flang/test/Lower/volatile3.f90	/^   integer, volatile, pointer      :: volatile_integer_pointer$/;"	v	line:9	program:p
++ volatile_integer_target	flang/test/Lower/volatile3.f90	/^   integer, volatile, target      :: volatile_integer_target,/;"	v	line:11	program:p
++ w	flang/test/Semantics/modfile21.f90	/^  complex w$/;"	v	line:10	module:m
++ x	flang/test/Semantics/bind-c02.f90	/^  integer :: x,/;"	v	line:36	module:m
++ x	flang/test/Semantics/bind-c18.f90	/^integer, pointer :: x$/;"	v	line:6
++ x	flang/test/Semantics/contiguous01.f90	/^  real, contiguous :: x$/;"	v	line:13	module:m
++ x4	flang/test/Semantics/declarations02.f90	/^    integer :: x4$/;"	k	line:28	type:my_type1
++ x4	flang/test/Semantics/declarations02.f90	/^  integer, parameter :: x4 /;"	v	line:20	module:m
++ y	flang/test/Semantics/bind-c02.f90	/^  integer :: x, y,/;"	v	line:36	module:m
++ z	flang/test/Semantics/bind-c02.f90	/^  integer :: x, y, z /;"	v	line:36	module:m
++ z	flang/test/Semantics/resolve14.f90	/^  integer z$/;"	v	line:29	program:p2
+- __anon4f336e000305	flang/test/Semantics/resolve20.f90	/^  abstract interface$/;"	i	line:76
+- bar	flang/test/Semantics/maxrank.f90	/^  function bar(/;"	f	line:29
+- bar	flang/test/Semantics/resolve20.f90	/^  subroutine bar$/;"	s	line:82
+- baz	flang/test/Semantics/resolve20.f90	/^  subroutine baz(/;"	s	line:92
+- fp	flang/test/Semantics/contiguous01.f90	/^  function fp(/;"	f	line:35
+- my_type2	flang/test/Semantics/declarations02.f90	/^  type, bind(c) :: my_type2$/;"	t	line:30
+- sub	flang/test/Semantics/bind-c02.f90	/^  subroutine sub(/;"	s	line:47
+- t1	flang/test/Semantics/declarations02.f90	/^  type(my_type1), bind(c), parameter :: t1 /;"	v	line:36
+- t2	flang/test/Semantics/declarations02.f90	/^  type(my_type2), bind(c), parameter :: t2 /;"	v	line:38
+- t3	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t3 /;"	v	line:40
+- t4	flang/test/Semantics/declarations02.f90	/^  type(my_type1), parameter :: t4 /;"	v	line:43
+- t5	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t5 /;"	v	line:45
+- test	flang/test/Semantics/resolve20.f90	/^  subroutine test$/;"	s	line:85
+
+@ corpus/llvm/flang-rt: F8, an unknown attribute in a list (contiguous, volatile, device, ...) is skipped instead of losing the statement's entities, and the attribute statements BIND, CODIMENSION, ASYNCHRONOUS, and CONTIGUOUS no longer end the specification part, which made the unit skip its later declarations and its contained subprograms up to the first END.
++ binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Binding), pointer, contiguous :: binding(/;"	k	line:31	type:DerivedType
++ bounds	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Value), pointer, contiguous :: bounds(/;"	k	line:104	type:Component
++ component	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Component), pointer, contiguous :: component(:) ! data components/;"	k	line:43	type:DerivedType
++ kindParameter	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(kind=int64), pointer, contiguous :: kindParameter(/;"	k	line:38	type:DerivedType
++ lenParameterKind	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1), pointer, contiguous :: lenParameterKind(/;"	k	line:40	type:DerivedType
++ lenValue	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Value), pointer, contiguous :: lenValue(/;"	k	line:103	type:Component
++ procptr	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(ProcPtrComponent), pointer, contiguous :: procptr(/;"	k	line:45	type:DerivedType
++ special	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(SpecialBinding), pointer, contiguous :: special(/;"	k	line:48	type:DerivedType
+
+@ corpus/llvm/flang: P6, explicit instantiations and templated forward declarations declare nothing
+= 1 flang/lib/Evaluate/characteristics.cpp
+= 6 flang/lib/Evaluate/complex.cpp
+= 1 flang/lib/Evaluate/fold-integer.cpp
+= 2 flang/lib/Evaluate/fold.cpp
+= 6 flang/lib/Evaluate/integer.cpp
+= 4 flang/lib/Evaluate/logical.cpp
+= 6 flang/lib/Evaluate/real.cpp
+= 1 flang/lib/Evaluate/variable.cpp
+= 2 flang/lib/Lower/CallInterface.cpp
+= 1 flang/lib/Semantics/assignment.cpp
+= 6 flang/lib/Semantics/tools.cpp
+
+@ corpus/llvm/flang-rt: P6, explicit instantiations and templated forward declarations declare nothing
+= 6 flang-rt/lib/runtime/edit-output.cpp
+= 5 flang-rt/lib/runtime/format.cpp
+= 2 flang-rt/lib/runtime/internal-unit.cpp
+= 22 flang-rt/lib/runtime/io-stmt.cpp
+
+@ corpus/llvm/openmp: P5, enum T in a declarator's type is not an enum definition
+= 8 openmp/runtime/src/kmp_global.cpp
