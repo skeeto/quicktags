@@ -696,7 +696,7 @@ enum : i32 { DROPPED = 2 };  // readtoken: read another in its place
 static Use *uses(Cxx *c, Macro *m)
 {
     if (!c->uses) {
-        c->uses = alloc<Use>(c->pool.a, c->f->macros->len);
+        c->uses = alloc<Use>(c->pool.a, c->f->macros->all.len);
     }
     Use *u = c->uses + m->index;
     if (u->drains != c->cpp.drains) {
@@ -712,7 +712,7 @@ static Macro *findmacro(Cxx *c, Str w)
 {
     Map<Macro> *map = c->f->macros ? c->f->macros->map : 0;
     Macro      *m   = map ? upsert(&map, w, (Arena *)0) : 0;
-    if (m && m->repl.data && uses(c, m)->count>=USEMAX) {
+    if (m && m->rule.repl.data && uses(c, m)->count>=USEMAX) {
         return 0;
     }
     return m;
@@ -725,12 +725,13 @@ static Macro *findmacro(Cxx *c, Str w)
 static i32 dropmacro(Cxx *c, Macro *m, iz initial)
 {
     Pool *p    = &c->pool;
+    Str   repl = m->rule.repl;
     i32   line = c->tok->line;
     iz    pos  = c->tok->linepos;
     destroylast(p, c->chain);
 
     Token *group = 0;
-    if (m->parens) {
+    if (m->rule.parens) {
         while (cppspace(c->ch)) {
             nextchar(c);
         }
@@ -745,12 +746,12 @@ static i32 dropmacro(Cxx *c, Macro *m, iz initial)
     // Unless replacements may be running away
     b32 room = c->nesting<NESTMAX && initial<CHAINMAX &&
                c->cpp.backsize<BACKMAX;
-    if (m->repl.data && room) {
+    if (repl.data && room) {
         unget(&c->cpp, c->ch);
-        if (cppident(m->repl[m->repl.len-1]) && cppident(c->ch)) {
+        if (cppident(repl[repl.len-1]) && cppident(c->ch)) {
             unget(&c->cpp, ' ');  // departure X11: words stay apart
         }
-        ungetat(&c->cpp, m->repl, line, pos);
+        ungetat(&c->cpp, repl, line, pos);
         uses(c, m)->count++;
         nextchar(c);
     }

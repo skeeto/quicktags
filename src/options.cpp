@@ -7,20 +7,33 @@ enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
 enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
 enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 
-// An identifier -I names for the C and C++ tokenizer to drop, with the
-// group in parentheses after it if parens, and to replace with repl if
-// it has one (OPT-17, LEX-14).
-struct Macro {
-    Str name;
-    Str repl;    // null data for none
+// What a -I token makes of its identifier: drop it, and the group in
+// parentheses after it if parens, and replace them with repl if it has
+// one (OPT-17, LEX-14).
+struct Rule {
+    Str repl;  // null data for none
     b32 parens;
-    i32 index;   // in its table, for counts of its replacements
 };
 
-// The -I table, read-only once parsed.
+// An identifier -I names for the C and C++ tokenizer. Universal Ctags
+// keeps every token in a hash table, which finds a name's latest token
+// unless the table has grown since, reversing the order of each name's
+// tokens. So rule is the token found, and other is the one at the other
+// end of that order.
+struct Macro {
+    Str  name;
+    Rule rule;
+    Rule other;
+    i32  index;  // in its table, for counts of its replacements
+};
+
+// The -I table, read-only once parsed, and the size Universal Ctags'
+// table would have.
 struct Macros {
-    Map<Macro> *map;
-    i32         len;
+    Map<Macro>    *map;
+    Slice<Macro *> all;      // by index
+    i64            tokens;   // in Universal Ctags' table
+    i64            buckets;
 };
 
 // Every option is parsed into its value here. Some are not acted on yet,
@@ -278,32 +291,62 @@ static Slice<Str> splitlines(Arena *a, Str s, u32 flags)
 
 // Add a token, NAME, NAME+, NAME=TEXT or NAME+=TEXT, to the table. The
 // name runs to the first '+' or '=', and the replacement is the text
-// after the first '='. A later token for a name replaces the earlier.
+// after the first '='. A later token for a name replaces the earlier,
+// unless Universal Ctags' table has grown since (OPT-17).
 static void macrotoken(Parse *p, Str token)
 {
     token = cut(token, 0).head;  // a C string in Universal Ctags
-    Macro m   = {};
-    iz    i   = 0;
-    iz    end = -1;  // of the name
+    Rule r   = {};
+    iz   i   = 0;
+    iz   end = -1;  // of the name
     for (; i<token.len && token[i]!='='; i++) {
         if (token[i] == '+') {
             end = end<0 ? i : end;
-            m.parens = 1;
+            r.parens = 1;
         }
     }
     end = end<0 ? i : end;
     if (i+1 < token.len) {
-        m.repl = cuthead(token, i+1);
+        r.repl = cuthead(token, i+1);
     }
     if (!end) {
         return;
     }
 
+    // Universal Ctags' table grows when 80% full, to the next of these
+    // sizes, which reverses the order of each name's tokens
+    static i64 const sizes[] = {
+        1361, 2729, 5471, 10949, 21911, 43853, 87719, 175447, 350899,
+        701819, 1403641, 2807303, 5614657, 11229331, 22458671, 44917381,
+        89834777, 179669557, 359339171, 718678369, 1437356741, 2874713497,
+    };
     Macros *t = &p->opt->macros;
-    m.name = takehead(token, end);
-    Macro *e = upsert(&t->map, m.name, p->perm);
-    m.index = e->name.data ? e->index : t->len++;
-    *e = m;
+    t->buckets = t->buckets ? t->buckets : 1024;
+    if (t->tokens*5 >= t->buckets*4) {
+        for (iz j = 0; j < countof(sizes); j++) {
+            if (sizes[j] > t->buckets) {
+                t->buckets = sizes[j];
+                for (iz k = 0; k < t->all.len; k++) {
+                    Macro *m = t->all[k];
+                    Rule   s = m->rule;
+                    m->rule  = m->other;
+                    m->other = s;
+                }
+                break;
+            }
+        }
+    }
+    t->tokens++;
+
+    Str    name = takehead(token, end);
+    Macro *m    = upsert(&t->map, name, p->perm);
+    if (!m->name.data) {
+        m->name  = name;
+        m->other = r;
+        m->index = (i32)t->all.len;
+        t->all   = push(p->perm, t->all, m);
+    }
+    m->rule = r;
 }
 
 static b32 macrosep(u8 c)

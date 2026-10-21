@@ -714,7 +714,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - Any other parameter is a list split at spaces, tabs, newlines and commas.
   - `--param-CPreProcessor.ignore=TOKEN` adds one token, unsplit (OPT-13).
   - A token's name runs to its first `+` or `=`, and an empty one is ignored. `NAME` drops the identifier; a `+` before any `=` also drops a parenthesized group after it (`NAME+`); the text after the first `=`, when not empty, replaces them (`NAME=TEXT`, `NAME+=TEXT`). Text between the `+` and the `=` is ignored, `NAME=` is `NAME`, and a token ends at a NUL.
-  - A later token for a name replaces an earlier one. In Universal Ctags the table is a hash table whose growth, at 820 entries, reverses its buckets, so that past that size the earlier token can win [S]; here the last always does.
+  - A later token for a name replaces an earlier one, until the table grows [V]. Universal Ctags keeps every token in a hash table of 1024 buckets, adding each at the front of its bucket and finding the first. Before adding one to a table at least 80% full, it grows the table to the next of the primes 1361, 2729, 5471, 10949, 21911, …, which reverses each bucket. So with `A=int,A=char` and 818 more tokens `char` is found, with 819 to 1087 more `int`, with 1088 more `char` again. The count is of tokens added, repeated names included, and empty names not, since the table was last emptied.
 
 ---
 

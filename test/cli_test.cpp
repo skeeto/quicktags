@@ -65,10 +65,10 @@ static Str showmacro(Arena *a, Macros *t, Str name)
     }
     Buf b(a, 32);
     print(&b, m->name);
-    print(&b, m->parens ? Str("+") : Str(""));
-    if (m->repl.data) {
+    print(&b, m->rule.parens ? Str("+") : Str(""));
+    if (m->rule.repl.data) {
         putbyte(&b, '=');
-        print(&b, m->repl);
+        print(&b, m->rule.repl);
     }
     return finish(&b);
 }
@@ -910,8 +910,40 @@ static void test_cli(Test *t)
         for (iz i = 0; i < countof(ns); i++) {
             Arena  tmp = a;
             Parsed r   = parseos(&tmp, os, ns[i].args);
-            expect(t, ns[i].args, num(&tmp, r.opt.macros.len),
+            expect(t, ns[i].args, num(&tmp, r.opt.macros.all.len),
                    num(&tmp, ns[i].len));
+        }
+
+        // Of A=int, A=char and n more tokens, the table finds A=int
+        // after it grows at 821 tokens, until it grows again at 1090.
+        // Emptying it, after pre other tokens, starts the count again.
+        struct { i32 pre; i32 n; Str want; } gs[] = {
+            {   0,  818, "A=char"},
+            {   0,  819, "A=int"},
+            {   0, 1087, "A=int"},
+            {   0, 1088, "A=char"},
+            {1000,  100, "A=char"},
+        };
+        for (iz i = 0; i < countof(gs); i++) {
+            Arena tmp = a;
+            Buf   cmd(&tmp, 1<<14);
+            if (gs[i].pre) {
+                print(&cmd, "-I g");
+                for (i32 j = 1; j < gs[i].pre; j++) {
+                    print(&cmd, ",g");
+                    print(&cmd, (i64)j);
+                }
+                print(&cmd, " -I - ");
+            }
+            print(&cmd, "-I A=int,A=char");
+            for (i32 j = 0; j < gs[i].n; j++) {
+                print(&cmd, ",f");
+                print(&cmd, (i64)j);
+            }
+            print(&cmd, " a");
+            Parsed r = parseos(&tmp, os, finish(&cmd));
+            expect(t, num(&tmp, gs[i].n), showmacro(&tmp, &r.opt.macros, "A"),
+                   gs[i].want);
         }
     }
 
