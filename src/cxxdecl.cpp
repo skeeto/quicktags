@@ -288,6 +288,30 @@ static b32 parseenum(Cxx *c)
 
 // struct, class, union
 
+// An inherits field's value from the base clause in the statement: its
+// tokens without access keywords or virtual, condensed without spaces,
+// though a group keeps those inside it (FLD-9). Null if none are left.
+static Str baseclasses(Cxx *c)
+{
+    Pool *p = &c->pool;
+    for (Token *t = c->chain->head; t;) {
+        Token *next = t->next;
+        if (t->type == T_KEYWORD) {
+            switch (t->kw) {
+            case KW_public: case KW_protected: case KW_private: case KW_virtual:
+                chaintake(c->chain, t);
+                freetoken(p, t);
+            }
+        }
+        t = next;
+    }
+    if (!c->chain->count) {
+        return {};
+    }
+    condense(p, c->chain, 1);
+    return wordstr(c->chain->head);
+}
+
 static b32 parseclassinternal(Cxx *c, i32 kw, i32 kind, u8 type)
 {
     Pool  *p     = &c->pool;
@@ -458,6 +482,9 @@ static b32 parseclassinternal(Cxx *c, i32 kw, i32 kind, u8 type)
     b32  tmpl     = c->tmpl && c->tmpl->count>0 && iscxx(c);
     b32  exported = !!(seen & SEEN_EXPORT);
     if (tag) {
+        if (c->chain->count && wantfield(c->f, FIELD_INHERITS)) {
+            tag->inherits = baseclasses(c);
+        }
         tag->filescope = !isheader(c) && !exported && !scopeisexported(c);
         cxxcommit(c, tag);
     }
@@ -1199,6 +1226,10 @@ static b32 handlelambda(Cxx *c, Token *paren)
     if (tag) {
         tag->filescope = 1;
         Token *type = typestart ? settype(c, tag, typestart, typeend) : 0;
+        if (paren && paren->type==T_PARENS && wantfield(c->f, FIELD_SIGNATURE)) {
+            // As written, unlike a function's (FLD-8)
+            tag->signature = joinsig(c, paren->chain, 0);
+        }
         cxxcommit(c, tag);
         freetoken(p, type);
     }

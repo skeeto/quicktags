@@ -155,6 +155,7 @@ struct Cpp {
     iz     backpos;
     Word   lit;       // contents of the last literal
     Word   name;      // the identifier a directive is reading
+    Buf    sig;       // a macro's signature field
     b32    resolve;   // a statement is in progress
     b32    brace;     // the second pass's rules
     i32    depth;     // the parser's block depth
@@ -446,7 +447,7 @@ static void readname(Cpp *p, i32 c, Word *w)
 }
 
 // Tag a macro, unless file-scoped kinds are... (always on here)
-static void cppmacro(Cpp *p, Str name, i32 line, iz linepos)
+static void cppmacro(Cpp *p, Str name, i32 line, iz linepos, Str sig)
 {
     File *f = p->f;
     if (!kindon(f->kinds, f->src->lang, K_MACRO)) {
@@ -459,6 +460,7 @@ static void cppmacro(Cpp *p, Str name, i32 line, iz linepos)
     t.linepos   = linepos;
     t.filescope = !f->src->header;
     t.truncate  = 1;
+    t.signature = sig;
     tagemit(f, &t);
 }
 
@@ -496,8 +498,19 @@ static void directivedefine(Cpp *p, i32 c)
     if (n != '(') {
         // An object-like macro is where the file was read to
         unget(p, n);
-        cppmacro(p, name, p->in.line, p->in.linepos);
+        cppmacro(p, name, p->in.line, p->in.linepos, {});
         return;
+    }
+
+    // The signature lists the parameters in full (FLD-10)
+    Buf *sig = 0;
+    if (wantfield(p->f, FIELD_SIGNATURE)) {
+        if (!p->sig.a) {
+            p->sig = Buf(p->a, 64);
+        }
+        sig = &p->sig;
+        sig->len = 0;
+        putbyte(sig, '(');
     }
 
     // Parameters are read raw, without removing comments
@@ -522,13 +535,26 @@ static void directivedefine(Cpp *p, i32 c)
             } else if (s[0] != '.') {
                 cppparam(p, s, name);
             }
+            if (sig) {
+                print(sig, s);
+                putbyte(sig, ',');
+            }
             param.len = 0;
         }
         if (n == '\\') {
             rawget(p);  // throw away the next character
         }
     } while (n!=')' && n!=C_EOF);
-    cppmacro(p, name, line, linepos);
+
+    Str signature = {};
+    if (sig && n==')') {
+        if (sig->len > 1) {
+            sig->len--;  // the comma after the last parameter
+        }
+        putbyte(sig, ')');
+        signature = finish(sig);
+    }
+    cppmacro(p, name, line, linepos, signature);
 }
 
 static void directivepragma(Cpp *p, i32 c)
@@ -545,7 +571,7 @@ static void directivepragma(Cpp *p, i32 c)
         if (cppident1(c)) {
             readname(p, c, &p->name);
             Str name = clone(p->a, {p->name.data, p->name.len});
-            cppmacro(p, name, p->in.line, p->in.linepos);
+            cppmacro(p, name, p->in.line, p->in.linepos, {});
         }
     }
 }
