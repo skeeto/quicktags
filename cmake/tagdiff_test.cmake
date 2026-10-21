@@ -135,6 +135,31 @@ fixture(anon-nofile-ours.tags
 check(anon-nofile 0 --ledger anon.ledger --scope a
   anon-nofile-ref.tags anon-nofile-ours.tags)
 
+# --nofile: output without pseudo-tags (-f -) and without the file field
+fixture(anon-nofile-stdout-ref.tags
+  "v|x.cpp|/^int v$/~|variable|line:3|namespace:__anon0123456789ab11")
+check(anon-nofile-stdout 0 --ledger anon.ledger --scope a --nofile
+  anon-nofile-stdout-ref.tags anon-nofile-stdout-ref.tags)
+check(anon-nofile-stdout-default 1 --ledger anon.ledger --scope a
+  anon-nofile-stdout-ref.tags anon-nofile-stdout-ref.tags
+  MATCH "1 missing, 1 extra")
+
+# no-end-field: end: is dropped from the reference, wherever it is
+fixture(end.ledger
+  "@ *: FLD-5"
+  "! no-end-field")
+fixture(end-ref.tags
+  "f|x.c|/^f$/~|f|line:1|end:3|signature:()"
+  "g|x.c|/^g$/~|f|line:4|end:4"
+  "h|x.c|/^h$/~|end:5")
+fixture(end-ours.tags
+  "f|x.c|/^f$/~|f|line:1|signature:()"
+  "g|x.c|/^g$/~|f|line:4"
+  "h|x.c|/^h$/~")
+check(end-field 0 --ledger end.ledger --scope e end-ref.tags end-ours.tags)
+check(end-field-unledgered 1 end-ref.tags end-ours.tags
+  MATCH "3 missing, 3 extra")
+
 
 # --ordered: order within each file, order of files, and duplicates
 fixture(order-ref.tags
