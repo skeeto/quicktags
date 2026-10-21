@@ -579,8 +579,8 @@ static void visitdir(Worker *w, Item *it)
             Item *n = newitem(&w->perm, path, ITEM_FILE, lang);
             n->key   = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
             n->mtime = d->mtime;
-            n->next = files;
-            files   = n;
+            n->next  = files;
+            files    = n;
             if (!last) last = n;
         }
         count++;
