@@ -201,7 +201,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     for (iz i = 0; i < opt.files.len+dot; i++) {
         Str path = dot ? Str(".") : opt.files[i];
         Str base = basename(path, opt.windows);
-        if (!dot && excludedearly(&opt, path, base)) {
+        if (!dot && excluded(&opt, path, base)) {
             continue;
         }
         Stat  s  = os_stat(os, g, path);
@@ -213,7 +213,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
             anydir = 1;
         } else if (s.type == STAT_FILE) {
             Lang lang = detectlang(path, opt.windows);
-            if (lang.lang && !excludedlate(&opt, path, base)) {
+            if (lang.lang) {
                 it = newitem(&g, path, ITEM_FILE, lang);
             }
         }

@@ -103,7 +103,7 @@ apply.
   - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows; here `No such file or directory`). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
   - A path is excluded when its base name, or else the whole path as constructed (DISC-2), matches an `--exclude` pattern, and neither the base name nor the path matches an exception. On Windows, `\` in the path is taken as `/`, and the pattern and the path are uppercased before matching.
   - Matching is gnulib's `fnmatch(pattern, name, 0)` (DISC-8), so `*` and `?` match `/`, and a leading `.` is not special.
-  - When (DISC-1): before anything else, unless any exception is given, an excluded entry is dropped, so a missing file that is excluded gets no warning, and an excluded directory is not descended. A regular file is checked again, now with the exceptions, just before it is parsed. Directories are checked only by the first step, so **[V] Bug:** with any exception given, excluded directories are walked: `--exclude=sub --exclude-exception=nothing -R` tags `sub/s.c` and `sub/deep/d.c`.
+  - When (DISC-1): before anything else, unless any exception is given, an excluded entry is dropped, so a missing file that is excluded gets no warning, and an excluded directory is not descended. A regular file is checked again, now with the exceptions, just before it is parsed. Directories are checked only by the first step, so **[V] Bug:** with any exception given, excluded directories are walked: `--exclude=sub --exclude-exception=nothing -R` tags `sub/s.c` and `sub/deep/d.c`. Here every entry is checked once, with the exceptions, before it is examined, so an excluded directory is pruned unless an exception matches it, and a missing file that is excluded gets no warning, exceptions or not (D11).
   - Arguments are checked as given, `.` too: `--exclude=.*` excludes `.` and every path starting with `.`, so `ctags -R --exclude=.* .` tags nothing, while `ctags -R --exclude=.*` tags everything but the dot entries [V].
   - No corpus directory matches the case-insensitive list except `.git`, which I checked with `find`.
 - **DISC-4 [S][I]** `--maxdepth` defaults to `0xffffffff`; the top directory counts as depth 1. There is no loop detection on Windows.
@@ -837,6 +837,13 @@ Decided for this program, deliberately different from Universal Ctags.
   is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
   0, no tags), which is never what was meant. `-R` keeps one meaning of
   its own: with no files, it tags the current directory.
+- **D11** With `--exclude-exception` given, an excluded directory is
+  still pruned, unless an exception matches the directory itself, and
+  an excluded file is dropped before it is examined (DISC-3). Universal
+  Ctags then skips its first exclusion check altogether, so it walks
+  every excluded directory, `.git` included (`--exclude=sub
+  --exclude-exception=x` tags `sub/`), checking only regular files, and
+  warns that a missing file it excludes cannot be opened.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.

@@ -185,7 +185,7 @@ static void test_walk(Test *t)
         parseinit(&p, &opt, newos(&tmp), &tmp, &log);
         Str path = excl[i].path;
         Str base = basename(path, opt.windows);
-        expect(t, path, num(&tmp, excludedearly(&opt, path, base)),
+        expect(t, path, num(&tmp, excluded(&opt, path, base)),
                num(&tmp, excl[i].want));
     }
 
@@ -485,13 +485,9 @@ static void test_walk(Test *t)
             {"-R --exclude=.*",                       2, all,         ""},
             {"-R --exclude=.* .",                     2, "",          ""},
             {"--exclude=.* ./sub sub",                2, "d s",       ""},
-
-            // Universal Ctags walks excluded directories, and checks
-            // missing files, once any exception is given
-            {"-R --exclude=sub --exclude-exception=nothing", 2, all, ""},
-            {"-R --exclude=sub --exclude-exception=s.c",     2, all, ""},
-            {"--exclude=nosuch.c --exclude-exception=zz nosuch.c", 2, "",
-             nosuchw},
+            {"-R --exclude=sub --exclude-exception=sub",     2, all,  ""},
+            {"-R --exclude=sub --exclude-exception=s*",      2, all,  ""},
+            {"-R --exclude=*.c --exclude-exception=su*",     2, "b d h s", ""},
         };
         for (iz i = 0; i < countof(cases); i++) {
             for (i32 w = 0; w < 2; w++) {
@@ -506,6 +502,29 @@ static void test_walk(Test *t)
                 expect(t, name, tagnames(&a, r.out), cases[i].names);
                 expect(t, name, r.err, cases[i].err);
             }
+        }
+
+        // D11: with exceptions given, an excluded directory is still
+        // pruned unless one matches it, and an excluded file is never
+        // examined. Universal Ctags then walks every excluded directory,
+        // and warns of a missing file it excludes.
+        os->windows = 0;
+        struct { Str args, names, err, uctags, uerr; } d11[] = {
+            {"-R --exclude=sub --exclude-exception=nothing",
+             "a b h o", "", all, ""},
+            {"-R --exclude=sub --exclude-exception=s.c",
+             "a b h o", "", all, ""},
+            {"--exclude=nosuch.c --exclude-exception=zz nosuch.c",
+             "", "", "", nosuchw},
+        };
+        for (iz i = 0; i < countof(d11); i++) {
+            Str args = concat(&a, "-f - ", d11[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, tagnames(&a, r.out), d11[i].names);
+            expect(t, args, r.err, d11[i].err);
+            b32 same = d11[i].names==d11[i].uctags && d11[i].err==d11[i].uerr;
+            expect(t, args, num(&a, same), "0");
         }
     }
 

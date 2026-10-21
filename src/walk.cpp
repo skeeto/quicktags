@@ -105,20 +105,12 @@ static b32 pathmatch(Slice<Glob> globs, Str path, Str base, b32 windows)
            (base.len!=path.len && globsmatch(globs, path, windows));
 }
 
-// Whether an entry is excluded before it is examined, which no entry is
-// while any exception is given (DISC-1).
-static b32 excludedearly(Options *opt, Str path, Str base)
+// Whether an entry is excluded, checked before it is examined: patterns
+// match it and no exception does, so an excluded directory is pruned
+// unless an exception matches it (D11).
+static b32 excluded(Options *opt, Str path, Str base)
 {
-    return !opt->exceptions.len &&
-           pathmatch(opt->excludes, path, base, opt->windows);
-}
-
-// Whether a regular file is excluded once examined: only exceptions
-// make this differ from the early check.
-static b32 excludedlate(Options *opt, Str path, Str base)
-{
-    return opt->exceptions.len &&
-           pathmatch(opt->excludes, path, base, opt->windows) &&
+    return pathmatch(opt->excludes, path, base, opt->windows) &&
            !pathmatch(opt->exceptions, path, base, opt->windows);
 }
 
@@ -257,7 +249,7 @@ static void visitdir(Worker *w, Item *it)
     for (Dirent *d = l.head; d; d = d->next) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
-        if (excludedearly(c->opt, path, d->name)) {
+        if (excluded(c->opt, path, d->name)) {
             w->perm.beg = mark;
             continue;
         }
@@ -268,7 +260,7 @@ static void visitdir(Worker *w, Item *it)
             if (!dlast) dlast = n;
         } else {
             Lang lang = detectlang(path, windows);
-            if (!lang.lang || excludedlate(c->opt, path, d->name)) {
+            if (!lang.lang) {
                 w->perm.beg = mark;
                 continue;
             }
