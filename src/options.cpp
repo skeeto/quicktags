@@ -42,7 +42,8 @@ struct Options {
 
 static Str usage =
 "usage: ctags [options] [file(s)]\n"
-"  -R, --recurse[=yes|no]  descend into directories (default: no)\n"
+"  -R, --recurse[=yes|no]  with no files, tag the current directory; a\n"
+"                          directory is always tagged recursively\n"
 "  -f FILE, -o FILE        write tags to FILE, - for standard output\n"
 "                          (default: tags)\n"
 "  --kinds-LANG=[+|-]KINDS enable or disable tag kinds for C, C++, or\n"

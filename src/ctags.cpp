@@ -201,7 +201,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         Item *it = 0;
         if (s.type == STAT_NONE) {
             warn(&log, "cannot open input file", path, s.err);
-        } else if (s.type==STAT_DIR && opt.recurse) {
+        } else if (s.type == STAT_DIR) {
             it = newitem(&g, path, ITEM_DIR, {});
             anydir = 1;
         } else if (s.type == STAT_FILE) {

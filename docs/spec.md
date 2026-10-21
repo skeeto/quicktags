@@ -70,7 +70,8 @@ apply.
   1. Early exclude check on the name.
   2. Symlink check. It never fires on Windows (`lstat` is `stat`).
   3. Missing: WARNING `cannot open input file`.
-  4. Directory: recurse if `-R`, else silently ignore.
+  4. Directory: recurse if `-R`, else silently ignore. (Here a directory
+     is always recursed, D8.)
   5. Not a regular file: ignore.
   6. Late exclude check.
   7. Language detection, then parse.
@@ -702,6 +703,10 @@ Decided for this program, deliberately different from Universal Ctags.
   so there are no cycles. Links to files are followed.
 - **D5** Paths are UTF-8 (WTF-8) with no MAX_PATH limit.
 - **D7** Files over 64 MiB are skipped with a warning.
+- **D8** A directory argument is always tagged recursively, so `ctags .`
+  is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
+  0, no tags), which is never what was meant. `-R` keeps one meaning of
+  its own: with no files, it tags the current directory.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.

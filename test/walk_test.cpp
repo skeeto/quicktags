@@ -106,6 +106,22 @@ static void test_walk(Test *t)
             expect(t, "-p status", num(&a, r.status), "0");
             expect(t, "-p tags", vfsfind(os, "tags", 0)->data, bare);
         }
+
+        // D8: a directory argument is tagged recursively without -R, so
+        // "." is the same as -R
+        Str y = cuthead(bare, find(bare, "\ny\t")+1);
+        struct { Str args, out; } dirs[] = {
+            {"-f - .",              bare},
+            {"-f - sub",            y},
+            {"--recurse=no -f - .", bare},
+            {"-f - a.c sub",        bare},
+        };
+        for (iz i = 0; i < countof(dirs); i++) {
+            r = run(os, a, dirs[i].args);
+            expect(t, dirs[i].args, num(&a, r.status), "0");
+            expect(t, dirs[i].args, r.err, "");
+            expect(t, dirs[i].args, r.out, dirs[i].out);
+        }
     }
     {
         Os *os = newos(&a);
