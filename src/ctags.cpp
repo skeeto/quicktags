@@ -52,6 +52,9 @@ static Listing os_list(Os *, Arena *, Str path);
 // Read at most max bytes of a regular file into the arena, not zeroed.
 // The size is the whole file's: size > max means the data was cut.
 static Read    os_read(Os *, Arena *, Str path, iz max);
+// Read standard input to its end into the arena: empty if it is closed
+// or unreadable, and cut short by an error.
+static Str     os_stdin(Os *, Arena *);
 // Create a new file for writing as fd 3, or fail with OSERR_EXIST.
 static i32     os_create(Os *, Arena, Str path);  // 0 or OSERR_*
 // Write all of s to fd 1, fd 2 (console-aware), or the created fd 3.

@@ -114,6 +114,7 @@ apply.
   - A line starting with `-` is an option, applying to the entries after it, with the ordering rule of CLI-6: an initOnly option after an entry, in the list or on the command line, is FATAL `-f option may not follow a file name`. Any other line is an entry, which goes through DISC-1, so a directory is ignored without `-R`, and `-R` in the list does not make it recurse.
   - `-L` in the list warns `-L option specified more than once, last value used`, and is ignored, as the list being read is the only one read.
   - With a list, there are files, even if the list is empty, so `-R` does not recurse into `.` (CLI-2), and no files is not an error.
+  - Here the list is read once the command line is parsed, before anything is tagged, so a list that cannot be read is FATAL first. Its options act as those of the command line do, on every file (section 4), and none is refused for following a file name; a directory in it is recursed (D8); and a line of only blanks is skipped.
 - **DISC-7 [S] `--links=no`** skips symbolic links (step 2 of DISC-1), arguments and list entries as well as walked entries, and directories as well as files. The check uses `lstat`, which this Windows build lacks, so there the option does nothing [V]: a link to a file is tagged, and one to a directory recursed into, through the link.
 - **DISC-8 [S][V] Patterns** (gnulib `fnmatch_loop.c`, as built, single-byte, without `FNM_CASEFOLD`): a pattern matches the whole name, one element at a time.
   - `*` matches any run of characters, `/` and a leading `.` included; `?` matches any one character.
@@ -638,7 +639,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -715,7 +716,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - Here other languages list no kinds, extras or fields, and all-language tables hold only our rows, so their columns are narrower than Universal Ctags'.
 
 **Order of checks**
-- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here OPT-5's `linkName` check and OPT-6's checks follow.
+- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check and OPT-6's checks follow.
 
 ---
 
@@ -853,14 +854,14 @@ Decided for this program, deliberately different from Universal Ctags.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
-- Options apply to every file wherever they appear on the command line
-  or in option files. Universal Ctags' options are parsed with its
+- Options apply to every file wherever they appear on the command line,
+  in option files, or in a `-L` list. Universal Ctags' options are parsed with its
   grammar and messages (section 1.12). Those that act here are `-R`,
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
   `--file-scope`, `--file-tags`), `--options`, `--exclude`,
-  `--exclude-exception`, the listings (OPT-15), `--version`, `--help`,
-  and this program's `--jobs`. The others are
+  `--exclude-exception`, `-L`, the listings (OPT-15), `--version`,
+  `--help`, and this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
@@ -872,7 +873,9 @@ Decided for this program, deliberately different from Universal Ctags.
   warn (OPT-14); `--options=NONE` is
   taken anywhere, and paths are not searched for (OPT-14); listings hold
   only our languages (OPT-15); `--langdef=NAME{base}` warns where
-  Universal Ctags crashes (OPT-12).
+  Universal Ctags crashes (OPT-12); a `-L` list is read before anything
+  is tagged, skips lines of only blanks, and may hold initOnly options
+  after its files (DISC-6).
 
 ### Lexing (built in from the start)
 

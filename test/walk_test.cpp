@@ -539,6 +539,53 @@ static void test_walk(Test *t)
     }
 
     {
+        // -L lists (DISC-6): trimmed lines, comments and blank lines
+        // skipped, options among the entries, directories recursed (D8)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",     "int a;\nint pa(void);\n");
+        vfsfile(os, "b.cpp",   "int b;\n");
+        vfsfile(os, "x.h",     "int h;\n");
+        vfsfile(os, "sub/s.c", "int s;\n");
+        vfsfile(os, "list",    "a.c\r\n  b.cpp  \n# x.h\n\n--kinds-C=+p\rsub\n");
+        vfsfile(os, "list2",   "a.c\n-L\nlist\n");
+        vfsfile(os, "list3",   "--exclude=b.cpp\na.c\n");
+        vfsfile(os, "list4",   "--version\na.c\n");
+        vfsfile(os, "empty",   "");
+        Str again = "ctags: Warning: -L option specified more than once, "
+                    "last value used\n";
+        struct { Str args; i32 status; Str names, err; } cases[] = {
+            {"-L list",           0, "a b pa s",   ""},
+            {"-L list x.h",       0, "a b h pa s", ""},
+            {"-R -L list",        0, "a b pa s",   ""},
+            {"-L list2",          0, "a",          again},
+            {"-L empty",          0, "",           ""},
+            {"-R -L empty",       0, "",           ""},
+            {"-L nosuch a.c",     1, "",           "ctags: cannot open list "
+                                                   "file \"nosuch\" : No such "
+                                                   "file or directory\n"},
+            {"-L sub",            1, "",           "ctags: cannot open list "
+                                                   "file \"sub\" : Is a "
+                                                   "directory\n"},
+            // Options apply to every file wherever they are: Universal
+            // Ctags excludes nothing here, as b.cpp comes first
+            {"-L list3 b.cpp",    0, "a",          ""},
+            {"-L - b.cpp",        0, "a b h",      ""},
+        };
+        os->input = "x.h\n\na.c";
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), num(&a, cases[i].status));
+            if (!cases[i].status) {
+                expect(t, args, tagnames(&a, r.out), cases[i].names);
+            }
+            expect(t, args, r.err, cases[i].err);
+        }
+        Run r = run(os, a, "-L list4");
+        expect(t, "-L list4", r.out, "ctags 0.1\n");
+    }
+
+    {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-f - b.c a.c c.c");

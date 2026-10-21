@@ -15,6 +15,7 @@ struct VNode {
 struct Os {
     Arena *a;        // for the file system and captured output
     VNode  root;     // the current directory
+    Str    input;    // standard input
     Buf    out;      // fd 1
     Buf    err;      // fd 2
     Buf    file;     // fd 3, until closed
@@ -164,6 +165,11 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
     r.data.len  = len;
     copybytes(r.data.data, n->data.data, len);
     return r;
+}
+
+static Str os_stdin(Os *os, Arena *a)
+{
+    return clone(a, os->input);
 }
 
 static i32 os_create(Os *os, Arena, Str path)

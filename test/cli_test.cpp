@@ -342,10 +342,14 @@ static void test_cli(Test *t)
         {"-n a",          FATAL, "ctags: --excmd: not yet supported\n"},
         {"-N a",          FATAL, "ctags: --excmd: not yet supported\n"},
         {"-u a",          FATAL, "ctags: --sort: not yet supported\n"},
-        {"-L x",          FATAL, "ctags: -L: not yet supported\n"},
+        {"-L x",          FATAL, "ctags: cannot open list file \"x\" : No "
+                                 "such file or directory\n"},
         {"-L x -L y",     FATAL, "ctags: Warning: -L option specified more "
                                  "than once, last value used\n"
-                                 "ctags: -L: not yet supported\n"},
+                                 "ctags: cannot open list file \"y\" : No "
+                                 "such file or directory\n"},
+        {"-L -",          OK,    ""},
+        {"-L- -R",        OK,    ""},
         {"-I X a",        FATAL, "ctags: -I: not yet supported\n"},
         {"-h default a",  OK,    ""},
         {"-h .x a",       FATAL, "ctags: -h: not yet supported\n"},
@@ -1161,6 +1165,24 @@ static void test_cli(Test *t)
         Str last =
             "Fortran   v      variable   yes     no      0      NONE   program (global) and module variables\n";
         expect(t, "full kinds tail", num(&tmp, endswith(r.opt.print, last)), "1");
+    }
+    {
+        // A list's files follow the arguments' (DISC-6)
+        Arena tmp = a;
+        Os   *os  = newos(&tmp);
+        vfsfile(os, "list", "a.c\n--extras=+q\nsub\n-f\nout\n");
+        os->input = "b.c\n";
+        Parsed r = parseos(&tmp, os, "-L list x.c --kinds-C=+p y.c");
+        Buf files(&tmp, 64);
+        for (iz j = 0; j < r.opt.files.len; j++) {
+            if (j) putbyte(&files, ' ');
+            print(&files, r.opt.files[j]);
+        }
+        expect(t, "-L order", finish(&files), "x.c y.c a.c sub");
+        expect(t, "-L output", r.opt.output, "out");
+        expect(t, "-L extras", showextras(&tmp, r.opt.extras), "{anonymous}Fpqs");
+        r = parseos(&tmp, os, "-L - x.c");
+        expect(t, "-L -", r.opt.files[1], "b.c");
     }
     {
         Arena tmp = a;

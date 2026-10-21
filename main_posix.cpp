@@ -138,6 +138,24 @@ static Read os_read(Os *, Arena *a, Str path, iz max)
     return r;
 }
 
+// Read in chunks that extend one another at the arena's front.
+static Str os_stdin(Os *, Arena *a)
+{
+    Str r = {};
+    r.data = (u8 *)a->beg;
+    for (;;) {
+        iz  cap = (iz)1<<16;
+        u8 *buf = allocbytes(a, cap);
+        iz  n   = read(0, buf, (uz)cap);
+        a->beg -= cap - (n>0 ? n : 0);
+        if (n > 0) {
+            r.len += n;
+        } else if (!n || errno!=EINTR) {
+            return r;
+        }
+    }
+}
+
 static b32 writeall(i32 fd, Str s)
 {
     for (iz off = 0; off < s.len;) {

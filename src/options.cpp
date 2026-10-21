@@ -1069,6 +1069,27 @@ static i32 optionsopt(Parse *p, Str name, Str value)
 }
 
 
+// Read the -L list, FILE or "-" for standard input: like an option
+// file, but for files after the arguments' (DISC-6).
+static i32 readlist(Parse *p)
+{
+    Str path = p->opt->listfile;
+    Str text = {};
+    if (path == "-") {
+        text = os_stdin(p->os, p->perm);
+    } else {
+        Read r = os_read(p->os, p->perm, path, (iz)1<<30);
+        if (r.err) {
+            return fatal(p, "cannot open list file \"", path, "\" : ",
+                         errstr(r.err));
+        }
+        text = r.data;
+    }
+    Slice<Str> lines = splitlines(p->perm, text, LINES_TRIM|LINES_COMMENTS);
+    return parseloop(p, lines.data, lines.len);
+}
+
+
 // Listings, as Universal Ctags writes them, of our languages
 
 // Print a table as the --list-* commands do: each column but the last
@@ -1843,10 +1864,16 @@ static b32 fieldschanged(u64 bits)
     return ((bits ^ defaultfields()) & mask) != 0;
 }
 
-// Check and complete the options once all are parsed.
+// Read the -L list, then check and complete the options.
 static i32 parsefinish(Parse *p)
 {
     Options *opt = p->opt;
+    if (opt->listfile.data) {
+        i32 r = readlist(p);
+        if (r) {
+            return r;
+        }
+    }
     if (opt->append && opt->output=="-") {
         return fatal(p, "append mode is not compatible with tags to stdout");
     }
@@ -1876,7 +1903,6 @@ static i32 parsefinish(Parse *p)
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
-    if (opt->listfile.data)           return notyet(p, "-L");                      // M2a
     if (opt->nolinks)                 return notyet(p, "--links");                 // M2a
     if (opt->langs != LANGS_ALL)      return notyet(p, "--languages");             // M2b
     if (opt->force)                   return notyet(p, "--language-force");        // M2b

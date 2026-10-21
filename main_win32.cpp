@@ -42,6 +42,7 @@ enum : i32 {
     PAGE_READWRITE                = 4,
     STACK_SIZE_PARAM_IS_A_RESERVATION = 0x10000,
     STD_ERROR_HANDLE              = -12,
+    STD_INPUT_HANDLE              = -10,
 };
 
 enum : uz {
@@ -364,6 +365,29 @@ static Read os_read(Os *, Arena *a, Str path, iz max)
     }
     CloseHandle(h);
     return r;
+}
+
+// Read in chunks that extend one another at the arena's front, until
+// end of file, the end of a pipe (ERROR_BROKEN_PIPE), or an error.
+static Str os_stdin(Os *, Arena *a)
+{
+    Str r = {};
+    uz  h = GetStdHandle(STD_INPUT_HANDLE);
+    if (!h || h==INVALID_HANDLE_VALUE) {
+        return r;  // no standard input at all
+    }
+    r.data = (u8 *)a->beg;
+    for (;;) {
+        i32 cap = 1<<16;
+        i32 n   = 0;
+        u8 *buf = allocbytes(a, cap);
+        b32 ok  = ReadFile(h, buf, cap, &n, 0);
+        a->beg -= cap - n;
+        r.len  += n;
+        if (!ok || !n) {
+            return r;
+        }
+    }
 }
 
 static i32 os_create(Os *os, Arena scratch, Str path)
