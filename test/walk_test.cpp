@@ -940,6 +940,18 @@ static void test_walk(Test *t)
         expect(t, "help usage", num(&a, startswith(s, "usage: ctags ")), "1");
         expect(t, "help extras", num(&a, find(s, "\n  --extras=")>0), "1");
         expect(t, "help kinds", num(&a, find(s, "\n  Fortran: b* blockData ")>0), "1");
+        expect(t, "help fields", num(&a, find(s, "\n  --fields=")>0), "1");
+        expect(t, "help etags", num(&a, find(s, "\n  -e, --output-")>0), "1");
+        expect(t, "help append", num(&a, find(s, "\n  -a, --append")>0), "1");
+        expect(t, "help list", num(&a, find(s, "\n  -L FILE ")>0), "1");
+        iz  widest = 0;
+        Cut line   = {};
+        line.tail  = s;
+        do {
+            line   = cut(line.tail, '\n');
+            widest = line.head.len>widest ? line.head.len : widest;
+        } while (line.ok);
+        expect(t, "help width", num(&a, widest<=79), "1");
 
         // What plugins look for in the version (OPT-19): tagbar's
         // "\(Exuberant\|Universal\) Ctags", easytags' version after it,
