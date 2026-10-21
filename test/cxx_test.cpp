@@ -721,6 +721,14 @@ static TagCase cxxcases[] = {
      "A\ta.cpp\t/^namespace A = N;$/\tname:N\n"
      "N\ta.cpp\t/^namespace N { int x; }$/\n"
      "x\ta.cpp\t/^namespace N { int x; }$/\n"},
+    {SHARED, "FLD-5 the C++ name field off", "k.cpp",
+     "--fields-C++=-{name} --kinds-C++=+A",
+     "namespace geo {\n"
+     "namespace g2 = geo;\n"
+     "}\n",
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:2\tnamespace:geo\tfile:\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\n",
+     ""},
     {SHARED, "OUT-8 no name field in the original format", "k.cpp",
      "--format=1 --kinds-C++=+A",
      "namespace geo {\n"

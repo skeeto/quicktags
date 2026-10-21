@@ -367,8 +367,9 @@ static void tagline(File *f, Tag *t)
 
 // Append a finished tag to its file's output as one tags-file line:
 // name, file, address, then the kind, line, scope, typeref, and file:
-// fields in the order Universal Ctags writes them with --fields=+n.
-// File-scoped and anonymous tags are dropped without their extras.
+// fields in the order Universal Ctags writes them with --fields=+n, or
+// as other options ask (tagline). File-scoped and anonymous tags are
+// dropped without their extras.
 static void tagemit(File *f, Tag *t)
 {
     Source *src = f->src;
