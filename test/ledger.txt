@@ -1,0 +1,7 @@
+# Deliberate differences from Universal Ctags 6.2.1, by test scope.
+#
+# "@ SCOPE: reason" starts an entry, where SCOPE is a glob over test
+# names (units/CATEGORY/CASE/MODE, corpus/NAME). Its lines follow:
+# "- LINE" for a tag Universal Ctags writes and we do not, "+ LINE" for
+# one we write and it does not, with literal tabs. Every line of an
+# entry whose scope matches must occur, or the entry is stale.

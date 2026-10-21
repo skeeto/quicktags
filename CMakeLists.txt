@@ -92,9 +92,14 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
     endif()
   endif()
 
+  # Differential testing against Universal Ctags (a hosted tool, with a
+  # C runtime, like a compiler's test harness)
+  add_executable(tagdiff test/tagdiff.cpp)
+  include(cmake/units.cmake)
+
   add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
             -LE "corpus|perf|remote"
-    DEPENDS ctags ctags_test
+    DEPENDS ctags ctags_test tagdiff
     USES_TERMINAL)
 endif()

@@ -1,0 +1,4 @@
+*.txt text eol=lf
+*.cpp text eol=lf
+*.cmake text eol=lf
+*.md text eol=lf
