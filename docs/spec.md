@@ -69,17 +69,17 @@ apply.
 
 ### 1.2 Discovery
 
-- **DISC-1 [S]** Each argument and each recursed entry goes through `createTagsForEntry` (`main.c` 202-225), in this order:
-  1. Early exclude check on the name.
-  2. Symlink check. It never fires on Windows (`lstat` is `stat`).
+- **DISC-1 [S]** Each argument, each `-L` entry (DISC-6) and each recursed entry goes through `createTagsForEntry` (`main.c` 202-225), in this order:
+  1. Early exclude check on the name (DISC-3), skipped while any exception is given.
+  2. Symlink check, with `--links=no` (DISC-7). It never fires on Windows (`lstat` is `stat`).
   3. Missing: WARNING `cannot open input file`.
   4. Directory: recurse if `-R`, else silently ignore. (Here a directory
      is always recursed, D8.)
   5. Not a regular file: ignore.
-  6. Late exclude check.
+  6. Late exclude check, with the exceptions.
   7. Language detection, then parse.
 
-  Command-line files and recursed files behave identically [V].
+  Command-line files and recursed files behave identically [V]. With no files and no `-L`, `-R` recurses into `.` directly, so the steps, and the exclude checks among them, never see `.` itself.
 - **DISC-2 [V]** Traversal:
   - Order is raw `readdir`/`FindNextFile` order, depth-first, with each directory descended where it appears.
   - Only `.` and `..` are skipped; **hidden and dot entries are walked**.
@@ -97,16 +97,32 @@ apply.
     | `.\test` | `./test/hlcat.cpp` |
 
   - The w64devkit patch accepts trailing separators on directory arguments.
-- **DISC-3 [V]** Default exclude list:
-  `*.a *.class *.dll *.exe *.gcda *.gcno *.lib *.o *.obj *.pyc *.pyo *.so *~ .*.swp .DS_Store .arch-ids .arch-inventory .bzr .bzrignore .cvsignore .deps .dvi .git .gitattributes .gitignore .hg .hgignore .svn BitKeeper CVS EIFGEN PENDING RCS RESYNC SCCS _darcs autom4te.cache {arch}`
-  - Matching tries the basename, then the full constructed path.
-  - On Windows `\` becomes `/` in both pattern and name, and both are uppercased before gnulib `fnmatch(p, f, 0)`. So `*` and `?` match `/`, and a leading `.` is not special.
-  - An excluded directory is not descended (early stage).
-  - `--exclude=` with an empty value clears the list.
-  - **[V] Bug:** any `--exclude-exception` disables the early stage, so excluded directories get walked.
+- **DISC-3 [V][S] Exclusion** (`options.c isExcludedFile`, `strlist.c`).
+  - Two lists of patterns: `--exclude`, which starts as the default list, and `--exclude-exception`, which starts empty. The default list:
+    `*.a *.class *.dll *.exe *.gcda *.gcno *.lib *.o *.obj *.pyc *.pyo *.so *~ .*.swp .DS_Store .arch-ids .arch-inventory .bzr .bzrignore .cvsignore .deps .dvi .git .gitattributes .gitignore .hg .hgignore .svn BitKeeper CVS EIFGEN PENDING RCS RESYNC SCCS _darcs autom4te.cache {arch}`
+  - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
+  - A path is excluded when its base name, or else the whole path as constructed (DISC-2), matches an `--exclude` pattern, and neither the base name nor the path matches an exception. On Windows, `\` in the path is taken as `/`, and the pattern and the path are uppercased before matching.
+  - Matching is gnulib's `fnmatch(pattern, name, 0)` (DISC-8), so `*` and `?` match `/`, and a leading `.` is not special.
+  - When (DISC-1): before anything else, unless any exception is given, an excluded entry is dropped, so a missing file that is excluded gets no warning, and an excluded directory is not descended. A regular file is checked again, now with the exceptions, just before it is parsed. Directories are checked only by the first step, so **[V] Bug:** with any exception given, excluded directories are walked: `--exclude=sub --exclude-exception=nothing -R` tags `sub/s.c` and `sub/deep/d.c`.
+  - Arguments are checked as given, `.` too: `--exclude=.*` excludes `.` and every path starting with `.`, so `ctags -R --exclude=.* .` tags nothing, while `ctags -R --exclude=.*` tags everything but the dot entries [V].
   - No corpus directory matches the case-insensitive list except `.git`, which I checked with `find`.
 - **DISC-4 [S][I]** `--maxdepth` defaults to `0xffffffff`; the top directory counts as depth 1. There is no loop detection on Windows.
 - **DISC-5 [V]** The printed file name is the argument or constructed path **verbatim**, with only `\`→`/` at output time. `//`, `./` and `..` are kept, and so is case. Absolute `C:\…` prints as `C:/…`.
+- **DISC-6 [S][V] `-L FILE`** (`main.c createTagsFromListFile`, `args.c`) names a list of inputs, read from standard input for `-`.
+  - Its entries come after the command line's files. A FILE that cannot be opened is FATAL `cannot open list file "FILE" : REASON`, once the command line's files are tagged.
+  - The list is read as an option file is (OPT-14): one argument per line at LF, CR or CRLF, trimmed of whitespace, blank lines and those whose first non-blank is `#` skipped. A line of only blanks is an empty name, which warns `cannot open input file ""`.
+  - A line starting with `-` is an option, applying to the entries after it, with the ordering rule of CLI-6: an initOnly option after an entry, in the list or on the command line, is FATAL `-f option may not follow a file name`. Any other line is an entry, which goes through DISC-1, so a directory is ignored without `-R`, and `-R` in the list does not make it recurse.
+  - `-L` in the list warns `-L option specified more than once, last value used`, and is ignored, as the list being read is the only one read.
+  - With a list, there are files, even if the list is empty, so `-R` does not recurse into `.` (CLI-2), and no files is not an error.
+- **DISC-7 [S] `--links=no`** skips symbolic links (step 2 of DISC-1), arguments and list entries as well as walked entries, and directories as well as files. The check uses `lstat`, which this Windows build lacks, so there the option does nothing [V]: a link to a file is tagged, and one to a directory recursed into, through the link.
+- **DISC-8 [S][V] Patterns** (gnulib `fnmatch_loop.c`, as built, single-byte, without `FNM_CASEFOLD`): a pattern matches the whole name, one element at a time.
+  - `*` matches any run of characters, `/` and a leading `.` included; `?` matches any one character.
+  - `\` makes the next character literal; at the end of the pattern it matches nothing.
+  - `[` starts a bracket expression, which matches one character. A `!`, or `^` (`POSIXLY_CORRECT` unset), right after `[` negates it. Members follow up to the first `]` that is not the first member: a character; `\` and any character; a range `X-Y`, by byte value, where a `-` before `]` or the end is a character; a class `[:NAME:]`, NAME one of `alnum alpha blank cntrl digit graph lower print punct space upper xdigit`, the C locale's, so no byte from 0x80 is in any. An unknown NAME, a range missing its end (`[a-`) and a `\` ending the pattern fail the match. A `[:` not followed by lowercase letters (but `z`) and `:]` is a `[` member, then a `:`.
+  - When the bracket expression never closes, it matches nothing if the character is among its members; otherwise the `[` is an ordinary character, and the rest of the pattern follows it. So `[ab` matches only `[ab`, and `[[a` nothing.
+  - `[=` and `[.` are no different from `[` in a bracket expression, but while it skips the members after one that matched, `[=X=]` must be complete and `[.` must close with `.]`, else the match fails.
+  - On Windows the pattern and the name are uppercased first (DISC-3), so classes are lost: `[[:alpha:]]` becomes `[[:ALPHA:]]`, a bracket expression of `[`, `:`, `A`, `L`, `P` and `H`, then a literal `]` [V].
+  - A class is a member like the others, so a `-` after one is a character: `[[:digit:]-z]` holds the digits, `-` and `z`.
 
 ### 1.3 Language detection
 
