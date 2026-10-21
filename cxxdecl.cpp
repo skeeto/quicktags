@@ -758,6 +758,7 @@ static b32 parsenamespace(Cxx *c)
 
     } else if (c->tok->type == T_LBRACE) {
         Token *t   = anontoken(c, K_NAMESPACE, {});
+        t->scopeanon = 1;
         Tag   *tag = cxxtag(c, K_NAMESPACE, t);
         if (tag) {
             tag->filescope = !isheader(c);

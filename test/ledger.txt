@@ -2174,3 +2174,11 @@
 = 1 mlir/examples/toy/Ch5/toyc.cpp
 = 1 mlir/examples/toy/Ch6/toyc.cpp
 = 1 mlir/examples/toy/Ch7/toyc.cpp
+
+@ *: P10, functions and variables in an anonymous namespace are file-scoped outside headers
+! anon-namespace-file
+
+@ corpus/llvm/clang: P10, but an export within an anonymous namespace (an error) is not file-scoped
+= 4 clang/test/CXX/module/module.interface/p1.cpp
+= 2 clang/test/CXX/module/module.interface/p3.cpp
+= 2 clang/test/Modules/cxx20-10-2-ex1.cpp

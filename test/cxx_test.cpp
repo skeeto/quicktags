@@ -242,15 +242,17 @@ static TagCase cxxcases[] = {
      "__anon0f3d987b0103\te.cpp\t/^enum { Anonymous };$/;\"\tg\tline:2\tfile:\n"
      "__anon0f3d987b0203\te.cpp\t/^typedef enum { X, Y } Axis;$/;\"\tg\tline:3\tfile:\n",
      ""},
-    {SHARED, "anonymous namespace", "n.cpp", "",
+    {IMPROVED, "anonymous namespace", "n.cpp", "",
      "namespace {\n"
      "int hidden;\n"
      "void helper() {}\n"
      "}\n",
      "__anon0fe075040111\tn.cpp\t/^namespace {$/;\"\tn\tline:1\tfile:\n"
+     "helper\tn.cpp\t/^void helper() {}$/;\"\tf\tline:3\tnamespace:__anon0fe075040111\ttyperef:typename:void\tfile:\n"
+     "hidden\tn.cpp\t/^int hidden;$/;\"\tv\tline:2\tnamespace:__anon0fe075040111\ttyperef:typename:int\tfile:\n",
+     "__anon0fe075040111\tn.cpp\t/^namespace {$/;\"\tn\tline:1\tfile:\n"
      "helper\tn.cpp\t/^void helper() {}$/;\"\tf\tline:3\tnamespace:__anon0fe075040111\ttyperef:typename:void\n"
-     "hidden\tn.cpp\t/^int hidden;$/;\"\tv\tline:2\tnamespace:__anon0fe075040111\ttyperef:typename:int\n",
-     ""},
+     "hidden\tn.cpp\t/^int hidden;$/;\"\tv\tline:2\tnamespace:__anon0fe075040111\ttyperef:typename:int\n"},
     {SHARED, "header access", "h.hpp", "",
      "struct S {\n"
      "    int a;\n"
@@ -400,6 +402,32 @@ static TagCase cxxcases[] = {
      "Name\tp2.cpp\t/^static std::string Name(\"x\", make(1));$/;\"\tv\tline:2\ttyperef:typename:std::string\tfile:\n"
      "PrintStats\tp2.cpp\t/^static cl::opt<bool> PrintStats(\"print-stats\", cl::init(false), cl::Hidden);$/;\"\tv\tline:1\ttyperef:typename:cl::opt<bool>\tfile:\n",
      "Name\tp2.cpp\t/^static std::string Name(\"x\", make(1));$/;\"\tv\tline:2\ttyperef:typename:std::string\tfile:\n"},
+    {IMPROVED, "P10 anonymous namespace", "p10.cpp", "",
+     "namespace {\n"
+     "int counter;\n"
+     "void helper() {}\n"
+     "struct Local { static int n; };\n"
+     "}\n"
+     "int Local::n = 0;\n"
+     "namespace outer { namespace { int inner; } }\n",
+     "Local\tp10.cpp\t/^struct Local { static int n; };$/;\"\ts\tline:4\tnamespace:__anon27067e470111\tfile:\n"
+     "__anon27067e470111\tp10.cpp\t/^namespace {$/;\"\tn\tline:1\tfile:\n"
+     "__anon27067e470211\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tn\tline:7\tnamespace:outer\tfile:\n"
+     "counter\tp10.cpp\t/^int counter;$/;\"\tv\tline:2\tnamespace:__anon27067e470111\ttyperef:typename:int\tfile:\n"
+     "helper\tp10.cpp\t/^void helper() {}$/;\"\tf\tline:3\tnamespace:__anon27067e470111\ttyperef:typename:void\tfile:\n"
+     "inner\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tv\tline:7\tnamespace:outer::__anon27067e470211\ttyperef:typename:int\tfile:\n"
+     "n\tp10.cpp\t/^int Local::n = 0;$/;\"\tm\tline:6\tclass:Local\ttyperef:typename:int\n"
+     "n\tp10.cpp\t/^struct Local { static int n; };$/;\"\tm\tline:4\tstruct:__anon27067e470111::Local\ttyperef:typename:int\tfile:\n"
+     "outer\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tn\tline:7\tfile:\n",
+     "Local\tp10.cpp\t/^struct Local { static int n; };$/;\"\ts\tline:4\tnamespace:__anon27067e470111\tfile:\n"
+     "__anon27067e470111\tp10.cpp\t/^namespace {$/;\"\tn\tline:1\tfile:\n"
+     "__anon27067e470211\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tn\tline:7\tnamespace:outer\tfile:\n"
+     "counter\tp10.cpp\t/^int counter;$/;\"\tv\tline:2\tnamespace:__anon27067e470111\ttyperef:typename:int\n"
+     "helper\tp10.cpp\t/^void helper() {}$/;\"\tf\tline:3\tnamespace:__anon27067e470111\ttyperef:typename:void\n"
+     "inner\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tv\tline:7\tnamespace:outer::__anon27067e470211\ttyperef:typename:int\n"
+     "n\tp10.cpp\t/^int Local::n = 0;$/;\"\tm\tline:6\tclass:Local\ttyperef:typename:int\n"
+     "n\tp10.cpp\t/^struct Local { static int n; };$/;\"\tm\tline:4\tstruct:__anon27067e470111::Local\ttyperef:typename:int\tfile:\n"
+     "outer\tp10.cpp\t/^namespace outer { namespace { int inner; } }$/;\"\tn\tline:7\tfile:\n"},
 };
 
 static void test_c(Test *t)

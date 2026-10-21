@@ -215,6 +215,17 @@ static u8 scopetype(Cxx *c)
     return c->scope->tail->scopetype;
 }
 
+// Departure P10: within an anonymous namespace, names are file-scoped.
+static b32 inanon(Cxx *c)
+{
+    for (Token *t = c->scope->head; t; t = t->next) {
+        if (t->scopeanon) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static i32 scopevarkind(Cxx *c)
 {
     switch (scopetype(c)) {

@@ -556,7 +556,7 @@ static i32 emitfunction(Cxx *c, Sig *sig, i32 kind, b32 pushscopes)
         if (kind == K_PROTOTYPE) {
             tag->filescope = !isheader(c);
         } else if (outer == S_NAMESPACE) {
-            tag->filescope = c->seen&SEEN_STATIC && !isheader(c);
+            tag->filescope = (c->seen&SEEN_STATIC || inanon(c)) && !isheader(c);
         } else {
             tag->filescope = !isheader(c);
         }
@@ -1096,7 +1096,8 @@ static b32 extractvars(Cxx *c, Chain *ch, b32 knr)
             } else {
                 b32 exported = c->seen&SEEN_EXPORT || scopeisexported(c);
                 tag->filescope =
-                    (scope==S_NAMESPACE && c->seen&SEEN_STATIC && !exported && !isheader(c)) ||
+                    (scope==S_NAMESPACE && (c->seen&SEEN_STATIC || inanon(c)) &&
+                     !exported && !isheader(c)) ||
                     scope==S_FUNCTION ||
                     (scope!=S_NAMESPACE && scope!=S_FUNCTION && !exported && !isheader(c));
             }

@@ -272,6 +272,7 @@ struct Token {
     b32    scopeexported;  // scope bookkeeping, see the scope stack
     u8     scopetype;
     u8     scopeaccess;
+    u8     scopeanon;      // an anonymous namespace
 };
 
 struct Chain {

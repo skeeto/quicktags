@@ -9,7 +9,11 @@
 // line, "+ LINE" for an extra one, with literal tabs, or "= N PATH" for
 // exactly N differences, either kind, in the file PATH. The comparison
 // passes when every difference is in a ledger entry whose scope matches,
-// and every such entry's lines all occurred.
+// and every such entry's lines all occurred. For a systematic difference,
+// an entry may instead name a rewrite of the reference's lines, "! NAME",
+// applied before comparing:
+//   anon-namespace-file   functions, variables, and members within an
+//                         anonymous namespace are file: outside headers
 //
 // Options:
 //   --ledger FILE      explain differences with this ledger
@@ -218,9 +222,12 @@ struct Entry {
     Str       scope;
     Str       lines;   // "- " and "+ " lines, each ending in a newline
     FileRule *files;
+    u32       rewrites;  // REWRITE_*
     iz        used;
     iz        count;
 };
+
+enum : u32 { REWRITE_ANONFILE = 1u<<0 };
 
 static Entry *readledger(Arena *a, Str text, Str scope)
 {
@@ -256,6 +263,15 @@ static Entry *readledger(Arena *a, Str text, Str scope)
             r->next    = cur->files;
             cur->files = r;
             cur->count += r->count;
+        } else if (cur && startswith(l, "! ")) {
+            Str name = trim(cuthead(l, 2));
+            if (name == "anon-namespace-file") {
+                cur->rewrites |= REWRITE_ANONFILE;
+            } else {
+                fprintf(stderr, "tagdiff: unknown rewrite: %.*s\n",
+                        (int)name.len, (char *)name.data);
+                exit(2);
+            }
         }
         if (!c.ok) {
             break;
@@ -287,6 +303,97 @@ static b32 explained(Entry *ledger, u8 sign, Str line)
         }
     }
     return 0;
+}
+
+static b32 ishex(u8 c)
+{
+    return (c>='0' && c<='9') || (c>='a' && c<='f');
+}
+
+// Is the path a header, as ctags decides it (X.in by X)?
+static b32 isheaderpath(Str path)
+{
+    if (path.len>3 && equalsfold(cuthead(path, path.len-3), ".in")) {
+        path = cuttail(path, 3);
+    }
+    iz dot = path.len - 1;
+    for (; dot>=0 && path[dot]!='.' && path[dot]!='/'; dot--) {}
+    if (dot<0 || path[dot]!='.') {
+        return 0;
+    }
+    Str ext   = cuthead(path, dot+1);
+    Str hdr[] = {"h", "hh", "hpp", "hxx", "h++", "inc", "def", "inl", "hp"};
+    for (iz i = 0; i < countof(hdr); i++) {
+        if (equalsfold(ext, hdr[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Does a scope name have an anonymous namespace among its parts? Its
+// generated name ends in the namespace kind's index, 0x11.
+static b32 anonnamespace(Str scope)
+{
+    while (scope.len) {
+        iz n = 0;
+        for (; n<scope.len && scope[n]!=':'; n++) {}
+        Str part = {scope.data, n};
+        for (; n<scope.len && scope[n]==':'; n++) {}
+        scope = cuthead(scope, n);
+
+        if (part.len>=18 && startswith(part, "__anon") && endswith(part, "11")) {
+            b32 hex = 1;
+            for (iz i = 6; i < part.len; i++) {
+                hex = hex && ishex(part[i]);
+            }
+            if (hex) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+// Apply a rewrite to a reference line, or return it unchanged.
+static Str rewrite(Arena *a, u32 rewrites, Str line, b32 *changed)
+{
+    *changed = 0;
+    if (!(rewrites & REWRITE_ANONFILE)) {
+        return line;
+    }
+
+    Str file = cut(cut(line, '\t').tail, '\t').head;
+    u8  kind = kindof(line);
+    if (isheaderpath(file) || (kind!='f' && kind!='v' && kind!='m')) {
+        return line;
+    }
+
+    // The fields after the pattern: kind, line, scope, typeref, file
+    iz at = -1;
+    for (iz i = 0; i+2 < line.len; i++) {
+        if (line[i]==';' && line[i+1]=='"' && line[i+2]=='\t') {
+            at = i + 3;
+        }
+    }
+    b32 anon = 0;
+    for (Cut c = cut(cuthead(line, at), '\t'); ; c = cut(c.tail, '\t')) {
+        if (c.head == "file:") {
+            return line;
+        }
+        Cut kv = cut(c.head, ':');
+        if (kv.ok && kv.head!="line" && kv.head!="typeref" && kv.head!="name") {
+            anon = anon || anonnamespace(kv.tail);
+        }
+        if (!c.ok) {
+            break;
+        }
+    }
+    if (!anon) {
+        return line;
+    }
+    *changed = 1;
+    return concat(a, line, "\tfile:");
 }
 
 static void printstr(FILE *f, Str s)
@@ -357,6 +464,20 @@ int main(int argc, char **argv)
         ledger = readledger(&a, text, scope);
     }
 
+    // Rewrite the reference by the rules of matching entries, which
+    // never go stale since a whole scope may lack what they rewrite
+    u32 rewrites = 0;
+    for (Entry *e = ledger; e; e = e->next) {
+        rewrites |= e->rewrites;
+    }
+    if (rewrites) {
+        for (iz i = 0; i < ref.len; i++) {
+            b32 changed = 0;
+            ref[i] = rewrite(&a, rewrites, ref[i], &changed);
+        }
+        sort(ref.data, ref.len, strless, a);
+    }
+
     // Merge-walk the sorted lines
     iz missing = 0, extra = 0, unexplained = 0, shown = 0;
     iz i = 0, j = 0;
@@ -389,7 +510,7 @@ int main(int argc, char **argv)
 
     iz stale = 0;
     for (Entry *e = ledger; e; e = e->next) {
-        if (e->used != e->count) {
+        if (e->used!=e->count && !e->rewrites) {
             stale++;
             printf("stale ledger entry (%td of %td lines used): ",
                    e->used, e->count);
