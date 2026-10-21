@@ -194,6 +194,25 @@ static Str os_stdin(Os *, Arena *a)
     }
 }
 
+// Keep what getcwd() wrote, returning the unused tail, and double the
+// room while the path does not fit.
+static Str os_cwd(Os *, Arena *a)
+{
+    for (iz cap = 256;; cap *= 2) {
+        char *buf = alloc<char>(a, cap);
+        if (getcwd(buf, (uz)cap)) {
+            Str r = {(u8 *)buf, 0};
+            for (; buf[r.len]; r.len++) {}
+            a->beg = (byte *)(buf + r.len);
+            return r;
+        }
+        a->beg = (byte *)buf;
+        if (errno != ERANGE) {
+            return {};
+        }
+    }
+}
+
 static b32 writeall(i32 fd, Str s)
 {
     for (iz off = 0; off < s.len;) {

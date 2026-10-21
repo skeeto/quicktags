@@ -2198,7 +2198,6 @@ static i32 parsefinish(Parse *p)
     if (opt->excmd != EXCMD_MIXED)    return notyet(p, "--excmd");                 // M3a
     if (opt->format != 2)             return notyet(p, "--format");                // M3a
     if (opt->patmax != 96)            return notyet(p, "--pattern-length-limit");  // M3a
-    if (opt->tagrelative != TREL_NO)  return notyet(p, "--tag-relative");          // M3b
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7

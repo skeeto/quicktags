@@ -59,6 +59,9 @@ static Read    os_read(Os *, Arena *, Str path, iz max);
 // Read standard input to its end into the arena: empty if it is closed
 // or unreadable, and cut short by an error.
 static Str     os_stdin(Os *, Arena *);
+// The current directory, absolute, as the system writes it, or null
+// data if it cannot be found.
+static Str     os_cwd(Os *, Arena *);
 // Create a new file for writing as fd 3, or fail with OSERR_EXIST.
 static i32     os_create(Os *, Arena, Str path);  // 0 or OSERR_*
 // Write all of s to fd 1, fd 2 (console-aware), or the created fd 3.
@@ -197,6 +200,21 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     Ctx ctx = {};
     ctx.os  = os;
     ctx.opt = &opt;
+    if (opt.tagrelative != TREL_NO) {
+        // Paths are made relative to the tags file's directory (OPT-18)
+        ctx.cwd = os_cwd(os, &g);
+        Str dir = outdir(opt.output, opt.windows);
+        if (!ctx.cwd.data) {
+            print(&log, "ctags: failed in getcwd()\n");
+            os_write(os, 2, finish(&log));
+            return 1;
+        } else if (driverelative(dir, opt.windows)) {
+            driveerror(&log, dir);
+            os_write(os, 2, finish(&log));
+            return 1;
+        }
+        ctx.base = abspath(&g, ctx.cwd, dir, opt.windows);
+    }
 
     // The arguments are the roots of the work, or with none, "." itself,
     // which is not checked for exclusion (DISC-1)
@@ -316,6 +334,21 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
             print(&log, warns[i]);
             putbyte(&log, '\n');
         }
+    }
+
+    // A file that could not be made absolute would have stopped
+    // Universal Ctags: the least of them stops the run (OPT-18)
+    Str nodrive = {};
+    for (i32 i = 0; i < n; i++) {
+        Str f = ws[i].fatal;
+        if (f.data && (!nodrive.data || compare(f, nodrive)<0)) {
+            nodrive = f;
+        }
+    }
+    if (nodrive.data) {
+        driveerror(&log, nodrive);
+        os_write(os, 2, finish(&log));
+        return 1;
     }
 
     // Room for a message about the tags file, which names a temporary

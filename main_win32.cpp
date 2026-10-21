@@ -464,6 +464,19 @@ static Str os_stdin(Os *, Arena *a)
     }
 }
 
+// The full path of ".", asking first for its length.
+static Str os_cwd(Os *, Arena *a)
+{
+    c16 dot[] = {'.', 0};
+    i32 cap   = GetFullPathNameW(dot, 0, 0, 0);
+    if (cap <= 0) {
+        return {};
+    }
+    c16 *buf = alloc<c16>(a, cap);
+    i32  len = GetFullPathNameW(dot, cap, buf, 0);
+    return len>0 && len<cap ? fromwide(a, buf, len) : Str{};
+}
+
 static i32 os_create(Os *os, Arena scratch, Str path)
 {
     uz h = CreateFileW(

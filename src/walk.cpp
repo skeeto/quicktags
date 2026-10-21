@@ -33,6 +33,8 @@ struct Queue {
 struct Ctx {
     Os      *os;
     Options *opt;
+    Str      cwd;    // with --tag-relative: the current directory
+    Str      base;   // and the directory paths are relative to
     Queue    queue;
 };
 
@@ -48,6 +50,7 @@ struct alignas(64) Worker {
     iz     nfiles;
     i64    nbytes;
     i64    busy;     // microseconds, for --_stats
+    Str    fatal;    // the least path that cannot be made absolute
     i32    id;
 };
 
@@ -280,6 +283,148 @@ static Str outpath(Arena *a, Str path, b32 windows)
     return finish(&b);
 }
 
+
+// Paths for --tag-relative (OPT-18)
+
+// Whether a byte separates names as Universal Ctags makes paths absolute
+// and relative: on Windows '\', and ':' too.
+static b32 relsep(u8 c, b32 windows)
+{
+    return c=='/' || (windows && (c=='\\' || c==':'));
+}
+
+// Whether a path is absolute: a separator first, or on Windows a letter
+// and ':', then a separator or nothing.
+static b32 isabsolute(Str path, b32 windows)
+{
+    if (path.len && relsep(path[0], windows)) {
+        return 1;
+    }
+    return windows && path.len>=2 && letter(path[0]) && path[1]==':' &&
+           (path.len==2 || relsep(path[2], windows));
+}
+
+// Whether a path names a drive but does not start from its root, "C:a.c",
+// which Universal Ctags will not make absolute.
+static b32 driverelative(Str path, b32 windows)
+{
+    return windows && path.len>2 && letter(path[0]) && path[1]==':' &&
+           !relsep(path[2], windows);
+}
+
+static void driveerror(Buf *log, Str path)
+{
+    print(log, "ctags: ");
+    print(log, path);
+    print(log, ": relative file names with drive letters not supported\n");
+}
+
+// A path made absolute from the current directory, on Windows from its
+// drive if the path has none: each "." name dropped with the separator
+// before it, each ".." with the separator and name before that, back to
+// a separator of any kind, separators but ':' made '/', and the drive
+// letter uppercased.
+static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
+{
+    Str full = path;
+    if (!isabsolute(path, windows)) {
+        b32 sep = cwd.len && relsep(cwd[cwd.len-1], windows);
+        full = concat(a, concat(a, cwd, sep ? Str("") : Str("/")), path);
+    } else if (windows && (path.len<2 || path[1]!=':')) {
+        u8 drive[] = {'@', ':'};  // the current drive, none for UNC
+        if (cwd.len>=2 && cwd[1]==':') {
+            drive[0] = cwd[0]>='a' && cwd[0]<='z' ? (u8)(cwd[0]-32) : cwd[0];
+        }
+        full = concat(a, {drive, 2}, path);
+    }
+
+    u8 *r = allocbytes(a, full.len+1);
+    iz  i = 0;
+    for (; i<full.len && !relsep(full[i], windows); i++) {}
+    copybytes(r, full.data, i);
+    iz len = i;
+    while (i < full.len) {
+        u8 sep = full[i++];
+        iz beg = i;
+        for (; i<full.len && !relsep(full[i], windows); i++) {}
+        Str name = span(full.data+beg, full.data+i);
+        if (name == ".") {
+            continue;
+        } else if (name == "..") {
+            iz cut = len;
+            for (; cut>0 && !relsep(r[cut-1], windows); cut--) {}
+            len = cut ? cut-1 : len;
+            continue;
+        }
+        r[len++] = sep==':' ? ':' : '/';
+        copybytes(r+len, name.data, name.len);
+        len += name.len;
+    }
+    if (!len) {
+        r[len++] = '/';
+    }
+    if (windows && len>=2 && r[1]==':' && r[0]>='a' && r[0]<='z') {
+        r[0] = (u8)(r[0] - 32);
+    }
+    a->beg = (byte *)(r + len);
+    return {r, len};
+}
+
+// A path relative to a directory, both absolute, from the first byte
+// where they differ, comparing ASCII letters regardless of case on
+// Windows: a "../" for each separator the directory has past the last
+// separator they share, then the path past it. With none shared, as on
+// another drive, the path itself.
+static Str relpath(Arena *a, Str path, Str dir, b32 windows)
+{
+    iz same = 0;
+    for (; same<path.len && same<dir.len; same++) {
+        u8 x = path[same];
+        u8 y = dir[same];
+        if (windows ? lowercase(x)!=lowercase(y) : x!=y) {
+            break;
+        }
+    }
+    iz shared = same;  // the last separator in common
+    do {
+        if (!shared) {
+            return path;
+        }
+        shared--;
+    } while (!relsep(path[shared], windows));
+
+    Buf b(a, path.len);
+    for (iz i = shared+1; i < dir.len; i++) {
+        if (relsep(dir[i], windows)) {
+            print(&b, "../");
+        }
+    }
+    print(&b, cuthead(path, shared+1));
+    return finish(&b);
+}
+
+// The tags file's directory, its name up to its last separator, or for
+// one without or for standard output, the current directory, "".
+static Str outdir(Str output, b32 windows)
+{
+    iz len = output=="-" ? 0 : output.len;
+    for (; len>0 && !relsep(output[len-1], windows); len--) {}
+    return takehead(output, len);
+}
+
+// The path for the file field, before escaping: as constructed, or by
+// --tag-relative, relative to the base or absolute.
+static Str tagpath(Arena *a, Ctx *c, Str path)
+{
+    i32 mode    = c->opt->tagrelative;
+    b32 windows = c->opt->windows;
+    if (mode==TREL_NO || (mode==TREL_YES && isabsolute(path, windows))) {
+        return path;
+    }
+    Str abs = abspath(a, c->cwd, path, windows);
+    return mode==TREL_NEVER ? abs : relpath(a, abs, c->base, windows);
+}
+
 static Str errstr(i32 err)
 {
     switch (err) {
@@ -387,6 +532,14 @@ static void visitfile(Worker *w, Item *it)
         warn(&w->log, "cannot open input file", it->path, r.err);
         return;
     }
+    if (c->opt->tagrelative!=TREL_NO &&
+        driverelative(it->path, c->opt->windows)) {
+        // Universal Ctags stops here, as the main thread will
+        if (!w->fatal.data || compare(it->path, w->fatal)<0) {
+            w->fatal = it->path;
+        }
+        return;
+    }
     if (r.size > FILEMAX) {
         warn(&w->log, "skipping input file larger than 64 MiB:", it->path, 0);
         return;
@@ -399,7 +552,8 @@ static void visitfile(Worker *w, Item *it)
 
     Source src = {};
     src.path     = it->path;
-    src.outpath  = outpath(&tmp, it->path, c->opt->windows);
+    src.outpath  = tagpath(&tmp, c, it->path);
+    src.outpath  = outpath(&tmp, src.outpath, c->opt->windows);
     src.text     = r.data;
     src.anonhash = anonhash(it->path);
     src.lang     = it->lang;
