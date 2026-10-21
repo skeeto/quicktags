@@ -564,7 +564,10 @@ depends on how far the walk had read when the label was seen. Our
 - **SORT-1 [S][V]** Sort whole lines (without CR or LF) with `strcmp`, i.e. unsigned bytewise. An exact duplicate of the previous line is dropped; blank lines are skipped. Pseudo-tags are sorted along with everything else.
   - TAB sorts below every name byte, so a name that is a prefix of another sorts first; then the file, then the address, then the fields.
 - **SORT-2 [I]** Sorted output does not depend on traversal order. Anonymous names depend only on each file's own path and content.
-- **SORT-3 [V]** `--sort=foldcase` uses `struppercmp` (`_` sorts after letters) and writes `!_TAG_FILE_SORTED 2`. Not default.
+- **SORT-3 [S][V] `--sort=foldcase`** (`--sort=f`, `fold`, OPT-7) writes `!_TAG_FILE_SORTED 2`. It compares whole lines as `struppercmp` does (`sort.c`, `routines.c`): byte by byte, unsigned, after `toupper` in the C locale, so only `a` to `z` change and `_`, `[`, `\`, `]`, `^` and `` ` `` sort after every letter; a line that is a prefix of another sorts first. As SORT-1, an exact duplicate of the line before it is dropped.
+  - Universal Ctags sorts with `qsort`, which leaves lines equal but for case in no defined order (`A` and `a`, or `aB` and `Ab`), so an exact duplicate may also survive when such a line falls between the two copies. Here lines equal ignoring case are ordered by SORT-1, so the order is total, duplicates always meet and are dropped, and the output does not depend on the threads.
+- **SORT-4 [S][V] `--sort=no`** (and `-u`) writes `!_TAG_FILE_SORTED 0`, and the lines as they were made, none dropped: the tags of each file in the order its parser makes them, which is the order of the Units cases' expected output, and the files in the order they are visited (DISC-1): the arguments in order, then the `-L` entries, each directory depth-first in its listing order (DISC-2). A file named twice is tagged twice, and its lines written twice.
+  - Here files are tagged by several threads in any order, so each file's lines are kept apart with a key that orders them as the walk would: an argument's or list entry's index, and for a directory's entry, its directory's key followed by its index in the listing. The pseudo-tags come first, in the order of PT-4, which is sorted.
 
 ### 1.10 Pseudo-tags
 
@@ -716,7 +719,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
