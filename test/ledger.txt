@@ -3477,3 +3477,12 @@
 
 @ units/parser-cxx.r/complex-macros.d/default: P1, macro calls without a ';' on earlier lines do not join the declaration
 = 1 input.cpp
+
+@ plugins/*: FLD-5, e (end:) is accepted and writes nothing
+! no-end-field
+
+@ plugins/gutentags/relative-update: D9, -a drops the old lines of src/main.c, which gutentags' grep for "src/main.c" misses under --tag-relative, so Universal Ctags keeps them
+= 19 ../src/main.c
+
+@ plugins/gutentags-win/update: D9, -a drops the old lines of src/main.c, which gutentags' findstr for "src\main.c" misses, so Universal Ctags keeps them
+= 19 src/main.c

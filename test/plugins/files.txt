@@ -1,0 +1,15 @@
+.gutctags
+Makefile
+README
+files.txt
+src/bom.cpp
+src/crlf.c
+src/driver.c
+src/main.c
+src/shapes.cpp
+src/shapes.hpp
+src/util.h
+sub/legacy.f
+sub/solver.f90
+third_party/vendor.c
+wildignore.txt

@@ -118,6 +118,7 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
   set_tests_properties(harness/tagdiff harness/caseopts PROPERTIES LABELS unit)
   include(cmake/units.cmake)
   include(cmake/corpus.cmake)
+  include(cmake/plugins.cmake)
   if(ctags_units_ok)
     add_test(NAME cases/uctags COMMAND ${CMAKE_COMMAND}
       -DUCTAGS=${CTAGS_UCTAGS} -DTEST=$<TARGET_FILE:ctags_test>

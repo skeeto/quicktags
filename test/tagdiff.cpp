@@ -16,6 +16,7 @@
 //                         anonymous namespace are file-scoped outside
 //                         headers: file:, and fileScope in extras:
 //   typeref-trailing-space   a typeref does not end in spaces
+//   no-end-field          no end: field, which is accepted without output
 //
 // Options:
 //   --ledger FILE      explain differences with this ledger
@@ -26,6 +27,9 @@
 //   --base RB OB       compare only the tags on which RB and OB agree
 //   --etags            REF and OURS are Emacs TAGS files
 //   --folded           OURS must be in --sort=foldcase order
+//   --nofile           the files have no file: field, which rewrites
+//                      then do not add (for -f - output, which has no
+//                      pseudo-tags to say so)
 //
 // Lines are compared as sorted sets, unless --ordered: then duplicates
 // count, and the lines in both files must also come in the same order:
@@ -461,6 +465,8 @@ struct Entry {
 enum : u32 {
     REWRITE_ANONFILE  = 1u<<0,
     REWRITE_TYPESPACE = 1u<<1,
+    REWRITE_NOEND     = 1u<<2,
+    REWRITE_NOFILE    = 1u<<31,  // --nofile: rewrites add no file:
 };
 
 static Entry *readledger(Arena *a, Str text, Str scope)
@@ -503,6 +509,8 @@ static Entry *readledger(Arena *a, Str text, Str scope)
                 cur->rewrites |= REWRITE_ANONFILE;
             } else if (name == "typeref-trailing-space") {
                 cur->rewrites |= REWRITE_TYPESPACE;
+            } else if (name == "no-end-field") {
+                cur->rewrites |= REWRITE_NOEND;
             } else {
                 fprintf(stderr, "tagdiff: unknown rewrite: %.*s\n",
                         (int)name.len, (char *)name.data);
@@ -709,9 +717,31 @@ static Str trimtyperef(Arena *a, Str line)
     return concat(a, head, cuthead(line, end));
 }
 
+// Drop the end: field.
+static Str dropend(Arena *a, Str line)
+{
+    iz at = fieldsat(line);
+    if (at < 0) {
+        return line;
+    }
+    for (iz i = at; i < line.len;) {
+        iz end = i;
+        for (; end<line.len && line[end]!='	'; end++) {}
+        if (startswith(span(line.data+i, line.data+end), "end:")) {
+            Str head = {line.data, i-1};  // without the tab before it
+            return concat(a, head, cuthead(line, end));
+        }
+        i = end + 1;
+    }
+    return line;
+}
+
 // Apply rewrites to a reference line, or return it unchanged.
 static Str rewrite(Arena *a, u32 rewrites, u32 fields, Str line)
 {
+    if (rewrites & REWRITE_NOEND) {
+        line = dropend(a, line);
+    }
     if (rewrites & REWRITE_TYPESPACE) {
         line = trimtyperef(a, line);
     }
@@ -751,6 +781,7 @@ static Input readinput(Arena *a, Str path, i32 format, Str only,
     if (format == FORMAT_TAGS) {
         r.lines  = taglines(a, text, only);
         r.fields = fieldsof(text);
+        r.fields &= rewrites&REWRITE_NOFILE ? ~FIELD_FILE : ~0u;
     } else if (text.len && !startswith(text, "\f\n")) {
         r.bad = 1;
     } else {
@@ -1120,7 +1151,7 @@ static i32 usage()
 {
     fputs("usage: tagdiff [--ledger FILE] [--scope NAME] [--only KINDS] "
           "[--show N]\n               [--ordered] [--base RB OB] [--etags] "
-          "[--folded] REF OURS\n", stderr);
+          "[--folded] [--nofile] REF OURS\n", stderr);
     return 2;
 }
 
@@ -1140,6 +1171,7 @@ int main(int argc, char **argv)
     b32 ordered    = 0;
     b32 etags      = 0;
     b32 folded     = 0;
+    b32 nofile     = 0;
     Str bases[2]   = {};
     Str files[2]   = {};
     i32 nfiles     = 0;
@@ -1160,6 +1192,8 @@ int main(int argc, char **argv)
             etags = 1;
         } else if (arg == "--folded") {
             folded = 1;
+        } else if (arg == "--nofile") {
+            nofile = 1;
         } else if (arg=="--base" && i+2<argc) {
             bases[0] = v;
             bases[1] = cstr(argv[i+2]);
@@ -1186,7 +1220,7 @@ int main(int argc, char **argv)
 
     // Rewrite the reference by the rules of matching entries, which
     // never go stale since a whole scope may lack what they rewrite
-    u32 rewrites = 0;
+    u32 rewrites = nofile ? u32{REWRITE_NOFILE} : 0u;
     for (Entry *e = ledger; e; e = e->next) {
         rewrites |= e->rewrites;
     }
