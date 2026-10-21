@@ -10,7 +10,7 @@
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
-#include "ctags.cpp"
+#include "src/ctags.cpp"
 
 struct Os {
     i32 out;  // the file created as fd 3

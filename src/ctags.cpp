@@ -1,7 +1,8 @@
 // ctags: fast tags for C, C++, and Fortran, compatible with Universal Ctags
 //
 // Unity build: a platform layer (main_win32.cpp, main_posix.cpp,
-// main_test.cpp) includes this file and implements the os_* API.
+// main_test.cpp, main_fuzz.cpp, at the repository's root) includes this
+// file and implements the os_* API. Build from the root:
 //
 // w64dk: $ c++ -std=c++20 -O2 -nostartfiles -static-libgcc -Wl,--stack,0x800000 -s -o ctags.exe main_win32.cpp
 // unix:  $ c++ -std=c++20 -O2 -pthread -o ctags main_posix.cpp

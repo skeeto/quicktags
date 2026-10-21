@@ -25,7 +25,7 @@
 // This is free and unencumbered software released into the public domain.
 #include <stdio.h>
 #include <stdlib.h>
-#include "../base.cpp"
+#include "../src/base.cpp"
 
 [[noreturn]] static void os_oom()
 {

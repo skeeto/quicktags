@@ -7,7 +7,7 @@
 // This is free and unencumbered software released into the public domain.
 #include <stdio.h>
 #include <stdlib.h>
-#include "ctags.cpp"
+#include "src/ctags.cpp"
 #include "test/vfs.cpp"
 
 #ifndef __AFL_FUZZ_TESTCASE_LEN

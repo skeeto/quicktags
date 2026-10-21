@@ -1,7 +1,7 @@
 #!/bin/sh
 # Build and test on a Windows XP machine over ssh, where neither CMake nor
 # Universal Ctags runs: copy the sources, build them with the one-command
-# builds at the top of ctags.cpp, run the unit tests, and check that the
+# builds at the top of src/ctags.cpp, run the unit tests, and check that the
 # number of threads does not change the output.
 # Usage: sh test/xp.sh [HOST]  (default 192.168.1.106)
 set -e -o pipefail
@@ -14,10 +14,10 @@ if ! ssh -o BatchMode=yes "$host" true 2>/dev/null; then
 fi
 
 cd "$(dirname "$0")/.."
-build=$(sed -n 's,^// w64dk: \$ ,,p' ctags.cpp)
-tests=$(sed -n 's,^// tests: \$ ,,p' ctags.cpp)
+build=$(sed -n 's,^// w64dk: \$ ,,p' src/ctags.cpp)
+tests=$(sed -n 's,^// tests: \$ ,,p' src/ctags.cpp)
 
-tar cf - *.cpp test/*.cpp |
+tar cf - *.cpp src/*.cpp test/*.cpp |
     ssh "$host" "rm -rf $dir && mkdir -p $dir && cd $dir && tar xf -" 2>/dev/null
 
 ssh "$host" "cd $dir && $build && $tests && ./ctags_test.exe" 2>&1 |

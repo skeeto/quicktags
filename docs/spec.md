@@ -341,7 +341,7 @@ source form, groups them into tokens, and walks the tokens statement by
 statement with recursive descent. It writes each tag as soon as it finds
 it, and tags labels while it reads characters, so the scope of a label
 depends on how far the walk had read when the label was seen. Our
-`fortran.cpp` keeps that order of reads; FTN-1 to FTN-23 describe it.
+`src/fortran.cpp` keeps that order of reads; FTN-1 to FTN-23 describe it.
 
 **Source form and lexing**
 - **FTN-1 Form detection** [S][V]. Content only, never extension. Pass 1 is fixed form; it fails, and pass 2 reads the file again as free form with pass-1 tags discarded, when any of these occurs:

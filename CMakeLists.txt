@@ -1,7 +1,7 @@
 # ctags: fast tags for C, C++, and Fortran
 #   $ cmake -B build && cmake --build build && ctest --test-dir build
 # Each executable is a unity build of one entry file, which a compiler
-# may also be given directly (see the top of ctags.cpp). No C++ runtime
+# may also be given directly (see the top of src/ctags.cpp). No C++ runtime
 # library, exceptions, or RTTI, and on Windows no C runtime.
 cmake_minimum_required(VERSION 3.21...4.4)
 

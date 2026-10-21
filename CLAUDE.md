@@ -8,8 +8,8 @@ correct, and departs from it where it is wrong. Public domain.
 
 C++20 in the skeeto style (load the `skeeto-style` skill before editing):
 unity build, arenas, counted `Str`, signed `iz` sizes, no `std::`, no
-headers in the core, no CRT on Windows. `base.cpp` and `wide.cpp` come
-from ssg (`~/src/skeeto.github.com/_ssg/`); keep them close to it.
+headers in the core, no CRT on Windows. `src/base.cpp` and `src/wide.cpp`
+come from ssg (`~/src/skeeto.github.com/_ssg/`); keep them close to it.
 
 ## Build and test
 
@@ -31,8 +31,8 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
   them and checks SHARED ones against Universal Ctags' real output.
 - 32-bit: `cmake -B build32 -G Ninja -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++`.
 - XP: `sh test/xp.sh` builds on the XP laptop over ssh with the
-  one-command builds at the top of `ctags.cpp`, which must keep working
-  without CMake.
+  one-command builds at the top of `src/ctags.cpp`, which must keep
+  working without CMake. They run from the repository's root.
 - Debug builds are `-Og -g3` and trap on undefined behavior and failed
   asserts (UBSan with `-fsanitize-trap`); run them under gdb to find the
   line. `-Og` keeps lines, frames, and most locals, at about twice the
@@ -40,13 +40,22 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 
 ## Layout
 
+The platform layers are at the root, each the entry file of a unity
+build that includes `src/ctags.cpp`:
+
+- `main_win32.cpp`, `main_posix.cpp`, `main_test.cpp`: platform layers.
+- `main_fuzz.cpp`: an AFL++ layer; the `fuzz` unit group is a short
+  in-process campaign (`-DFUZZRUNS=N` for a longer one).
+
+The rest of the program is in `src/`, its files including one another by
+name:
+
 - `ctags.cpp`: the core; includes the modules, declares the platform API
   (`os_*`), and holds `ctags_main`.
 - `kinds.cpp`, `options.cpp`: kind tables and the command line.
 - `tags.cpp`: tag lines, patterns, escaping, anonymous names.
 - `walk.cpp`: discovery and the worker threads (a lock-free work stack).
 - `output.cpp`: per-worker sorting, merging, writing the tags file.
-- `main_win32.cpp`, `main_posix.cpp`, `main_test.cpp`: platform layers.
 - `cxx.cpp`, `fortran.cpp`: the parsers, called by `parsefile` in
   `ctags.cpp`, which retries a failed first pass with the second pass's
   rules. `cxx.cpp` includes `cxxtoken.cpp` (tokens, chains, keywords),
@@ -54,11 +63,12 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
   (tokenizer, statements, blocks, scopes, tags), `cxxdecl.cpp` (enum,
   class, typedef, namespace, using, templates, lambdas, modules), and
   `cxxfunc.cpp` (K&R, signatures, parameters, variables).
+- `base.cpp`, `wide.cpp`: arenas, strings, and output; UTF-16 for Win32.
 - Fast paths (`skipnumbers` for data tables) have a slow twin under
   `--_nofast`; the `fast` unit group and the `same` corpus tests require
   identical output.
-- `main_fuzz.cpp`: an AFL++ layer; the `fuzz` unit group is a short
-  in-process campaign (`-DFUZZRUNS=N` for a longer one).
+
+Elsewhere:
 - `test/`: unit tests (`*_test.cpp`, included by `main_test.cpp`, one
   CTest per group listed in `CTAGS_TEST_GROUPS`), `vfs.cpp` (the test
   platform), `tagdiff.cpp` (differential comparison), `ledger.txt`.

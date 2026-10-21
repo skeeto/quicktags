@@ -1,5 +1,5 @@
 // Win32 layer tests: UTF-16 conversion, command lines, extended paths
-#include "../wide.cpp"
+#include "../src/wide.cpp"
 
 template<iz N>
 static Str16 wide(Arena *a, c16 const (&s)[N])
