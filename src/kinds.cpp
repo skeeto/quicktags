@@ -130,6 +130,52 @@ static Str kindname(i32 lang, i32 kind)
     return lang==LANG_FORTRAN ? ftnkinds[kind].name : cxxkinds[kind].name;
 }
 
+// List kinds for --help, four to a line, each marked with '*' if enabled
+// by default. The header kind is left out: it makes no tags here.
+static void printkinds(Buf *b)
+{
+    struct {
+        Str   label;
+        Kind *kinds;
+        i32   beg;
+        i32   end;
+    } groups[] = {
+        {"C, C++:",  cxxkinds, 0,       NCKINDS},
+        {"C++:",     cxxkinds, NCKINDS, NCXXKINDS},
+        {"Fortran:", ftnkinds, 0,       NFKINDS},
+    };
+    print(b, "\nkinds, * if enabled by default:\n");
+    for (iz g = 0; g < countof(groups); g++) {
+        i32 column = 0;
+        for (i32 i = groups[g].beg; i < groups[g].end; i++) {
+            Kind *k = groups[g].kinds + i;
+            if (k == cxxkinds+K_HEADER) {
+                continue;
+            }
+            if (!column) {
+                Str label = column || i>groups[g].beg ? Str("") : groups[g].label;
+                print(b, "  ");
+                print(b, label);
+                for (iz n = label.len; n < 9; n++) {
+                    putbyte(b, ' ');
+                }
+            }
+            putbyte(b, k->letter);
+            putbyte(b, k->on ? '*' : ' ');
+            putbyte(b, ' ');
+            print(b, k->name);
+            if (++column == 4 || i+1 == groups[g].end) {
+                putbyte(b, '\n');
+                column = 0;
+            } else {
+                for (iz n = k->name.len; n < 13; n++) {
+                    putbyte(b, ' ');
+                }
+            }
+        }
+    }
+}
+
 // Apply a --kinds-<LANG> specification as Universal Ctags does: a
 // leading "*" enables every kind and a leading letter first disables
 // them all, "+" and "-" switch between enabling and disabling the

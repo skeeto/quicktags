@@ -193,6 +193,7 @@ static i32 parseargs(Options *opt, Str *args, i32 nargs, Arena *perm, Buf *log)
 
             } else if (name == "help") {
                 print(log, usage);
+                printkinds(log);
                 return ARGS_EXIT;
 
             } else if (name == "_stats") {
