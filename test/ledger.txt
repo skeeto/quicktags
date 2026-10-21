@@ -767,3 +767,97 @@
 - 5	flang/test/Semantics/label19.f90	/^5 end$/;"	l	line:19	file:
 - s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201
 - s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205
+
+@ corpus/llvm/flang: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope. A typed function with a prefix after its type (real impure function) now shows the prefix as a variable, as Universal Ctags does for pure; MODULE before the prefix still makes a bogus module (F2).
++ barearg	flang/test/Semantics/elemental01.f90	/^impure elemental subroutine barearg(/;"	s	line:28
++ bug	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^simple impure subroutine bug(/;"	s	line:7
++ bug2	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^impure simple subroutine bug2(/;"	s	line:12
++ f01	flang/test/Semantics/call01.f90	/^non_recursive function f01(/;"	f	line:4
++ f01b	flang/test/Semantics/call01.f90	/^  entry f01b(/;"	e	line:7	function:f01
++ f02	flang/test/Semantics/call01.f90	/^non_recursive function f02(/;"	f	line:18
++ fct3	flang/test/Lower/func-attrs.f90	/^non_recursive function fct3(/;"	f	line:33
++ foo	flang/test/Parser/simple-unparse.f90	/^simple function foo(/;"	f	line:6
++ foo	flang/test/Parser/simple.f90	/^simple function foo(/;"	f	line:4
++ impure	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureF/;"	v	line:37
++ impureFunc	flang/test/Semantics/resolve83.f90	/^    impure real impure function impureFunc(/;"	f	line:37
++ impureFunc	flang/test/Semantics/resolve89.f90	/^impure function impureFunc(/;"	f	line:13
++ impurePureFunc	flang/test/Semantics/resolve83.f90	/^    impure real pure function impurePureFunc(/;"	f	line:45
++ needs_simple	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine needs_simple(/;"	s	line:22	module:pure_not_enough_for_simple
++ nested	flang/test/Semantics/call01.f90	/^  integer function nested(/;"	f	line:27	function:f02
++ non_recursive	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveF/;"	v	line:53
++ non_recursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real non_recursive function non_recursiveFunc(/;"	f	line:53
++ non_recursiveRecursiveFunc	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveRecursiveFunc(/;"	f	line:57
++ notPureFunc	flang/test/Semantics/doconcurrent01.f90	/^    integer function notPureFunc(/;"	f	line:254	subroutine:s7
++ p0	flang/test/Semantics/intrinsics03.f90	/^  procedure(index), pointer :: p0$/;"	v	line:40	program:test
++ p1	flang/test/Semantics/intrinsics03.f90	/^  procedure(index1), pointer :: p1$/;"	v	line:41	program:test
++ p2	flang/test/Semantics/intrinsics03.f90	/^  procedure(index2), pointer :: p2$/;"	v	line:42	program:test
++ p3	flang/test/Semantics/intrinsics03.f90	/^  procedure(index3), pointer :: p3$/;"	v	line:43	program:test
++ p4	flang/test/Semantics/intrinsics03.f90	/^  procedure(index4), pointer :: p4$/;"	v	line:44	program:test
++ procTypeNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypeNotPure$/;"	t	line:205	subroutine:s7
++ procTypePure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypePure$/;"	t	line:209	subroutine:s7
++ pure	flang/test/Semantics/resolve83.f90	/^    impure real pure function impureP/;"	v	line:45
++ pure	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureF/;"	v	line:41
++ pureFunc	flang/test/Semantics/doconcurrent01.f90	/^    pure integer function pureFunc(/;"	f	line:258	subroutine:s7
++ pureFunc	flang/test/Semantics/resolve83.f90	/^    pure real pure function pureFunc(/;"	f	line:41
++ pure_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  pure real function pure_fn(/;"	f	line:18	module:simple_intrinsic_function
++ pure_only	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  pure subroutine pure_only(/;"	s	line:25	module:pure_not_enough_for_simple
++ recursive	flang/test/Semantics/resolve83.f90	/^    non_recursive real recursive function non_recursiveR/;"	v	line:57
++ recursive	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveF/;"	v	line:49
++ recursiveFunc	flang/test/Semantics/resolve83.f90	/^    recursive real recursive function recursiveFunc(/;"	f	line:49
++ s3	flang/test/Semantics/pure02.f90	/^impure elemental subroutine s3(/;"	s	line:43
++ simple_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  simple real function simple_fn(/;"	f	line:22	module:simple_intrinsic_function
++ sub3	flang/test/Lower/func-attrs.f90	/^non_recursive subroutine sub3(/;"	s	line:13
++ sub4	flang/test/Lower/func-attrs.f90	/^impure elemental subroutine sub4(/;"	s	line:18
++ subroutine	flang/test/Semantics/OpenMP/bad_module_subroutine.f90	/^impure elemental module subroutine /;"	m	line:5
++ subroutine	flang/test/Semantics/separate-mp02.f90	/^    non_recursive module subroutine /;"	m	line:105
++ subroutine	flang/test/Semantics/separate-mp03.f90	/^  impure module subroutine /;"	m	line:97
++ t1	flang/test/Semantics/pure02.f90	/^  subroutine t1$/;"	s	line:46	subroutine:s3
++ t2	flang/test/Semantics/pure02.f90	/^  pure subroutine t2$/;"	s	line:48	subroutine:s3
++ t3	flang/test/Semantics/pure02.f90	/^  elemental subroutine t3(/;"	s	line:50	subroutine:s3
++ t4	flang/test/Semantics/pure02.f90	/^  impure elemental subroutine t4(/;"	s	line:53	subroutine:s3
++ t5	flang/test/Semantics/pure02.f90	/^  elemental impure subroutine t5(/;"	s	line:56	subroutine:s3
++ take_intrinsic	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_intrinsic(/;"	s	line:29	module:simple_intrinsic_function
++ take_pure	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_pure(/;"	s	line:26	module:simple_intrinsic_function
++ test	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine test(/;"	s	line:32	module:simple_intrinsic_function
++ test	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine test(/;"	s	line:27	module:pure_not_enough_for_simple
+- A	flang/test/Semantics/procinterface02.f90	/^  real :: A(/;"	v	line:14
+- B	flang/test/Semantics/procinterface02.f90	/^  real :: A(:), B(/;"	v	line:14
+- P	flang/test/Semantics/procinterface02.f90	/^  procedure(sqrt), pointer :: P$/;"	v	line:16
+- f01b	flang/test/Semantics/call01.f90	/^  entry f01b(/;"	e	line:7
+- foo_nonelemental	flang/test/Semantics/procinterface02.f90	/^    real function foo_nonelemental(/;"	f	line:10
+- ivar	flang/test/Semantics/doconcurrent01.f90	/^  integer :: ivar$/;"	v	line:215
+- needs_simple	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine needs_simple(/;"	s	line:22
+- nested	flang/test/Semantics/call01.f90	/^  integer function nested(/;"	f	line:27
+- notPureFunc	flang/test/Semantics/doconcurrent01.f90	/^    integer function notPureFunc(/;"	f	line:254
+- p0	flang/test/Semantics/intrinsics03.f90	/^  procedure(index), pointer :: p0$/;"	v	line:40
+- p1	flang/test/Semantics/intrinsics03.f90	/^  procedure(index1), pointer :: p1$/;"	v	line:41
+- p2	flang/test/Semantics/intrinsics03.f90	/^  procedure(index2), pointer :: p2$/;"	v	line:42
+- p3	flang/test/Semantics/intrinsics03.f90	/^  procedure(index3), pointer :: p3$/;"	v	line:43
+- p4	flang/test/Semantics/intrinsics03.f90	/^  procedure(index4), pointer :: p4$/;"	v	line:44
+- procTypeNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypeNotPure$/;"	t	line:205
+- procTypePure	flang/test/Semantics/doconcurrent01.f90	/^  type :: procTypePure$/;"	t	line:209
+- procVarNotPure	flang/test/Semantics/doconcurrent01.f90	/^  type(procTypeNotPure) :: procVarNotPure$/;"	v	line:213
+- procVarPure	flang/test/Semantics/doconcurrent01.f90	/^  type(procTypePure) :: procVarPure$/;"	v	line:214
+- pureFunc	flang/test/Semantics/doconcurrent01.f90	/^    pure integer function pureFunc(/;"	f	line:258
+- pure_fn	flang/test/Semantics/simple-intrinsic-functions.f90	/^  pure real function pure_fn(/;"	f	line:18
+- pure_only	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  pure subroutine pure_only(/;"	s	line:25
+- rvar	flang/test/Semantics/doconcurrent01.f90	/^  real :: rvar$/;"	v	line:216
+- s0	flang/test/Semantics/intrinsics03.f90	/^    subroutine s0(/;"	s	line:19
+- s1	flang/test/Semantics/intrinsics03.f90	/^    subroutine s1(/;"	s	line:22
+- s2	flang/test/Semantics/intrinsics03.f90	/^    subroutine s2(/;"	s	line:26
+- s3	flang/test/Semantics/intrinsics03.f90	/^    subroutine s3(/;"	s	line:30
+- s4	flang/test/Semantics/intrinsics03.f90	/^    subroutine s4(/;"	s	line:34
+- t1	flang/test/Semantics/pure02.f90	/^  subroutine t1$/;"	s	line:46
+- t2	flang/test/Semantics/pure02.f90	/^  pure subroutine t2$/;"	s	line:48
+- t3	flang/test/Semantics/pure02.f90	/^  elemental subroutine t3(/;"	s	line:50
+- take_intrinsic	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_intrinsic(/;"	s	line:29
+- take_pure	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine take_pure(/;"	s	line:26
+- test	flang/test/Semantics/simple-intrinsic-functions.f90	/^  subroutine test(/;"	s	line:32
+- test	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^  subroutine test(/;"	s	line:27
+- x	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(/;"	v	line:26
+- y	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(/;"	v	line:26
+- z	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(:), z(/;"	v	line:26
+
+@ corpus/llvm/flang-rt: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope. A typed function with a prefix after its type (real impure function) now shows the prefix as a variable, as Universal Ctags does for pure; MODULE before the prefix still makes a bogus module (F2).
++ /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150	module:ieee_arithmetic
+- /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150

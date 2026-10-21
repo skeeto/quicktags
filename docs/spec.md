@@ -377,7 +377,7 @@ depends on how far the walk had read when the label was seen. Our
 - **FTN-5 Default kinds** [V]: `E M N S b c e f i k l m n p s t v`; `L` and `P` are off.
 
 **Program units and statements** [S][V]. When a unit or block ends, its END statement is consumed together with the word after END, which is read even when it is on the next line (so a bare `end` reads the next statement's first word, which then ends the statement); a joined END already has its word.
-- **FTN-11 Top level.** Statement ends are skipped. BLOCK starts block data (FTN-23), END skips its statement, FUNCTION and SUBROUTINE start subprograms (FTN-19), MODULE always starts a module and SUBMODULE a submodule (FTN-22), and PROGRAM a main program. The prefixes `elemental`, `pure`, `recursive` and `stdcall` are skipped as words. Anything else is read as the specification part and then the execution part of a main program without a PROGRAM statement, with no scope; if neither read anything, one token is skipped.
+- **FTN-11 Top level.** Statement ends are skipped. BLOCK starts block data (FTN-23), END skips its statement, FUNCTION and SUBROUTINE start subprograms (FTN-19), MODULE always starts a module and SUBMODULE a submodule (FTN-22), and PROGRAM a main program. The prefixes `elemental`, `pure`, `recursive` and `stdcall` are skipped as words (and `impure`, `non_recursive`, `simple` too, departing, F1). Anything else is read as the specification part and then the execution part of a main program without a PROGRAM statement, with no scope; if neither read anything, one token is skipped.
 - **FTN-12 Specification part.** USE statements, then IMPORT statements, then the implicit part (IMPLICIT, INCLUDE, PARAMETER and FORMAT skipped, ENTRY tagged), then declarations, until a statement is not one:
   - ENTRY name: `e`, if the name is an identifier.
   - INTERFACE (FTN-15), ABSTRACT INTERFACE (ABSTRACT followed by anything else skips the statement), ENUM (FTN-16).
@@ -707,6 +707,12 @@ See the plan; each lands as its own commit with a pinned test.
 
 Fortran (section 1.6 marks where each departs):
 
+- **F1** `impure`, `non_recursive` and `simple` are subprogram prefixes
+  (FTN-11, FTN-15, FTN-20) when the next token is another prefix,
+  MODULE, a type specifier, FUNCTION or SUBROUTINE, so units declared
+  with them are tagged, and interfaces that contain them do not end
+  early. They stay identifiers otherwise, so variables may have these
+  names.
 - **F3** A name may start with `_` (FTN-4), as flang's runtime modules
   do (`module __fortran_builtins`), so they are tagged and give scope.
 - **F4** END CRITICAL, END TEAM, and END FILE (the ENDFILE statement),

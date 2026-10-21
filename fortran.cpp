@@ -90,24 +90,31 @@ struct FtnName {
     iz  linepos;
 };
 
+// The state of reading, kept apart so that a look ahead can return.
+struct FtnIn {
+    iz  pos;       // next byte of src
+    i32 line;      // of the last byte read
+    iz  linepos;   // first byte of that line
+    b32 bol;       // the next byte begins a line
+    i32 raw[8];    // bytes put back, read before src
+    i32 nraw;
+    i32 back;      // a character put back by the lexer
+    b32 hasback;
+    i32 column;    // fixed: columns read on this line, 0 at a margin
+    b32 freefound; // fixed: this is not fixed form
+    b32 newline;   // free: the last character was a line end
+};
+
 struct Ftn {
     File   *f;
     Arena  *a;
     Str     src;
-    iz      pos;       // next byte of src
-    i32     line;      // of the last byte read
-    iz      linepos;   // first byte of that line
-    b32     bol;       // the next byte begins a line
-    i32     raw[8];    // bytes put back, read before src
-    i32     nraw;
-    i32     back;      // a character put back by the lexer
-    b32     hasback;
     b32     freeform;
-    i32     column;    // fixed: columns read on this line, 0 at a margin
-    b32     freefound; // fixed: this is not fixed form
-    b32     newline;   // free: the last character was a line end
+    i32     quiet;     // looking ahead: no tags
+    FtnIn   in;
     FtnTok  tok;
     FtnTok  aux;       // reading secondary tokens
+    FtnTok  peek;      // looking ahead
     Slice<FtnName> scopes;
 };
 
@@ -135,29 +142,29 @@ static b32 ftnspace(i32 c)
 // it counts a line when its first byte is read.
 static i32 ftnraw(Ftn *p)
 {
-    if (p->nraw) {
-        return p->raw[--p->nraw];
+    if (p->in.nraw) {
+        return p->in.raw[--p->in.nraw];
     }
-    if (p->pos == p->src.len) {
+    if (p->in.pos == p->src.len) {
         return FTN_EOF;
     }
-    if (p->bol) {
-        p->bol     = 0;
-        p->line++;
-        p->linepos = p->pos;
+    if (p->in.bol) {
+        p->in.bol     = 0;
+        p->in.line++;
+        p->in.linepos = p->in.pos;
     }
-    i32 c = p->src[p->pos++];
-    if (c=='\r' && p->pos<p->src.len && p->src[p->pos]=='\n') {
-        c = p->src[p->pos++];
+    i32 c = p->src[p->in.pos++];
+    if (c=='\r' && p->in.pos<p->src.len && p->src[p->in.pos]=='\n') {
+        c = p->src[p->in.pos++];
     }
-    p->bol = c == '\n';
+    p->in.bol = c == '\n';
     return c;
 }
 
 static void ftnunraw(Ftn *p, i32 c)
 {
-    assert(p->nraw < countof(p->raw));
-    p->raw[p->nraw++] = c;
+    assert(p->in.nraw < countof(p->in.raw));
+    p->in.raw[p->in.nraw++] = c;
 }
 
 // Read through the end of the line: '\n', or FTN_EOF on the last line.
@@ -213,7 +220,7 @@ static i32 ftnmargin(Ftn *p)
         }
     }
     if (nlabel) {
-        FtnName n = {{label, nlabel}, FT_NUMBER, -1, p->line, p->linepos};
+        FtnName n = {{label, nlabel}, FT_NUMBER, -1, p->in.line, p->in.linepos};
         ftntag(p, &n, F_LABEL);
     }
     return type;
@@ -224,14 +231,14 @@ static i32 ftnmargin(Ftn *p)
 static i32 ftnfixedtext(Ftn *p)
 {
     i32 c;
-    p->column = 5;
+    p->in.column = 5;
     do {
         c = ftnraw(p);
-        p->column++;
+        p->in.column++;
     } while (c==' ' || c=='\t');
     if (c == '\n') {
-        p->column = 0;  // only blanks: read the next margin
-    } else if (p->column > 6) {
+        p->in.column = 0;  // only blanks: read the next margin
+    } else if (p->in.column > 6) {
         ftnunraw(p, c);
         c = ' ';
     }
@@ -249,9 +256,9 @@ static i32 ftnfixed(Ftn *p, b32 instring)
 {
     b32 eol = 0;
     i32 c   = 0;
-    if (p->column) {
+    if (p->in.column) {
         c = ftnraw(p);
-        p->column++;
+        p->in.column++;
         if (c == '\n') {
             eol = 1;
         } else if (c=='!' && !instring) {
@@ -260,19 +267,19 @@ static i32 ftnfixed(Ftn *p, b32 instring)
         } else if (c == '&') {
             i32 next = ftnraw(p);
             if (next == '\n') {
-                p->freefound = 1;  // and the line end is lost
+                p->in.freefound = 1;  // and the line end is lost
             } else {
                 ftnunraw(p, next);
             }
         }
         if (eol) {
-            p->column = 0;
+            p->in.column = 0;
         }
     }
-    while (!p->column) {
+    while (!p->in.column) {
         switch (ftnmargin(p)) {
         case FL_INVALID:
-            p->freefound = 1;
+            p->in.freefound = 1;
             return FTN_EOF;
         case FL_COMMENT:
             ftnskipline(p);
@@ -280,12 +287,12 @@ static i32 ftnfixed(Ftn *p, b32 instring)
         case FL_SHORT:
             break;
         case FL_EOF:
-            p->column = 6;
+            p->in.column = 6;
             c = eol ? (i32)'\n' : (i32)FTN_EOF;
             break;
         case FL_INITIAL:
             if (eol) {
-                p->column = 6;
+                p->in.column = 6;
                 c = '\n';
                 break;
             }
@@ -312,7 +319,7 @@ static i32 ftnfree(Ftn *p)
             c = ftnraw(p);
         } while (ftnspace(c) && c!='\n');
         if (c == '\n') {
-            p->newline = 1;
+            p->in.newline = 1;
             join = 1;
         } else if (c == '!') {
             join = 1;
@@ -320,40 +327,40 @@ static i32 ftnfree(Ftn *p)
             ftnunraw(p, c);
             c = '&';
         }
-    } else if (p->newline && (c=='!' || c=='#')) {
+    } else if (p->in.newline && (c=='!' || c=='#')) {
         join = 1;
     }
     while (join) {
         for (; ftnspace(c); c = ftnraw(p)) {}
-        if (c=='!' || (p->newline && c=='#')) {
+        if (c=='!' || (p->in.newline && c=='#')) {
             c = ftnskipline(p);
             if (c != FTN_EOF) {
                 c = ftnraw(p);
             }
-            p->newline = 1;
+            p->in.newline = 1;
         } else if (c == '&') {
             c = ftnraw(p);
         } else {
             join = 0;
         }
     }
-    p->newline = c == '\n';
+    p->in.newline = c == '\n';
     return c;
 }
 
 static i32 ftngetc(Ftn *p, b32 instring)
 {
-    if (p->hasback) {
-        p->hasback = 0;
-        return p->back;
+    if (p->in.hasback) {
+        p->in.hasback = 0;
+        return p->in.back;
     }
     return p->freeform ? ftnfree(p) : ftnfixed(p, instring);
 }
 
 static void ftnunget(Ftn *p, i32 c)
 {
-    p->hasback = 1;
-    p->back    = c;
+    p->in.hasback = 1;
+    p->in.back    = c;
 }
 
 
@@ -431,8 +438,8 @@ static void ftnlabel(Ftn *p)
     u8      label[5];
     for (; n.text.len<5 && ftndigit(c); c = ftngetc(p, 0)) {
         if (!n.text.len) {
-            n.line    = p->line;
-            n.linepos = p->linepos;
+            n.line    = p->in.line;
+            n.linepos = p->in.linepos;
         }
         label[n.text.len++] = (u8)c;
     }
@@ -454,8 +461,8 @@ static void ftnlex(Ftn *p, FtnTok *t)
     i32 c;
     do {
         c = ftngetc(p, 0);
-        t->line    = p->line;
-        t->linepos = p->linepos;
+        t->line    = p->in.line;
+        t->linepos = p->in.linepos;
     } while (c==' ' || c=='\t');
 
     switch (c) {
@@ -490,7 +497,7 @@ static void ftnlex(Ftn *p, FtnTok *t)
             } while (c!='\n' && c!=FTN_EOF);
         } else {
             ftnskipline(p);
-            p->column = 0;
+            p->in.column = 0;
         }
         [[fallthrough]];
     case '\n':
@@ -525,7 +532,7 @@ static void ftnlex(Ftn *p, FtnTok *t)
             ftnput(t, c);
         }
         if (c=='\n' && !p->freeform) {
-            p->freefound = 1;
+            p->in.freefound = 1;
         }
         t->type = FT_STRING;
     } break;
@@ -591,7 +598,7 @@ static void ftnlex(Ftn *p, FtnTok *t)
 static void ftntag(Ftn *p, FtnName *n, i32 kind)
 {
     n->tag = kind;
-    if (!n->text.len || !kindon(p->f->kinds, LANG_FORTRAN, kind)) {
+    if (p->quiet || !n->text.len || !kindon(p->f->kinds, LANG_FORTRAN, kind)) {
         return;
     }
     Tag t = {};
@@ -709,6 +716,19 @@ static void ftnnext(Ftn *p)
     ftnlex(p, &p->tok);
 }
 
+// Look ahead n tokens, returning the last, without tags, and come back.
+static FtnTok *ftnpeek(Ftn *p, i32 n)
+{
+    FtnIn save = p->in;
+    p->quiet++;
+    for (i32 i = 0; i < n; i++) {
+        ftnlex(p, &p->peek);
+    }
+    p->quiet--;
+    p->in = save;
+    return &p->peek;
+}
+
 // Give the current token a secondary token, the next one, unless it
 // has one already: an END looks at the word after it this way.
 static void ftnsub(Ftn *p)
@@ -803,13 +823,33 @@ static b32 ftnistypespec(i32 word)
     return 0;
 }
 
-static b32 ftnisprefix(i32 word)
+// IMPURE, NON_RECURSIVE, or SIMPLE: prefixes that are not keywords.
+static b32 ftnisnewprefix(FtnTok *t)
 {
-    switch (word) {
+    Str s = finish(&t->text);
+    return t->type==FT_IDENT && t->word<0 && (equalsfold(s, "impure") ||
+           equalsfold(s, "non_recursive") || equalsfold(s, "simple"));
+}
+
+// A subprogram prefix word. Unlike Universal Ctags, that includes
+// IMPURE, NON_RECURSIVE, and SIMPLE, when another prefix, a type, or
+// FUNCTION or SUBROUTINE follows (F1).
+static b32 ftnisprefix(Ftn *p)
+{
+    switch (p->tok.word) {
     case FW_ELEMENTAL: case FW_PURE: case FW_RECURSIVE: case FW_STDCALL:
         return 1;
     }
-    return 0;
+    if (!ftnisnewprefix(&p->tok)) {
+        return 0;
+    }
+    FtnTok *next = ftnpeek(p, 1);
+    switch (next->word) {
+    case FW_ELEMENTAL: case FW_FUNCTION: case FW_MODULE: case FW_PURE:
+    case FW_RECURSIVE: case FW_STDCALL: case FW_SUBROUTINE:
+        return 1;
+    }
+    return ftnistypespec(next->word) || ftnisnewprefix(next);
 }
 
 // Skip a kind selector: "(...)", "*N", or "*(...)".
@@ -1233,7 +1273,7 @@ static void ftninterface(Ftn *p)
         word = p->tok.word;
         if (word==FW_FUNCTION || word==FW_SUBROUTINE) {
             ftnsubprogram(p);
-        } else if (ftnisprefix(word)) {
+        } else if (ftnisprefix(p)) {
             ftnnext(p);
         } else if (ftnistypespec(word)) {
             ftntypespec(p);
@@ -1535,7 +1575,7 @@ static b32 ftnexec(Ftn *p)
             ftnskipstmt(p);
         } else if (word == FW_ENTRY) {
             ftnentry(p);
-        } else if (ftnisprefix(word)) {
+        } else if (ftnisprefix(p)) {
             ftnnext(p);
         } else {
             ftnskipstmt(p);
@@ -1601,7 +1641,7 @@ static void ftnunits(Ftn *p)
         case FW_MODULE:     ftnmodule(p, 0);       break;
         case FW_PROGRAM:    ftnunit(p, F_PROGRAM); break;
         default:
-            if (ftnisprefix(p->tok.word)) {
+            if (ftnisprefix(p)) {
                 ftnnext(p);
             } else {
                 // Statements outside any unit: an implied main program
@@ -1623,19 +1663,20 @@ static void ftnunits(Ftn *p)
 static b32 ftntags(File *f, b32 freeform, Arena scratch)
 {
     Ftn *p = alloc<Ftn>(&scratch);
-    p->f        = f;
-    p->a        = &scratch;
-    p->src      = f->src->text;
-    p->bol      = 1;
-    p->freeform = freeform;
-    p->newline  = 1;
-    p->tok.text = Buf(&scratch, 64);
-    p->aux.text = Buf(&scratch, 64);
+    p->f          = f;
+    p->a          = &scratch;
+    p->src        = f->src->text;
+    p->freeform   = freeform;
+    p->in.bol     = 1;
+    p->in.newline = 1;
+    p->tok.text   = Buf(&scratch, 64);
+    p->aux.text   = Buf(&scratch, 64);
+    p->peek.text  = Buf(&scratch, 64);
     if (freeform && f->carry) {
-        p->hasback = 1;
-        p->back    = f->carry - 2;
+        p->in.hasback = 1;
+        p->in.back    = f->carry - 2;
     }
     ftnunits(p);
-    f->carry = p->hasback ? p->back+2 : 0;
-    return freeform || !p->freefound;
+    f->carry = p->in.hasback ? p->in.back+2 : 0;
+    return freeform || !p->in.freefound;
 }

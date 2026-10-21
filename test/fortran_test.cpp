@@ -695,7 +695,7 @@ static TagCase fortrancases[] = {
      "b\tx.f90\t/^  integer :: b$/;\"\tv\tline:3\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
      ""},
-    {SHARED, "FTN-6 prefixes outside the keyword list", "x.f90", "",
+    {IMPROVED, "F1 IMPURE, NON_RECURSIVE, and SIMPLE are prefixes", "x.f90", "",
      "module m\n"
      "contains\n"
      "  impure elemental subroutine a()\n"
@@ -710,9 +710,35 @@ static TagCase fortrancases[] = {
      "subroutine e()\n"
      "end subroutine\n",
      "a\tx.f90\t/^  impure elemental subroutine a(/;\"\ts\tline:3\tmodule:m\n"
+     "b\tx.f90\t/^impure function b(/;\"\tf\tline:6\n"
+     "c\tx.f90\t/^non_recursive subroutine c(/;\"\ts\tline:8\n"
+     "d\tx.f90\t/^simple function d(/;\"\tf\tline:10\n"
      "e\tx.f90\t/^subroutine e(/;\"\ts\tline:12\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
-     ""},
+     "a\tx.f90\t/^  impure elemental subroutine a(/;\"\ts\tline:3\tmodule:m\n"
+     "e\tx.f90\t/^subroutine e(/;\"\ts\tline:12\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"},
+    {IMPROVED, "F1 a prefix inside an interface", "x.f90", "",
+     "subroutine s(a)\n"
+     "  interface\n"
+     "    simple elemental real function f(x)\n"
+     "    end function\n"
+     "  end interface\n"
+     "  real :: a(:)\n"
+     "  integer :: simple, impure\n"
+     "  simple = 1\n"
+     "end subroutine\n"
+     "subroutine t\n"
+     "end subroutine\n",
+     "__anon10956f7a0105\tx.f90\t/^  interface$/;\"\ti\tline:2\tsubroutine:s\n"
+     "s\tx.f90\t/^subroutine s(/;\"\ts\tline:1\n"
+     "t\tx.f90\t/^subroutine t$/;\"\ts\tline:10\n",
+     "__anon10956f7a0105\tx.f90\t/^  interface$/;\"\ti\tline:2\tsubroutine:s\n"
+     "a\tx.f90\t/^  real :: a(/;\"\tv\tline:6\n"
+     "impure\tx.f90\t/^  integer :: simple, impure$/;\"\tv\tline:7\n"
+     "s\tx.f90\t/^subroutine s(/;\"\ts\tline:1\n"
+     "simple\tx.f90\t/^  integer :: simple,/;\"\tv\tline:7\n"
+     "t\tx.f90\t/^subroutine t$/;\"\ts\tline:10\n"},
     {SHARED, "FTN-6 separate module procedures in interfaces", "x.f90", "",
      "module m\n"
      "  interface\n"
