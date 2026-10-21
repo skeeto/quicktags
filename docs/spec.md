@@ -769,6 +769,8 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     On Windows the comparison makes `SUB/B.C` `B.C` under `-f sub/tags`, and an input on another drive stays absolute even with `always`. `never` writes `/w/a.c`, `/w/sub/b.c`, …, and `yes` writes an absolute input as constructed, `c:\w\a.c` as `c:/w/a.c`, where `always` and `never` uppercase its drive.
   - **[V] Bugs** with doubled separators, each counted as a name (here not, D14): `x//../a.c` is `x/a.c`; under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x` (here `C:/x`, D15). A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x` (D16).
   - **Drive-relative paths.** On Windows, making absolute a path that is a letter, `:`, and then not a separator is FATAL `C:a.c: relative file names with drive letters not supported`: an input once it is to be tagged, with any value but `no` (one that is missing only warns, and one of no language is skipped), and the tags file's directory once the file is opened (`-f C:sub/tags`: `C:sub/: relative …`), whatever the value, leaving the file created and empty.
+  - **The current directory** [S] is looked up by Universal Ctags at every start (`main.c`, `routines.c`), whatever the options, in a buffer of `PATH_MAX` bytes. When that fails, as when the directory has been removed on POSIX or its name does not fit, it stops with FATAL `failed in getcwd() : REASON` (CLI-7). The system names a root with its separator, `C:\` or `/`, and any other directory without one, so the `/` added before a relative path is never doubled.
+  - Here the current directory is looked up only with a value other than `no`, and of any length. When it cannot be, the run stops with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report. The platform test runs the program from the root of its drive or file system, which the unit tests' file system cannot model.
   - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
 
 ---
@@ -977,7 +979,9 @@ Decided for this program, deliberately different from Universal Ctags.
   file would be tagged (LANG-6); a tags file named on a drive but not
   from its root, `-f C:sub/tags`, is refused only with `--tag-relative`,
   and an input so named ends the run after the walk, not while tagging,
-  with no tags file written (OPT-18).
+  with no tags file written; and the current directory is needed, so
+  that failing to find it ends the run, only with `--tag-relative`, and
+  the message gives no reason (OPT-18).
 
 ### Lexing (built in from the start)
 

@@ -1154,13 +1154,21 @@ static void test_walk(Test *t)
         };
         runquirks(t, os, d14, countof(d14));
 
-        // Without a current directory, --tag-relative fails
+        // Without a current directory, --tag-relative fails, giving no
+        // reason, and the default works, where Universal Ctags fails at
+        // every start
         os->cwd = {};
         Run r = run(os, a, "-f - --tag-relative a.c");
         expect(t, "trel nocwd status", num(&a, r.status), "1");
         expect(t, "trel nocwd err", r.err, "ctags: failed in getcwd()\n");
         r = run(os, a, "-f - --tag-relative=no a.c");
         expect(t, "trel nocwd no", tagfiles(&a, r.out), "a=a.c");
+        r = run(os, a, "a.c");
+        VNode *tags = vfsfind(os, "tags", 0);
+        expect(t, "trel nocwd default", num(&a, r.status), "0");
+        expect(t, "trel nocwd default", tagfiles(&a, tags ? tags->data : Str{}),
+               "a=a.c");
+        vfsunlink(os, "tags");
     }
     {
         // From a root, which the system names with its separator, "/" or
