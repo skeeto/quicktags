@@ -674,7 +674,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 **Option files**
 - **OPT-14 [S][V] `--options=PATH`.**
   - A file holds one argument per line, at LF, CR or CRLF, trimmed of whitespace. Empty lines and those whose first non-blank is `#` are skipped. Lines are arguments as on the command line, so `-f` may take the next line as its parameter.
-  - The first line that is not an option ends the file with WARNING `Ignoring non-option in PATH`. Universal Ctags adds an empty line after it, and also counts a line of only blanks as a non-option, and from then on refuses `-f` and other initOnly options as following a file name (CLI-6); none of that is ported.
+  - The first line that is not an option ends the file with WARNING `Ignoring non-option in PATH`. Universal Ctags adds an empty line after it, and also counts a line of only blanks as a non-option, and from then on refuses `-f` and other initOnly options as following a file name (CLI-6); none of that is ported. Nor is this: its record of a non-option is global, so once a file name has appeared, on the command line or in an option file, every option file read later warns too, even one without a non-option line (`--options=n2.ctags --options=n3.ctags`, where only `n2.ctags` names a file, warns for both [V]). Here only a file that has a non-option line warns.
   - A directory reads its files ending in `.ctags`, but for names starting with `.` (so `.ctags` itself too), in byte order of their names, each path the directory, a `/` unless it ends in one, and the name. Subdirectories are skipped.
   - A file already read is skipped silently, by path (Universal Ctags compares files), and here files nest at most 16 deep: FATAL `too many nested option files: "PATH"`.
   - An empty path is FATAL `no option file supplied for "options"`, a missing one FATAL `cannot stat "PATH" : No such file or directory`, an unreadable one FATAL `cannot open option file "PATH" : REASON`.
@@ -828,8 +828,9 @@ Decided for this program, deliberately different from Universal Ctags.
   effects (EX-6).
 - Smaller departures in parsing options: a letter that takes a
   parameter is FATAL as the last argument (OPT-1); option files skip
-  lines of only blanks, print no empty line after their warning, and do
-  not make later options follow a file (OPT-14); `--options=NONE` is
+  lines of only blanks, print no empty line after their warning, do not
+  make later options follow a file, and do not make later option files
+  warn (OPT-14); `--options=NONE` is
   taken anywhere, and paths are not searched for (OPT-14); listings hold
   only our languages (OPT-15); `--langdef=NAME{base}` warns where
   Universal Ctags crashes (OPT-12).
