@@ -32,11 +32,15 @@ set(ctags_strip
 # language other than these
 set(ctags_langs "c|c\\+\\+|fortran")
 
-# Kept by "args": --kinds-L, --L-kinds and --L-types (any case), and
-# --extras without the reference (r) and guest (g) extras
+# Kept by "args": --kinds-L, --L-kinds and --L-types (any case), --extras
+# without the reference (r) and guest (g) extras, and the options that
+# choose languages: --langmap, --map-L, --languages, --language-force=L
+# (others' already stripped) and -h
 set(ctags_kinds "kinds-(${ctags_langs})|(${ctags_langs})-(kinds|types)")
 ctags_nocase(ctags_kinds "^--(${ctags_kinds})=")
-set(ctags_args_keep "${ctags_kinds}" "^--extras?=")
+ctags_nocase(ctags_maps "^--map-(${ctags_langs})=")
+set(ctags_args_keep "${ctags_kinds}" "^--extras?=" "${ctags_maps}"
+  "^--langmap=" "^--languages=" "^--language-force=" "^-h")
 
 # Kept by "fmt"
 set(ctags_fmt_keep "")
@@ -149,8 +153,14 @@ endfunction()
 function(ctags_caseopts lines)
   set(args "")
   set(fmt "")
+  set(param OFF)  # the next line is the parameter of a kept -h
   foreach(line IN LISTS lines)
     string(STRIP "${line}" line)
+    if(param)
+      list(APPEND args "${line}")
+      set(param OFF)
+      continue()
+    endif()
     ctags_stripped(stripped "${line}")
     if(stripped OR line STREQUAL "")
       continue()
@@ -166,6 +176,9 @@ function(ctags_caseopts lines)
         ctags_keepopt(opt "${line}")
         if(NOT opt STREQUAL "")
           list(APPEND ${mode} "${opt}")
+        endif()
+        if(mode STREQUAL "args" AND opt STREQUAL "-h")
+          set(param ON)
         endif()
       endif()
     endforeach()
