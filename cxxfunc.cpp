@@ -365,8 +365,12 @@ static b32 lookforsig(Cxx *c, Chain *ch, Sig *sig, Params *params)
             // name (params)
             idstart = idend = t->prev;
             if (sigparens(c, top, ch, idstart, idend, sig, params)) {
-                // But MACRO(x) name(...) and MACRO(x) name; are not
+                // But MACRO(x) name(...) and MACRO(x) name; are not,
+                // nor (departure P3) MACRO(x) *name(...)
                 Token *n = sig->paren->next;
+                while (n && n->type&(T_STAR|T_AND|T_ANDS)) {
+                    n = n->next;
+                }
                 if (!idstart->prev && n && n->type==T_IDENT && n->next &&
                         n->next->type&(T_PARENS|T_SEMICOLON) &&
                         !firstof(sig->paren->chain, T_COMMA)) {

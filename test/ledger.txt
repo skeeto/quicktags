@@ -102,3 +102,12 @@
 = 2 clang/test/CodeGen/pgo-cold-function-coverage.c
 = 1 clang/test/Preprocessor/init-datetime-macros.c
 = 1 clang/test/Sema/cxx-as-c.c
+
+@ corpus/llama: P3, MACRO(x) *name(...) names the function, not MACRO
+= 4 vendor/cpp-httplib/httplib.cpp
+
+@ corpus/llvm/clang: P3, MACRO(x) *name(...) names the function, not MACRO
+= 4 clang/test/Sema/atomic-implicit-seq_cst.c
+
+@ corpus/llvm/polly: P3, MACRO(x) *name(...) names the function, not MACRO
+= 2 polly/lib/External/isl/isl_multi_from_tuple_templ.c

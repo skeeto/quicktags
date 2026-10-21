@@ -141,6 +141,13 @@ static TagCase ccases[] = {
      "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
      "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
      "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \n"},
+    {IMPROVED, "P3 macro type with a pointer", "p3.c", "",
+     "STACK_OF(X509) *load_certs(const char *path) { return 0; }\n"
+     "_Atomic(int) *counter(void) { return 0; }\n",
+     "counter\tp3.c\t/^_Atomic(int) *counter(void) { return 0; }$/;\"\tf\tline:2\ttyperef:typename:_Atomic (int)*\n"
+     "load_certs\tp3.c\t/^STACK_OF(X509) *load_certs(const char *path) { return 0; }$/;\"\tf\tline:1\ttyperef:typename:STACK_OF (X509)*\n",
+     "STACK_OF\tp3.c\t/^STACK_OF(X509) *load_certs(const char *path) { return 0; }$/;\"\tf\tline:1\n"
+     "_Atomic\tp3.c\t/^_Atomic(int) *counter(void) { return 0; }$/;\"\tf\tline:2\n"},
 };
 
 static TagCase cxxcases[] = {
