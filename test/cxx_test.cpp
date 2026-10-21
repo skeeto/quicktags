@@ -577,6 +577,14 @@ static TagCase ccases[] = {
      "int b;\x7f" "b\x01" "2,10\n"
      "\x7f" "e.c\x01" "1,0\n",
      ""},
+    {IMPROVED, "X4 a NUL in an etags entry's text", "n.c", "-e",
+     "int a; /* \x00 */\n"
+     "int b;\n",
+     "\f\nn.c,35\n"
+     "int a; /* \x00 */\x7f" "a\x01" "1,0\n"
+     "int b;\x7f" "b\x01" "2,15\n",
+     "\f\nn.c,23\n"
+     "int a; /* int b;\x7f" "a\x01" "1,0\n"},
     {SHARED, "OPT-21 etags of no tags, whatever the fields", "e.c",
      "--fields=+lK --format=1 --excmd=number --extras=+p --output-format=etags",
      "#include <stdio.h>\n",

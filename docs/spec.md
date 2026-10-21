@@ -870,6 +870,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     - Otherwise the LF goes.
     - Then the line is cut to the pattern length limit (OUT-7, 96 by default, 0 for none) if it is longer, keeping up to 3 more bytes past the limit while they are UTF-8 continuation bytes. Universal Ctags compares the limit with the line's length before the cut after the name, which only cuts it shorter, so the result is the same.
     - A tag whose line is past the end of the file gets no entry.
+    - A NUL ends the line as Universal Ctags reads it, which then joins the next line on, after the NUL's: `int a; /*`, NUL, ` */`, LF, `int b;` gives `a` the text `int a; /* int b;` [V] (and LEX-1 loses `b`). Here a NUL is a byte of the text like any other (X4).
   - **File tags** (EX-7, `--extras=+f`): DEL, the name, SOH, `1,0`, LF, after the file's other entries. Files of the languages this program does not parse get them too.
   - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (section 4).
   - **The TAGS file** is created before any file is tagged, so a walk of its directory finds it, of no language, and gives it an empty section: `-R` writes `TAGS,0` [V]. Here, too, the file is created empty before the walk if it does not exist.
@@ -1145,7 +1146,10 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X4** NUL is ordinary data, not the end of a line, and ends a pattern
   without the `$` anchor. Field values escape it as `\x00`, but e-ctags,
   which writes a signature as it is, drops a tag whose signature holds
-  one (FLD-6), as it does for a tab, so it never writes a NUL byte. In a
+  one (FLD-6), as it does for a tab, so it never writes a NUL byte.
+  Emacs tags keep it in an entry's text (OPT-21), which Emacs searches
+  for as it is, where Universal Ctags writes the line up to the NUL and
+  the next line after it. In a
   `-I` file it ends the line's token, and the line still ends at its
   newline, where Universal Ctags drops the rest of the line and joins
   the next one on (LEX-1): `A`, NUL, `junk`, LF, `B` is its one token
