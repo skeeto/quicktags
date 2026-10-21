@@ -3,6 +3,8 @@
 # the work directory's file system (drive, share, or /), then from the
 # work directory itself.
 #   $ cmake -DCTAGS=ctags -DWORK=dir -P cwd_test.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
+
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})
 file(WRITE ${WORK}/a.c "int x;\n")

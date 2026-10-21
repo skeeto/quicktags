@@ -8,6 +8,7 @@
 # its options that change only how tags are written, compared by tag
 # against a run without the latter: tagdiff --base). caseopts.cmake
 # chooses the options.
+cmake_minimum_required(VERSION 3.21...4.4)
 
 include(${CMAKE_CURRENT_LIST_DIR}/caseopts.cmake)
 

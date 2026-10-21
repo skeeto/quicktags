@@ -1,6 +1,8 @@
 # Check that a Windows program imports exactly the listed functions, all
 # from KERNEL32.dll: no C runtime, no toolchain DLLs.
 #   $ cmake -DOBJDUMP=objdump -DEXE=ctags.exe -DWANT=test/imports.txt -P imports.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
+
 execute_process(COMMAND ${OBJDUMP} -p ${EXE}
   OUTPUT_VARIABLE dump RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

@@ -1,6 +1,7 @@
 # Check the unit tests' tag cases against Universal Ctags: SHARED cases
 # must be its exact output, IMPROVED cases must record its output.
 #   $ cmake -DUCTAGS=... -DTEST=ctags_test -DTAGDIFF=... -DWORK=dir -P cases.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})

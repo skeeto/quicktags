@@ -27,6 +27,7 @@
 # plugins/TOOL/STEP for a tool of several steps, and --ordered where the
 # tool asks for unsorted output (--sort=no, -u, -e). Exits 77 (skipped)
 # when ctags does not support the tool's options yet.
+cmake_minimum_required(VERSION 3.21...4.4)
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})

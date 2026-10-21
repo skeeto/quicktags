@@ -1,5 +1,6 @@
 # Tests of caseopts.cmake, the choice of a Units case's options.
 #   $ cmake -P caseopts_test.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
 
 include(${CMAKE_CURRENT_LIST_DIR}/caseopts.cmake)
 set(failed 0)

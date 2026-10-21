@@ -3,6 +3,7 @@
 # (--jobs=1) must not change the output. BASEOPTS are given both runs.
 #   $ cmake -DOURS=ctags -DROOT=dir -DOPTS=--_nofast [-DBASEOPTS=options]
 #           -DWORK=dir -P runsame.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})

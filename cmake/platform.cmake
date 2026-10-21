@@ -3,6 +3,7 @@
 # gets the reason Universal Ctags' C runtime gives on Windows. Then its
 # current directory, through --tag-relative.
 #   $ cmake -DCTAGS=ctags.exe -DWORK=dir [-DWINDOWS=1] -P platform.cmake
+cmake_minimum_required(VERSION 3.21...4.4)
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK}/dir)

@@ -4,6 +4,7 @@
 #
 # In fixture lines, "|" stands for a tab, "~" for ;" and <DEL>, <SOH>
 # and <FF> for those bytes.
+cmake_minimum_required(VERSION 3.21...4.4)
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})
