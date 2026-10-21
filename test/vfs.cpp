@@ -11,6 +11,7 @@ struct VNode {
     Str     data;
     b32     isdir;
     b32     islink;  // a link to a file, which data stands for
+    i32     err;     // reading it fails so: OSERR_*
 };
 
 struct Os {
@@ -92,6 +93,13 @@ static void vfslink(Os *os, Str path, Str data)
     vfsfind(os, path, 0)->islink = 1;
 }
 
+// Add a file that can be examined but not read.
+static void vfsunreadable(Os *os, Str path)
+{
+    vfsfile(os, path, "");
+    vfsfind(os, path, 0)->err = OSERR_ACCES;
+}
+
 static void vfsdir(Os *os, Str path)
 {
     VNode *n = vfsfind(os, path, os->a);
@@ -167,6 +175,9 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
         return r;
     } else if (n->isdir) {
         r.err = OSERR_ISDIR;
+        return r;
+    } else if (n->err) {
+        r.err = n->err;
         return r;
     }
     r.size = n->data.len;

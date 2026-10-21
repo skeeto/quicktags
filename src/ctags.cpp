@@ -278,8 +278,14 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         }
     }
 
-    // Warnings in a stable order, whatever the scheduling
+    // Warnings in a stable order, whatever the scheduling. The log grows
+    // to hold them first, as it would otherwise grow over the list.
     {
+        iz total = 0;
+        for (i32 i = 0; i < n; i++) {
+            total += ws[i].log.len + 1;  // a newline, if the last lacks one
+        }
+        reserve(&log, total);
         Arena      tmp   = g;
         Slice<Str> warns = {};
         for (i32 i = 0; i < n; i++) {
@@ -296,6 +302,9 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         }
     }
 
+    // Room for a message about the tags file, which names a temporary
+    // file in the scratch arena that the log would otherwise grow over
+    reserve(&log, opt.output.len + 128);
     iz  ntags = 0;
     b32 ok    = writetags(os, &opt, ws, n, &ntags, g, &log);
     i64 t2    = opt.stats ? os_clock(os) : 0;

@@ -775,4 +775,43 @@ static void test_walk(Test *t)
                "ctags: Warning: cannot open input file \"c.c\" : "
                "No such file or directory\n");
     }
+
+    {
+        // The workers' warnings, more than the log first holds, sorted
+        // after those of missing arguments, and each message intact
+        // however full the log is when the tags file cannot be written
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int a;\n");
+        for (i32 i = 0; i < 100; i++) {
+            Buf name(&a, 16);
+            print(&name, "tags.tmp");
+            print(&name, (i64)i);
+            vfsfile(os, finish(&name), "");
+        }
+        Str nosuch = "ctags: Warning: cannot open input file \"nosuch.c\" : "
+                     "No such file or directory\n";
+        Str nowrite = "ctags: cannot open tag file \"tags.tmp99\" : "
+                      "File exists\n";
+        Buf want(&a, 1<<14);
+        print(&want, nosuch);
+        for (i32 i = 0; i < 120; i++) {
+            Buf name(&a, 16);
+            print(&name, "d/u");
+            printpad(&name, i, 3);
+            print(&name, ".c");
+            vfsunreadable(os, finish(&name));
+            print(&want, "ctags: Warning: cannot open input file \"");
+            print(&want, finish(&name));
+            print(&want, "\" : Permission denied\n");
+
+            Str  args = num(&a, i);
+            Run  r    = run(os, a, "a.c nosuch.c d");
+            Str  err  = concat(&a, finish(&want), nowrite);
+            expect(t, concat(&a, "warnings, tags ", args), r.err, err);
+            r = run(os, a, "-f - a.c nosuch.c d");
+            expect(t, concat(&a, "warnings ", args), r.err, finish(&want));
+            expect(t, concat(&a, "warnings out ", args), tagnames(&a, r.out),
+                   "a");
+        }
+    }
 }
