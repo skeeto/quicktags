@@ -138,3 +138,591 @@
 + test_ichar5	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar5 /;"	v	line:47	module:character_intrinsic_tests
 + test_ichar6	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_ichar6 /;"	v	line:49	module:character_intrinsic_tests
 + test_selected_char_kind	flang/test/Evaluate/folding05.f90	/^  logical, parameter :: test_selected_char_kind /;"	v	line:84	module:character_intrinsic_tests
+
+@ corpus/llvm/flang: F3, names may start with an underscore: modules like __fortran_builtins are tagged and scope their contents, interfaces like __fadd_rn are named instead of anonymous (renumbering the anonymous ones after them), and the dummies of prototypes named so are no longer variables.
++ _	flang/test/Semantics/bind-c14.f90	/^subroutine _(/;"	s	line:31
++ __builtin_c_funptr	flang/test/Semantics/modfile59.f90	/^  real, private :: __builtin_c_ptr, __builtin_c_funptr$/;"	v	line:7	module:m
++ __builtin_c_ptr	flang/test/Semantics/modfile59.f90	/^  real, private :: __builtin_c_ptr,/;"	v	line:7	module:m
++ component	flang/test/Semantics/modfile59.f90	/^    type(c_funptr) :: component /;"	k	line:9	type:mydt
++ mydt	flang/test/Semantics/modfile59.f90	/^  type mydt$/;"	t	line:8	module:m
++ namedConst	flang/test/Semantics/modfile59.f90	/^  type(c_ptr), parameter :: namedConst /;"	v	line:11	module:m
+- a	flang/test/Lower/OpenACC/acc-data-cuda-device.f90	/^      real(4), intent(in) :: a(/;"	v	line:14	interface:doit
+- a	flang/test/Lower/OpenACC/acc-host-data-cuda-device.f90	/^    real(4), intent(in) :: a(/;"	v	line:14	interface:doit
+- a	flang/test/Semantics/bind-c20.f90	/^      real, intent(in) :: a(/;"	v	line:67	interface:__anon5b62e2ed0505
+- namedConst	flang/test/Semantics/modfile59.f90	/^  type(c_ptr), parameter :: namedConst /;"	v	line:11
+
+@ corpus/llvm/flang-rt: F3, names may start with an underscore: modules like __fortran_builtins are tagged and scope their contents, interfaces like __fadd_rn are named instead of anonymous (renumbering the anonymous ones after them), and the dummies of prototypes named so are no longer variables.
++ /=	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(\/=)/;"	i	line:184	module:__fortran_builtins
++ ==	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(==)/;"	i	line:178	module:__fortran_builtins
++ Binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Binding$/;"	t	line:59	module:__fortran_type_info
++ Component	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Component /;"	t	line:91	module:__fortran_type_info
++ DerivedType	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: DerivedType$/;"	t	line:26	module:__fortran_type_info
++ ProcPtrComponent	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: ProcPtrComponent /;"	t	line:108	module:__fortran_type_info
++ SpecialBinding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: SpecialBinding$/;"	t	line:122	module:__fortran_type_info
++ Value	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: Value$/;"	t	line:71	module:__fortran_type_info
++ __CUDA_builtins	flang-rt/lib/runtime/__cuda_builtins.f90	/^module __CUDA_builtins$/;"	m	line:12
++ __address	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __address$/;"	k	line:47	type:__builtin_c_ptr
++ __address	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __address$/;"	k	line:51	type:__builtin_c_funptr
++ __allocatable_data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=1), allocatable :: __allocatable_data(/;"	k	line:41	type:ieee_modes_type
++ __allocatable_data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=1), allocatable :: __allocatable_data(/;"	k	line:47	type:ieee_status_type
++ __anon0a1744d20505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:90
++ __anon0a1744d20605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:97
++ __anon0a1744d20705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:367
++ __anon0a1744d20805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:374
++ __anon0a1744d20905	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:386
++ __anon0a1744d20a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:393
++ __anon0a1744d20b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:405
++ __anon0a1744d20c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:453
++ __anon0a1744d20d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:482
++ __anon0a1744d20e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:487
++ __anon0a1744d20f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface  $/;"	i	line:497
++ __anon0a1744d21005	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:502
++ __anon0a1744d21105	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1400
++ __anon0a1744d21205	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1405
++ __anon0a1744d21305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1410
++ __anon0a1744d21405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2061
++ __anon0a1744d21505	flang-rt/lib/runtime/cudadevice.f90	/^  interface $/;"	i	line:2080
++ __anon0a1744d21605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2087
++ __anon0a1744d21705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2094
++ __anon0a1744d21805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2102
++ __anon0a1744d21905	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2107
++ __anon0a1744d21a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2112
++ __anon0a1744d21b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2124
++ __anon0a1744d21c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2202
++ __anond4434a4b0103	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Value::Genre$/;"	E	line:67	module:__fortran_type_info
++ __anond4434a4b0203	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::Genre$/;"	E	line:77	module:__fortran_type_info
++ __anond4434a4b0303	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::MemorySpace$/;"	E	line:81	module:__fortran_type_info
++ __anond4434a4b0403	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! common::TypeCategory$/;"	E	line:85	module:__fortran_type_info
++ __anond4434a4b0503	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! SpecialBinding::Which$/;"	E	line:114	module:__fortran_type_info
++ __anond9e0c82b0105	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  abstract interface$/;"	i	line:15	module:__ppc_intrinsics
++ __brev	flang-rt/lib/runtime/cudadevice.f90	/^  interface __brev$/;"	i	line:1168
++ __builtin_atomic_int_kind	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter, public :: __builtin_atomic_int_kind /;"	v	line:115	module:__fortran_builtins
++ __builtin_atomic_logical_kind	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_atomic_logical_kind /;"	v	line:117	module:__fortran_builtins
++ __builtin_blockDim	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx, __builtin_blockDim,/;"	v	line:123	module:__fortran_builtins
++ __builtin_blockIdx	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx, __builtin_blockDim, __builtin_blockIdx,/;"	v	line:123	module:__fortran_builtins
++ __builtin_c_associated	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface __builtin_c_associated$/;"	i	line:190	module:__fortran_builtins
++ __builtin_c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public, bind(c) :: __builtin_c_devptr$/;"	t	line:127	module:__fortran_builtins
++ __builtin_c_devptr_eq	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_devptr_eq(/;"	f	line:220	module:__fortran_builtins
++ __builtin_c_devptr_ne	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_devptr_ne(/;"	f	line:225	module:__fortran_builtins
++ __builtin_c_funloc	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure function __builtin_c_funloc(/;"	f	line:233	module:__fortran_builtins
++ __builtin_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, bind(c), public :: __builtin_c_funptr$/;"	t	line:50	module:__fortran_builtins
++ __builtin_c_null_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type(__builtin_c_devptr), parameter, public :: __builtin_c_null_devptr /;"	v	line:198	module:__fortran_builtins
++ __builtin_c_null_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_c_null_funptr /;"	v	line:200	module:__fortran_builtins
++ __builtin_c_null_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type(__builtin_c_ptr), parameter, public :: __builtin_c_null_ptr /;"	v	line:197	module:__fortran_builtins
++ __builtin_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, bind(c), public :: __builtin_c_ptr$/;"	t	line:46	module:__fortran_builtins
++ __builtin_c_ptr_eq	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_ptr_eq(/;"	f	line:210	module:__fortran_builtins
++ __builtin_c_ptr_ne	flang-rt/lib/runtime/__fortran_builtins.f90	/^  elemental logical function __builtin_c_ptr_ne(/;"	f	line:215	module:__fortran_builtins
++ __builtin_dim3	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_dim3$/;"	t	line:119	module:__fortran_builtins
++ __builtin_dummy_team_descriptor_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, private :: __builtin_dummy_team_descriptor_type$/;"	t	line:102	module:__fortran_builtins
++ __builtin_event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_event_type$/;"	t	line:54	module:__fortran_builtins
++ __builtin_gridDim	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_gridDim$/;"	v	line:124	module:__fortran_builtins
++ __builtin_ieee_away	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_away /;"	v	line:97	module:__fortran_builtins
++ __builtin_ieee_denorm	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_denorm /;"	v	line:81	module:__fortran_builtins
++ __builtin_ieee_divide_by_zero	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_divide_by_zero /;"	v	line:75	module:__fortran_builtins
++ __builtin_ieee_down	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_down /;"	v	line:95	module:__fortran_builtins
++ __builtin_ieee_flag_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_ieee_flag_type$/;"	t	line:66	module:__fortran_builtins
++ __builtin_ieee_inexact	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_inexact /;"	v	line:79	module:__fortran_builtins
++ __builtin_ieee_invalid	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_invalid /;"	v	line:71	module:__fortran_builtins
++ __builtin_ieee_nearest	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_nearest /;"	v	line:91	module:__fortran_builtins
++ __builtin_ieee_other	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_other /;"	v	line:99	module:__fortran_builtins
++ __builtin_ieee_overflow	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_overflow /;"	v	line:73	module:__fortran_builtins
++ __builtin_ieee_round_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_ieee_round_type$/;"	t	line:84	module:__fortran_builtins
++ __builtin_ieee_to_zero	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_to_zero /;"	v	line:89	module:__fortran_builtins
++ __builtin_ieee_underflow	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_underflow /;"	v	line:77	module:__fortran_builtins
++ __builtin_ieee_up	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_ieee_up /;"	v	line:93	module:__fortran_builtins
++ __builtin_integer_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_integer_kinds /;"	v	line:80	module:iso_fortran_env_impl
++ __builtin_lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_lock_type$/;"	t	line:62	module:__fortran_builtins
++ __builtin_logical_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_logical_kinds /;"	v	line:91	module:iso_fortran_env_impl
++ __builtin_notify_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_notify_type$/;"	t	line:58	module:__fortran_builtins
++ __builtin_ppc_intrinsic_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_intrinsic_vector(/;"	t	line:18	module:__ppc_types
++ __builtin_ppc_pair_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_pair_vector$/;"	t	line:23	module:__ppc_types
++ __builtin_ppc_quad_vector	flang-rt/lib/runtime/__ppc_types.f90	/^  type __builtin_ppc_quad_vector$/;"	t	line:28	module:__ppc_types
++ __builtin_prif_coarray_handle_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public, bind(C) :: __builtin_prif_coarray_handle_type$/;"	t	line:111	module:__fortran_builtins
++ __builtin_real_kinds	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^  integer, parameter, dimension(*), public :: __builtin_real_kinds /;"	v	line:138	module:iso_fortran_env_impl
++ __builtin_team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type, public :: __builtin_team_type$/;"	t	line:107	module:__fortran_builtins
++ __builtin_threadIdx	flang-rt/lib/runtime/__fortran_builtins.f90	/^    __builtin_threadIdx,/;"	v	line:123	module:__fortran_builtins
++ __builtin_warpsize	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter, public :: __builtin_warpsize /;"	v	line:125	module:__fortran_builtins
++ __clz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __clz$/;"	i	line:1135
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:55	type:__builtin_event_type
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:59	type:__builtin_notify_type
++ __count	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __count /;"	k	line:63	type:__builtin_lock_type
++ __cuda_device	flang-rt/lib/runtime/__cuda_device.f90	/^module __cuda_device$/;"	m	line:11
++ __dadd_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rd$/;"	i	line:265
++ __dadd_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rn$/;"	i	line:244
++ __dadd_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_ru$/;"	i	line:258
++ __dadd_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rz$/;"	i	line:251
++ __data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=4) :: __data(/;"	k	line:40	type:ieee_modes_type
++ __data	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    integer(kind=4) :: __data(/;"	k	line:46	type:ieee_status_type
++ __ddiv_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rd$/;"	i	line:1128
++ __ddiv_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rn$/;"	i	line:1107
++ __ddiv_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_ru$/;"	i	line:1121
++ __ddiv_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rz$/;"	i	line:1114
++ __dmul_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rd$/;"	i	line:293
++ __dmul_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rn$/;"	i	line:272
++ __dmul_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_ru$/;"	i	line:286
++ __dmul_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rz$/;"	i	line:279
++ __double2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rd$/;"	i	line:771
++ __double2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rn$/;"	i	line:750
++ __double2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_ru$/;"	i	line:764
++ __double2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rz$/;"	i	line:757
++ __double2hiint	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2hiint$/;"	i	line:785
++ __double2int_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rd$/;"	i	line:694
++ __double2int_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rn$/;"	i	line:701
++ __double2int_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_ru$/;"	i	line:708
++ __double2int_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rz$/;"	i	line:715
++ __double2ll_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rd$/;"	i	line:869
++ __double2ll_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rn$/;"	i	line:876
++ __double2ll_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_ru$/;"	i	line:883
++ __double2ll_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rz$/;"	i	line:890
++ __double2loint	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2loint$/;"	i	line:778
++ __double2uint_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rd$/;"	i	line:722
++ __double2uint_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rn$/;"	i	line:729
++ __double2uint_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_ru$/;"	i	line:736
++ __double2uint_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rz$/;"	i	line:743
++ __double2ull_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rd$/;"	i	line:897
++ __double2ull_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rn$/;"	i	line:904
++ __double2ull_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_ru$/;"	i	line:911
++ __double2ull_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rz$/;"	i	line:918
++ __drcp_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rd$/;"	i	line:1051
++ __drcp_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rn$/;"	i	line:1058
++ __drcp_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_ru$/;"	i	line:1065
++ __drcp_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rz$/;"	i	line:1072
++ __dsqrt_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rd$/;"	i	line:1079
++ __dsqrt_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rn$/;"	i	line:1086
++ __dsqrt_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_ru$/;"	i	line:1093
++ __dsqrt_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rz$/;"	i	line:1100
++ __exp10f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __exp10f$/;"	i	line:411
++ __expf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __expf$/;"	i	line:418
++ __fadd_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rn$/;"	i	line:76
++ __fadd_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rz$/;"	i	line:83
++ __fdiv_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rd$/;"	i	line:237
++ __fdiv_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rn$/;"	i	line:216
++ __fdiv_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_ru$/;"	i	line:230
++ __fdiv_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rz$/;"	i	line:223
++ __fdividef	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdividef$/;"	i	line:425
++ __ffs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ffs$/;"	i	line:1146
++ __float2half_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2half_rn$/;"	i	line:554
++ __float2int_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rd$/;"	i	line:561
++ __float2int_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rn$/;"	i	line:568
++ __float2int_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_ru$/;"	i	line:575
++ __float2int_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rz$/;"	i	line:582
++ __float2ll_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rd$/;"	i	line:617
++ __float2ll_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rn$/;"	i	line:624
++ __float2ll_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_ru$/;"	i	line:631
++ __float2ll_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rz$/;"	i	line:638
++ __float2uint_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rd$/;"	i	line:589
++ __float2uint_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rn$/;"	i	line:596
++ __float2uint_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_ru$/;"	i	line:603
++ __float2uint_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rz$/;"	i	line:610
++ __float2ull_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rd$/;"	i	line:645
++ __float2ull_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rn$/;"	i	line:652
++ __float2ull_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_ru$/;"	i	line:659
++ __float2ull_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rz$/;"	i	line:666
++ __fma_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rd$/;"	i	line:321
++ __fma_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rn$/;"	i	line:300
++ __fma_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_ru$/;"	i	line:314
++ __fma_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rz$/;"	i	line:307
++ __fmaf_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rd$/;"	i	line:153
++ __fmaf_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rn$/;"	i	line:132
++ __fmaf_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_ru$/;"	i	line:146
++ __fmaf_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rz$/;"	i	line:139
++ __fmul_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rd$/;"	i	line:125
++ __fmul_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rn$/;"	i	line:104
++ __fmul_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_ru$/;"	i	line:118
++ __fmul_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rz$/;"	i	line:111
++ __force_derived_type_instantiations	flang-rt/lib/runtime/__fortran_builtins.f90	/^  type :: __force_derived_type_instantiations$/;"	t	line:166	module:__fortran_builtins
++ __fortran_builtins	flang-rt/lib/runtime/__fortran_builtins.f90	/^module __fortran_builtins$/;"	m	line:15
++ __fortran_ieee_exceptions	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^module __fortran_ieee_exceptions$/;"	m	line:16
++ __fortran_type_info	flang-rt/lib/runtime/__fortran_type_info.f90	/^module __fortran_type_info$/;"	m	line:14
++ __frcp_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rd$/;"	i	line:181
++ __frcp_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rn$/;"	i	line:160
++ __frcp_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_ru$/;"	i	line:174
++ __frcp_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rz$/;"	i	line:167
++ __fsqrt_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rd$/;"	i	line:209
++ __fsqrt_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rn$/;"	i	line:188
++ __fsqrt_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_ru$/;"	i	line:202
++ __fsqrt_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rz$/;"	i	line:195
++ __half2float	flang-rt/lib/runtime/cudadevice.f90	/^  interface __half2float$/;"	i	line:673
++ __hiloint2double	flang-rt/lib/runtime/cudadevice.f90	/^  interface __hiloint2double$/;"	i	line:792
++ __int2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2double_rn$/;"	i	line:827
++ __int2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rd$/;"	i	line:799
++ __int2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rn$/;"	i	line:806
++ __int2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_ru$/;"	i	line:813
++ __int2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rz$/;"	i	line:820
++ __ldca	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldca$/;"	i	line:1554
++ __ldcg	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcg$/;"	i	line:1489
++ __ldcs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcs$/;"	i	line:1619
++ __ldcv	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcv$/;"	i	line:1749
++ __ldlu	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldlu$/;"	i	line:1684
++ __ll2double_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rd$/;"	i	line:953
++ __ll2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rn$/;"	i	line:960
++ __ll2double_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_ru$/;"	i	line:967
++ __ll2double_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rz$/;"	i	line:974
++ __ll2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rd$/;"	i	line:925
++ __ll2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rn$/;"	i	line:932
++ __ll2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_ru$/;"	i	line:939
++ __ll2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rz$/;"	i	line:946
++ __log10f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log10f$/;"	i	line:432
++ __log2f	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log2f$/;"	i	line:439
++ __logf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __logf$/;"	i	line:446
++ __mul24	flang-rt/lib/runtime/cudadevice.f90	/^  interface __mul24$/;"	i	line:1037
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:127	type:SpecialBinding
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:56	type:DerivedType
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:73	type:Value
++ __padding0	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1) :: __padding0(/;"	k	line:98	type:Component
++ __placeholder	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=int64), private :: __placeholder /;"	k	line:104	type:__builtin_dummy_team_descriptor_type
++ __popc	flang-rt/lib/runtime/cudadevice.f90	/^  interface __popc$/;"	i	line:1157
++ __ppc_fcfi	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfi$/;"	v	line:722
++ __ppc_fcfid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfid$/;"	v	line:728
++ __ppc_fcfud	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8i) :: __ppc_fcfud$/;"	v	line:734
++ __ppc_fctid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctid$/;"	v	line:679
++ __ppc_fctidz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctidz$/;"	v	line:685
++ __ppc_fctiw	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctiw$/;"	v	line:691
++ __ppc_fctiwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctiwz$/;"	v	line:697
++ __ppc_fctudz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctudz$/;"	v	line:703
++ __ppc_fctuwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fctuwz$/;"	v	line:709
++ __ppc_fmadd_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fmadd_r4$/;"	v	line:637
++ __ppc_fmadd_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fmadd_r8$/;"	v	line:638
++ __ppc_fmsub_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fmsub_r4$/;"	v	line:645
++ __ppc_fmsub_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fmsub_r8$/;"	v	line:646
++ __ppc_fnabs_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_fnabs_r4$/;"	v	line:741
++ __ppc_fnabs_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fnabs_r8$/;"	v	line:742
++ __ppc_fnmadd_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fnmadd_r4$/;"	v	line:653
++ __ppc_fnmadd_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fnmadd_r8$/;"	v	line:654
++ __ppc_fnmsub_r4	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4r4r4) :: __ppc_fnmsub_r4$/;"	v	line:661
++ __ppc_fnmsub_r8	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8r8r8) :: __ppc_fnmsub_r8$/;"	v	line:662
++ __ppc_fre	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_fre$/;"	v	line:750
++ __ppc_fres	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_fres$/;"	v	line:756
++ __ppc_frsqrte	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r8r8x) :: __ppc_frsqrte$/;"	v	line:763
++ __ppc_frsqrtes	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(func_r4r4x) :: __ppc_frsqrtes$/;"	v	line:769
++ __ppc_intrinsics	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^module __ppc_intrinsics$/;"	m	line:9
++ __ppc_mma_disassemble_acc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_atvq) :: __ppc_mma_disassemble_acc$/;"	v	line:1090
++ __ppc_mma_disassemble_pair	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_atvp) :: __ppc_mma_disassemble_pair$/;"	v	line:1097
++ __ppc_mma_xxmfacc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxmfacc$/;"	v	line:1104
++ __ppc_mma_xxmtacc	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxmtacc$/;"	v	line:1111
++ __ppc_mma_xxsetaccz	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vq) :: __ppc_mma_xxsetaccz$/;"	v	line:1118
++ __ppc_types	flang-rt/lib/runtime/__ppc_types.f90	/^module __ppc_types$/;"	m	line:9
++ __ppc_vec_stxvp_vpi0i0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0i0) :: __ppc_vec_stxvp_vpi0i0$/;"	v	line:1879
++ __ppc_vec_stxvp_vpi0i0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0i0) :: __ppc_vec_stxvp_vpi0i0$/;"	v	line:415
++ __ppc_vec_stxvp_vpi0r0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0r0) :: __ppc_vec_stxvp_vpi0r0$/;"	v	line:1880
++ __ppc_vec_stxvp_vpi0r0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0r0) :: __ppc_vec_stxvp_vpi0r0$/;"	v	line:416
++ __ppc_vec_stxvp_vpi0vp0	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  procedure(sub_vpi0vp) :: __ppc_vec_stxvp_vpi0vp0$/;"	v	line:1878
++ __ppc_vec_stxvp_vpi0vp0	flang-rt/lib/runtime/mma.f90	/^  procedure(sub_vpi0vp) :: __ppc_vec_stxvp_vpi0vp0$/;"	v	line:414
++ __sad	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sad$/;"	i	line:344
++ __sincosf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sincosf$/;"	i	line:460
++ __sinf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sinf$/;"	i	line:468
++ __stcg	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcg$/;"	i	line:1876
++ __stcs	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcs$/;"	i	line:1938
++ __stwb	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwb$/;"	i	line:1814
++ __stwt	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwt$/;"	i	line:2000
++ __tanf	flang-rt/lib/runtime/cudadevice.f90	/^  interface __tanf$/;"	i	line:475
++ __uint2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2double_rn$/;"	i	line:862
++ __uint2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rd$/;"	i	line:834
++ __uint2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rn$/;"	i	line:841
++ __uint2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_ru$/;"	i	line:848
++ __uint2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rz$/;"	i	line:855
++ __ull2double_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rd$/;"	i	line:981
++ __ull2double_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rn$/;"	i	line:988
++ __ull2double_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_ru$/;"	i	line:995
++ __ull2double_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rz$/;"	i	line:1002
++ __ull2float_rd	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rd$/;"	i	line:1009
++ __ull2float_rn	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rn$/;"	i	line:1016
++ __ull2float_ru	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_ru$/;"	i	line:1023
++ __ull2float_rz	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rz$/;"	i	line:1030
++ __umul24	flang-rt/lib/runtime/cudadevice.f90	/^  interface __umul24$/;"	i	line:1044
++ __usad	flang-rt/lib/runtime/cudadevice.f90	/^  interface __usad$/;"	i	line:351
++ bfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    bfloat16 /;"	v	line:125	module:iso_fortran_env_impl
++ c_associated_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_funptr(/;"	f	line:251	module:__fortran_builtins
++ c_associated_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_ptr(/;"	f	line:239	module:__fortran_builtins
++ c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr) :: c_devptr$/;"	k	line:168	type:__force_derived_type_instantiations
++ c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_funptr) :: c_funptr$/;"	k	line:169	type:__force_derived_type_instantiations
++ c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: c_ptr$/;"	k	line:167	type:__force_derived_type_instantiations
++ cptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: cptr$/;"	k	line:128	type:__builtin_c_devptr
++ element_category	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category,/;"	k	line:19	type:__builtin_ppc_intrinsic_vector
++ element_kind	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category, element_kind$/;"	k	line:19	type:__builtin_ppc_intrinsic_vector
++ event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_event_type) :: event_type$/;"	k	line:170	type:__force_derived_type_instantiations
++ fcfi	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfi$/;"	i	line:723
++ fcfid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfid$/;"	i	line:729
++ fcfud	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fcfud$/;"	i	line:735
++ fctid	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctid$/;"	i	line:680
++ fctidz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctidz$/;"	i	line:686
++ fctiw	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctiw$/;"	i	line:692
++ fctiwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctiwz$/;"	i	line:698
++ fctudz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctudz$/;"	i	line:704
++ fctuwz	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fctuwz$/;"	i	line:710
++ flag	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: flag /;"	k	line:67	type:__builtin_ieee_flag_type
++ fmadd	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fmadd$/;"	i	line:639
++ fmsub	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fmsub$/;"	i	line:647
++ fnabs	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnabs$/;"	i	line:743
++ fnmadd	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnmadd$/;"	i	line:655
++ fnmsub	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fnmsub$/;"	i	line:663
++ fre	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fre$/;"	i	line:751
++ fres	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface fres$/;"	i	line:757
++ frsqrte	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface frsqrte$/;"	i	line:764
++ frsqrtes	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  interface frsqrtes$/;"	i	line:770
++ ieee_all	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_all(/;"	v	line:36	module:__fortran_ieee_exceptions
++ ieee_modes_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_modes_type /;"	t	line:38	module:__fortran_ieee_exceptions
++ ieee_status_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_status_type /;"	t	line:44	module:__fortran_ieee_exceptions
++ ieee_usual	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_usual(/;"	v	line:35	module:__fortran_ieee_exceptions
++ info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), private :: info$/;"	k	line:112	type:__builtin_prif_coarray_handle_type
++ info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_dummy_team_descriptor_type), pointer, private :: info /;"	k	line:108	type:__builtin_team_type
++ int64	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter :: int64 /;"	v	line:44	module:__fortran_builtins
++ int64	flang-rt/lib/runtime/__fortran_type_info.f90	/^  integer, parameter :: int64 /;"	v	line:24	module:__fortran_type_info
++ lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_lock_type) :: lock_type$/;"	k	line:171	type:__force_derived_type_instantiations
++ logical16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 /;"	v	line:89	module:iso_fortran_env_impl
++ logical32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 = int16, logical32 /;"	v	line:89	module:iso_fortran_env_impl
++ logical64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 = int8, logical16 = int16, logical32 = int32, logical64 /;"	v	line:89	module:iso_fortran_env_impl
++ logical8	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    logical8 /;"	v	line:89	module:iso_fortran_env_impl
++ mma_disassemble_acc	flang-rt/lib/runtime/mma.f90	/^  interface mma_disassemble_acc$/;"	i	line:1091
++ mma_disassemble_pair	flang-rt/lib/runtime/mma.f90	/^  interface mma_disassemble_pair$/;"	i	line:1098
++ mma_xxmfacc	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxmfacc$/;"	i	line:1105
++ mma_xxmtacc	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxmtacc$/;"	i	line:1112
++ mma_xxsetaccz	flang-rt/lib/runtime/mma.f90	/^  interface mma_xxsetaccz$/;"	i	line:1119
++ mode	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: mode /;"	k	line:85	type:__builtin_ieee_round_type
++ real128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real128 /;"	v	line:135	module:iso_fortran_env_impl
++ real16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real16 /;"	v	line:123	module:iso_fortran_env_impl
++ real32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real32 /;"	v	line:127	module:iso_fortran_env_impl
++ real64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real64 /;"	v	line:129	module:iso_fortran_env_impl
++ real64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real64x2 /;"	v	line:133	module:iso_fortran_env_impl
++ real80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    real80 /;"	v	line:131	module:iso_fortran_env_impl
++ safeBfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeBfloat16 /;"	v	line:109	module:iso_fortran_env_impl
++ safeReal128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal128 /;"	v	line:119	module:iso_fortran_env_impl
++ safeReal16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal16 /;"	v	line:107	module:iso_fortran_env_impl
++ safeReal32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal32 /;"	v	line:111	module:iso_fortran_env_impl
++ safeReal64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal64 /;"	v	line:113	module:iso_fortran_env_impl
++ safeReal64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal64x2 /;"	v	line:117	module:iso_fortran_env_impl
++ safeReal80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    safeReal80 /;"	v	line:115	module:iso_fortran_env_impl
++ selectedBfloat16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedBfloat16 /;"	v	line:101	module:iso_fortran_env_impl
++ selectedReal128	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal128 /;"	v	line:106	module:iso_fortran_env_impl
++ selectedReal16	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal16 /;"	v	line:100	module:iso_fortran_env_impl
++ selectedReal32	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal32 /;"	v	line:102	module:iso_fortran_env_impl
++ selectedReal64	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal64 /;"	v	line:103	module:iso_fortran_env_impl
++ selectedReal64x2	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal64x2 /;"	v	line:105	module:iso_fortran_env_impl
++ selectedReal80	flang-rt/lib/runtime/iso_fortran_env_impl.f90	/^    selectedReal80 /;"	v	line:104	module:iso_fortran_env_impl
++ storage	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage$/;"	k	line:20	type:__builtin_ppc_intrinsic_vector
++ storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	k	line:24	type:__builtin_ppc_pair_vector
++ storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	k	line:29	type:__builtin_ppc_quad_vector
++ storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	k	line:25	type:__builtin_ppc_pair_vector
++ storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	k	line:30	type:__builtin_ppc_quad_vector
++ storage3	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage3$/;"	k	line:31	type:__builtin_ppc_quad_vector
++ storage4	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage4$/;"	k	line:32	type:__builtin_ppc_quad_vector
++ team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_team_type) :: team_type$/;"	k	line:172	type:__force_derived_type_instantiations
++ x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=/;"	k	line:120	type:__builtin_dim3
++ y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=1, y=/;"	k	line:120	type:__builtin_dim3
++ z	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer :: x=1, y=1, z=/;"	k	line:120	type:__builtin_dim3
+- /=	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(\/=)/;"	i	line:184
+- ==	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface operator(==)/;"	i	line:178
+- Binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Binding$/;"	t	line:59
+- Component	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: Component /;"	t	line:91
+- DerivedType	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: DerivedType$/;"	t	line:26
+- ProcPtrComponent	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type :: ProcPtrComponent /;"	t	line:108
+- SpecialBinding	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: SpecialBinding$/;"	t	line:122
+- Value	flang-rt/lib/runtime/__fortran_type_info.f90	/^  type, bind(c) :: Value$/;"	t	line:71
+- __anon0a1744d20505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rn$/;"	i	line:76
+- __anon0a1744d20605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fadd_rz$/;"	i	line:83
+- __anon0a1744d20705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:90
+- __anon0a1744d20805	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:97
+- __anon0a1744d20905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rn$/;"	i	line:104
+- __anon0a1744d20a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rz$/;"	i	line:111
+- __anon0a1744d20b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_ru$/;"	i	line:118
+- __anon0a1744d20c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmul_rd$/;"	i	line:125
+- __anon0a1744d20d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rn$/;"	i	line:132
+- __anon0a1744d20e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rz$/;"	i	line:139
+- __anon0a1744d20f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_ru$/;"	i	line:146
+- __anon0a1744d21005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fmaf_rd$/;"	i	line:153
+- __anon0a1744d21105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rn$/;"	i	line:160
+- __anon0a1744d21205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rz$/;"	i	line:167
+- __anon0a1744d21305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_ru$/;"	i	line:174
+- __anon0a1744d21405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __frcp_rd$/;"	i	line:181
+- __anon0a1744d21505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rn$/;"	i	line:188
+- __anon0a1744d21605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rz$/;"	i	line:195
+- __anon0a1744d21705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_ru$/;"	i	line:202
+- __anon0a1744d21805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fsqrt_rd$/;"	i	line:209
+- __anon0a1744d21905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rn$/;"	i	line:216
+- __anon0a1744d21a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rz$/;"	i	line:223
+- __anon0a1744d21b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_ru$/;"	i	line:230
+- __anon0a1744d21c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdiv_rd$/;"	i	line:237
+- __anon0a1744d21d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rn$/;"	i	line:244
+- __anon0a1744d21e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rz$/;"	i	line:251
+- __anon0a1744d21f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_ru$/;"	i	line:258
+- __anon0a1744d22005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dadd_rd$/;"	i	line:265
+- __anon0a1744d22105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rn$/;"	i	line:272
+- __anon0a1744d22205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rz$/;"	i	line:279
+- __anon0a1744d22305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_ru$/;"	i	line:286
+- __anon0a1744d22405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dmul_rd$/;"	i	line:293
+- __anon0a1744d22505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rn$/;"	i	line:300
+- __anon0a1744d22605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rz$/;"	i	line:307
+- __anon0a1744d22705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_ru$/;"	i	line:314
+- __anon0a1744d22805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fma_rd$/;"	i	line:321
+- __anon0a1744d22905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sad$/;"	i	line:344
+- __anon0a1744d22a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __usad$/;"	i	line:351
+- __anon0a1744d22b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:367
+- __anon0a1744d22c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:374
+- __anon0a1744d22d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:386
+- __anon0a1744d22e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:393
+- __anon0a1744d22f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:405
+- __anon0a1744d23005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __exp10f$/;"	i	line:411
+- __anon0a1744d23105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __expf$/;"	i	line:418
+- __anon0a1744d23205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __fdividef$/;"	i	line:425
+- __anon0a1744d23305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log10f$/;"	i	line:432
+- __anon0a1744d23405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __log2f$/;"	i	line:439
+- __anon0a1744d23505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __logf$/;"	i	line:446
+- __anon0a1744d23605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:453
+- __anon0a1744d23705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sincosf$/;"	i	line:460
+- __anon0a1744d23805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __sinf$/;"	i	line:468
+- __anon0a1744d23905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __tanf$/;"	i	line:475
+- __anon0a1744d23a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:482
+- __anon0a1744d23b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:487
+- __anon0a1744d23c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface  $/;"	i	line:497
+- __anon0a1744d23d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:502
+- __anon0a1744d23e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2half_rn$/;"	i	line:554
+- __anon0a1744d23f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rd$/;"	i	line:561
+- __anon0a1744d24005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rn$/;"	i	line:568
+- __anon0a1744d24105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_ru$/;"	i	line:575
+- __anon0a1744d24205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2int_rz$/;"	i	line:582
+- __anon0a1744d24305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rd$/;"	i	line:589
+- __anon0a1744d24405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rn$/;"	i	line:596
+- __anon0a1744d24505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_ru$/;"	i	line:603
+- __anon0a1744d24605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2uint_rz$/;"	i	line:610
+- __anon0a1744d24705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rd$/;"	i	line:617
+- __anon0a1744d24805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rn$/;"	i	line:624
+- __anon0a1744d24905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_ru$/;"	i	line:631
+- __anon0a1744d24a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ll_rz$/;"	i	line:638
+- __anon0a1744d24b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rd$/;"	i	line:645
+- __anon0a1744d24c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rn$/;"	i	line:652
+- __anon0a1744d24d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_ru$/;"	i	line:659
+- __anon0a1744d24e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __float2ull_rz$/;"	i	line:666
+- __anon0a1744d24f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __half2float$/;"	i	line:673
+- __anon0a1744d25005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rd$/;"	i	line:694
+- __anon0a1744d25105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rn$/;"	i	line:701
+- __anon0a1744d25205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_ru$/;"	i	line:708
+- __anon0a1744d25305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2int_rz$/;"	i	line:715
+- __anon0a1744d25405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rd$/;"	i	line:722
+- __anon0a1744d25505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rn$/;"	i	line:729
+- __anon0a1744d25605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_ru$/;"	i	line:736
+- __anon0a1744d25705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2uint_rz$/;"	i	line:743
+- __anon0a1744d25805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rn$/;"	i	line:750
+- __anon0a1744d25905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rz$/;"	i	line:757
+- __anon0a1744d25a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_ru$/;"	i	line:764
+- __anon0a1744d25b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2float_rd$/;"	i	line:771
+- __anon0a1744d25c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2loint$/;"	i	line:778
+- __anon0a1744d25d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2hiint$/;"	i	line:785
+- __anon0a1744d25e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __hiloint2double$/;"	i	line:792
+- __anon0a1744d25f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rd$/;"	i	line:799
+- __anon0a1744d26005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rn$/;"	i	line:806
+- __anon0a1744d26105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_ru$/;"	i	line:813
+- __anon0a1744d26205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2float_rz$/;"	i	line:820
+- __anon0a1744d26305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __int2double_rn$/;"	i	line:827
+- __anon0a1744d26405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rd$/;"	i	line:834
+- __anon0a1744d26505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rn$/;"	i	line:841
+- __anon0a1744d26605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_ru$/;"	i	line:848
+- __anon0a1744d26705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2float_rz$/;"	i	line:855
+- __anon0a1744d26805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __uint2double_rn$/;"	i	line:862
+- __anon0a1744d26905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rd$/;"	i	line:869
+- __anon0a1744d26a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rn$/;"	i	line:876
+- __anon0a1744d26b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_ru$/;"	i	line:883
+- __anon0a1744d26c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ll_rz$/;"	i	line:890
+- __anon0a1744d26d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rd$/;"	i	line:897
+- __anon0a1744d26e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rn$/;"	i	line:904
+- __anon0a1744d26f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_ru$/;"	i	line:911
+- __anon0a1744d27005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __double2ull_rz$/;"	i	line:918
+- __anon0a1744d27105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rd$/;"	i	line:925
+- __anon0a1744d27205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rn$/;"	i	line:932
+- __anon0a1744d27305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_ru$/;"	i	line:939
+- __anon0a1744d27405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2float_rz$/;"	i	line:946
+- __anon0a1744d27505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rd$/;"	i	line:953
+- __anon0a1744d27605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rn$/;"	i	line:960
+- __anon0a1744d27705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_ru$/;"	i	line:967
+- __anon0a1744d27805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ll2double_rz$/;"	i	line:974
+- __anon0a1744d27905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rd$/;"	i	line:981
+- __anon0a1744d27a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rn$/;"	i	line:988
+- __anon0a1744d27b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_ru$/;"	i	line:995
+- __anon0a1744d27c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2double_rz$/;"	i	line:1002
+- __anon0a1744d27d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rd$/;"	i	line:1009
+- __anon0a1744d27e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rn$/;"	i	line:1016
+- __anon0a1744d27f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_ru$/;"	i	line:1023
+- __anon0a1744d28005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ull2float_rz$/;"	i	line:1030
+- __anon0a1744d28105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __mul24$/;"	i	line:1037
+- __anon0a1744d28205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __umul24$/;"	i	line:1044
+- __anon0a1744d28305	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rd$/;"	i	line:1051
+- __anon0a1744d28405	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rn$/;"	i	line:1058
+- __anon0a1744d28505	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_ru$/;"	i	line:1065
+- __anon0a1744d28605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __drcp_rz$/;"	i	line:1072
+- __anon0a1744d28705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rd$/;"	i	line:1079
+- __anon0a1744d28805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rn$/;"	i	line:1086
+- __anon0a1744d28905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_ru$/;"	i	line:1093
+- __anon0a1744d28a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __dsqrt_rz$/;"	i	line:1100
+- __anon0a1744d28b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rn$/;"	i	line:1107
+- __anon0a1744d28c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rz$/;"	i	line:1114
+- __anon0a1744d28d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_ru$/;"	i	line:1121
+- __anon0a1744d28e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ddiv_rd$/;"	i	line:1128
+- __anon0a1744d28f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __clz$/;"	i	line:1135
+- __anon0a1744d29005	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ffs$/;"	i	line:1146
+- __anon0a1744d29105	flang-rt/lib/runtime/cudadevice.f90	/^  interface __popc$/;"	i	line:1157
+- __anon0a1744d29205	flang-rt/lib/runtime/cudadevice.f90	/^  interface __brev$/;"	i	line:1168
+- __anon0a1744d29305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1400
+- __anon0a1744d29405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1405
+- __anon0a1744d29505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:1410
+- __anon0a1744d29605	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcg$/;"	i	line:1489
+- __anon0a1744d29705	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldca$/;"	i	line:1554
+- __anon0a1744d29805	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcs$/;"	i	line:1619
+- __anon0a1744d29905	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldlu$/;"	i	line:1684
+- __anon0a1744d29a05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __ldcv$/;"	i	line:1749
+- __anon0a1744d29b05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwb$/;"	i	line:1814
+- __anon0a1744d29c05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcg$/;"	i	line:1876
+- __anon0a1744d29d05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stcs$/;"	i	line:1938
+- __anon0a1744d29e05	flang-rt/lib/runtime/cudadevice.f90	/^  interface __stwt$/;"	i	line:2000
+- __anon0a1744d29f05	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2061
+- __anon0a1744d2a005	flang-rt/lib/runtime/cudadevice.f90	/^  interface $/;"	i	line:2080
+- __anon0a1744d2a105	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2087
+- __anon0a1744d2a205	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2094
+- __anon0a1744d2a305	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2102
+- __anon0a1744d2a405	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2107
+- __anon0a1744d2a505	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2112
+- __anon0a1744d2a605	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2124
+- __anon0a1744d2a705	flang-rt/lib/runtime/cudadevice.f90	/^  interface$/;"	i	line:2202
+- __anonce61a4c80105	flang-rt/lib/runtime/__fortran_builtins.f90	/^  interface __builtin_c_associated$/;"	i	line:190
+- __anond4434a4b0103	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Value::Genre$/;"	E	line:67
+- __anond4434a4b0203	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::Genre$/;"	E	line:77
+- __anond4434a4b0303	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! Component::MemorySpace$/;"	E	line:81
+- __anond4434a4b0403	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! common::TypeCategory$/;"	E	line:85
+- __anond4434a4b0503	flang-rt/lib/runtime/__fortran_type_info.f90	/^  enum, bind(c) ! SpecialBinding::Which$/;"	E	line:114
+- __anond9e0c82b0105	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^  abstract interface$/;"	i	line:15
+- bf	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: bf$/;"	v	line:786	interface:mtfsfi
+- c_associated_c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_funptr(/;"	f	line:251
+- c_associated_c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^  pure logical function c_associated_c_ptr(/;"	f	line:239
+- c_devptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr) :: c_devptr$/;"	v	line:168
+- c_funptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_funptr) :: c_funptr$/;"	v	line:169
+- c_ptr	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr) :: c_ptr$/;"	v	line:167
+- element_category	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category,/;"	v	line:19
+- element_kind	flang-rt/lib/runtime/__ppc_types.f90	/^    integer, kind :: element_category, element_kind$/;"	v	line:19
+- event_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_event_type) :: event_type$/;"	v	line:170
+- flag	flang-rt/lib/runtime/__fortran_builtins.f90	/^    integer(kind=1), private :: flag /;"	v	line:67
+- i	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: i$/;"	v	line:787	interface:mtfsfi
+- ieee_all	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_all(/;"	v	line:36
+- ieee_modes_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_modes_type /;"	t	line:38
+- ieee_status_type	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^  type, public :: ieee_status_type /;"	t	line:44
+- ieee_usual	flang-rt/lib/runtime/__fortran_ieee_exceptions.f90	/^    ieee_usual(/;"	v	line:35
+- info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), private :: info$/;"	v	line:112
+- info	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_dummy_team_descriptor_type), pointer, private :: info /;"	v	line:108
+- int64	flang-rt/lib/runtime/__fortran_builtins.f90	/^  integer, parameter :: int64 /;"	v	line:44
+- int64	flang-rt/lib/runtime/__fortran_type_info.f90	/^  integer, parameter :: int64 /;"	v	line:24
+- lock_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_lock_type) :: lock_type$/;"	v	line:171
+- mask	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      integer(4), intent(in) :: mask$/;"	v	line:778	interface:mtfsf
+- r	flang-rt/lib/runtime/__ppc_intrinsics.f90	/^      real(8), intent(in) :: r$/;"	v	line:779	interface:mtfsf
+- storage	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage$/;"	v	line:20
+- storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	v	line:24
+- storage1	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage1$/;"	v	line:29
+- storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	v	line:25
+- storage2	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage2$/;"	v	line:30
+- storage3	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage3$/;"	v	line:31
+- storage4	flang-rt/lib/runtime/__ppc_types.f90	/^    integer(16) :: storage4$/;"	v	line:32
+- team_type	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_team_type) :: team_type$/;"	v	line:172
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x,/;"	v	line:221
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x,/;"	v	line:226
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x,/;"	v	line:211
+- x	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x,/;"	v	line:216
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x, y$/;"	v	line:221
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_devptr), intent(in) :: x, y$/;"	v	line:226
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:211
+- y	flang-rt/lib/runtime/__fortran_builtins.f90	/^    type(__builtin_c_ptr), intent(in) :: x, y$/;"	v	line:216

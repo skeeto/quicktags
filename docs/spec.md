@@ -366,7 +366,7 @@ depends on how far the walk had read when the label was seen. Our
   - After a statement end at a line end (not `;`, and not on line 1), blanks then up to five digits are a label; a sixth digit begins a number.
   - An indented `#` is not special; its words are read as tokens.
 - **FTN-4 Tokens** [S][V]:
-  - Identifiers are an ASCII letter, then letters, digits, `_` and `$`. **A leading `_` is not an identifier**: `_`, `$` and bytes from 0x80 are one-character tokens of no type.
+  - Identifiers are an ASCII letter, then letters, digits, `_` and `$`. **A leading `_` is not an identifier** (we depart, F3): `_`, `$` and bytes from 0x80 are one-character tokens of no type.
   - Keywords are matched ignoring ASCII case: `abstract allocatable assignment associate automatic bind block byte cexternal cglobal character class codimension common complex contains data deferred dimension dll_export dll_import do double elemental end entry enum enumerator equivalence extends external final forall format function generic if implicit import include inline integer intent interface intrinsic kind len logical map module namelist non_overridable nopass operator optional parameter pascal pass pexternal pglobal pointer precision private procedure program protected public pure real record recursive save select sequence static stdcall structure submodule subroutine target then type union use value virtual volatile where while`. `blockdata`, `doubleprecision`, `impure`, `non_recursive`, `simple`, `critical`, `team` and `enumeration` are not keywords.
   - **Joined END**: an identifier that is not a keyword, starts with lowercase `end`, and whose rest is a keyword (any case) reads as END with that keyword as the word after it (`enddo`, `endType`). `ENDDO` and `EndDo` are plain identifiers.
   - Operators: one of `* / + - = < >`, continued by any of `* / + = < >` (not `-`). A `.` followed by identifier characters and a `.` is an operator (`.eq.`); without the closing dot it has no type.
@@ -704,3 +704,8 @@ Decided for this program, deliberately different from Universal Ctags.
 ### Parsing (after parity)
 
 See the plan; each lands as its own commit with a pinned test.
+
+Fortran (section 1.6 marks where each departs):
+
+- **F3** A name may start with `_` (FTN-4), as flang's runtime modules
+  do (`module __fortran_builtins`), so they are tagged and give scope.

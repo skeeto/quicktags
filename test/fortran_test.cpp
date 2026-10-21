@@ -200,12 +200,17 @@ static TagCase fortrancases[] = {
      "a\tx.f90\t/^  subroutine a$/;\"\ts\tline:3\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
      ""},
-    {SHARED, "FTN-4 an identifier cannot start with an underscore", "x.f90", "",
+    {IMPROVED, "F3 a name may start with an underscore", "x.f90", "",
      "module __m\n"
-     "  integer :: x\n"
+     "  integer :: x, _y\n"
+     "  interface __g\n"
+     "  end interface\n"
      "end module\n",
-     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:2\n",
-     ""},
+     "__g\tx.f90\t/^  interface __g$/;\"\ti\tline:3\tmodule:__m\n"
+     "__m\tx.f90\t/^module __m$/;\"\tm\tline:1\n"
+     "_y\tx.f90\t/^  integer :: x, _y$/;\"\tv\tline:2\tmodule:__m\n"
+     "x\tx.f90\t/^  integer :: x,/;\"\tv\tline:2\tmodule:__m\n",
+     "x\tx.f90\t/^  integer :: x,/;\"\tv\tline:2\n"},
     {SHARED, "FTN-5 locals and prototypes are off by default", "x.f90", "",
      "subroutine s(a)\n"
      "  integer :: a\n"

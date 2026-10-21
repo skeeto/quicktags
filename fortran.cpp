@@ -540,7 +540,8 @@ static void ftnlex(Ftn *p, FtnTok *t)
         break;
 
     default:
-        if (ftnalpha(c)) {
+        if (ftnalpha(c) || c=='_') {
+            // Unlike Universal Ctags, a name may start with '_' (F3)
             ftnword(p, t, c);
             Str text = finish(&t->text);
             t->word = ftnkeyword(text);
