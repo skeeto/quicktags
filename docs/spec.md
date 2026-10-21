@@ -440,6 +440,13 @@ depends on how far the walk had read when the label was seen. Our
   - Scope name and the typeref value: same as the name.
   - Typeref prefix: as-is.
 - **FLD-3 [V]** The C++ `name:` field is never seen by default; it appears only on `A` tags.
+- **FLD-4 [S][V]** Order of all fields (`writer-ctags.c`), with `;"` before the first one written:
+  - the kind: its letter (`k`) or long name (`K`), after `kind:` with `z`;
+  - `line:`, `language:`, the scope (`KIND:NAME`, or `scope:KIND:NAME` with `Z`), `typeref:`, `file:`;
+  - `inherits:`, `access:`, `implementation:`, `signature:`, `roles:`, `extras:`, `end:`, `epoch:`, `nth:`;
+  - then the parser's own fields.
+  - `extras:` lists a tag's extras by commas in their table's order: `fileScope`, `inputFile`, `pseudo`, `qualified`, `reference`, `guest`, `subparser`, `anonymous`.
+  - A tags file has a `!_TAG_FIELD_DESCRIPTION` pseudo-tag for each enabled field that has a description: `file` goes with `--fields=-f`, and `extras` comes with `+E`.
 
 ### 1.8 Output format
 
@@ -460,6 +467,7 @@ depends on how far the walk had read when the label was seen. Our
   - If that byte is `\n`, the line keeps its newline and gets `$`.
   - If the name is not found, the full line is used.
   - Examples: `/^#define f(a) f(/`, `/^# define A(...)   [ __VA_AR/`, `/^  subroutine sub1(/`.
+- **OUT-5 [V]** Emacs TAGS layout (`-e`), LF line endings: one section per input file, `\f\n<path>,<size>\n`, where the size counts the bytes of the entries after that line; each entry is `<text>\x7f<name>\x01<line>,<offset>\n`, with the line's text and the name always explicit.
 
 ### 1.9 Sorting
 
