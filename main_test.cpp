@@ -68,11 +68,16 @@ struct Run {
 
 // Run the program on the file system with the given arguments, in
 // memory poisoned to expose reads of what was never written.
-static Run run(Os *os, Arena a, Str cmd)
+static Run runcap(Os *os, Arena a, Str cmd, iz cap)
 {
-    Slice<Str> args = words(&a, cmd);
-    iz    cap = (iz)32<<20;
-    byte *mem = (byte *)allocbytes(&a, cap);
+    // The program's memory and arguments come from the top of the free
+    // space, apart from the file system's allocations from its bottom,
+    // which continue while the program runs
+    iz    extra = (iz)1<<16;
+    Arena hi    = a;
+    hi.beg = a.end - cap - extra;
+    Slice<Str> args = words(&hi, cmd);
+    byte *mem = (byte *)allocbytes(&hi, cap);
     __builtin_memset(mem, 0x55, (uz)cap);
     Arena m = {mem, mem+cap};
 
@@ -83,6 +88,11 @@ static Run run(Os *os, Arena a, Str cmd)
     r.out    = finish(&os->out);
     r.err    = finish(&os->err);
     return r;
+}
+
+static Run run(Os *os, Arena a, Str cmd)
+{
+    return runcap(os, a, cmd, (iz)32<<20);
 }
 
 // Tag cases: one file, tagged alone with some options, and the exact
@@ -181,6 +191,8 @@ static void runcases(Test *t, TagCase *cases, iz n)
 #include "test/walk_test.cpp"
 #include "test/cxx_test.cpp"
 #include "test/fortran_test.cpp"
+#include "test/parallel_test.cpp"
+#include "test/fuzz_test.cpp"
 
 int main(int argc, char **argv)
 {
@@ -194,14 +206,16 @@ int main(int argc, char **argv)
         void      (*fn)(Test *);
         b32         cases;  // has tag cases to export
     } groups[] = {
-        {"wide",    test_wide,    0},
-        {"output",  test_output,  0},
-        {"cli",     test_cli,     0},
-        {"walk",    test_walk,    0},
-        {"c",       test_c,       1},
-        {"cxx",     test_cxx,     1},
-        {"fast",    test_fastpaths, 0},
-        {"fortran", test_fortran, 1},
+        {"wide",     test_wide,      0},
+        {"output",   test_output,    0},
+        {"cli",      test_cli,       0},
+        {"walk",     test_walk,      0},
+        {"c",        test_c,         1},
+        {"cxx",      test_cxx,       1},
+        {"fast",     test_fastpaths, 0},
+        {"fortran",  test_fortran,   1},
+        {"parallel", test_parallel,  0},
+        {"fuzz",     test_fuzz,      0},
     };
 
     Str want = {};

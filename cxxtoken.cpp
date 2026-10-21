@@ -538,18 +538,6 @@ static void chaininsertafter(Chain *c, Token *before, Token *t)
     t->next->prev = t;
 }
 
-// Move all of src's tokens onto the end of dst, which is not empty.
-static void chainappendall(Chain *src, Chain *dst)
-{
-    dst->tail->next = src->head;
-    src->head->prev = dst->tail;
-    dst->count += src->count;
-    dst->tail   = src->tail;
-    src->count = 0;
-    src->head  = 0;
-    src->tail  = 0;
-}
-
 static void joinchain(Pool *, Chain *, Word *, Str sep, b32 nospace);
 
 static void tokenappend(Pool *p, Word *w, Token *t)
@@ -689,42 +677,6 @@ static Token *extracttypename(Pool *p, Token *from, Token *to)
     }
 }
 
-static Token *extractindexrange(Pool *p, Chain *c, iz first, iz last, b32 nospace)
-{
-    if (!c || first<0 || first>=c->count) {
-        return 0;
-    }
-    Token *t = c->head;
-    iz     i = 0;
-    for (; t && i<first; i++) {
-        t = t->next;
-    }
-    if (!t) {
-        return 0;
-    }
-    Token *r = newtoken(p);
-    r->line    = t->line;
-    r->linepos = t->linepos;
-    r->type    = t->type;
-    tokenappend(p, &r->word, t);
-    if (!nospace && t->space) {
-        wordput(p, &r->word, ' ');
-    }
-    r->space = t->space;
-    for (; i < last; i++) {
-        t = t->next;
-        if (!t) {
-            return r;
-        }
-        tokenappend(p, &r->word, t);
-        if (!nospace && t->space) {
-            wordput(p, &r->word, ' ');
-        }
-        r->space = t->space;
-    }
-    return r;
-}
-
 static Token *condenseintotoken(Pool *p, Chain *c, b32 nospace)
 {
     if (!c || !c->head) {
@@ -752,43 +704,6 @@ static void condense(Pool *p, Chain *c, b32 nospace)
         chainclear(p, c);
         chainappend(c, t);
     }
-}
-
-// Split a chain's tokens on commas into one token per part, with an
-// empty unknown token for each empty part.
-static Chain *splitoncomma(Pool *p, Chain *c)
-{
-    if (!c) {
-        return 0;
-    }
-    Chain *r = newchain(p);
-    Token *t = c->head;
-    if (!t) {
-        return r;
-    }
-    Token *start = t;
-    while (start && t->next) {
-        Token *n = 0;
-        if (t->type == T_COMMA) {
-            n = newtoken(p);
-            n->line    = t->line;
-            n->linepos = t->linepos;
-            n->type    = T_UNKNOWN;
-        } else {
-            for (; t->next && t->next->type!=T_COMMA; t = t->next) {}
-            n = extractrange(p, start, t, 0);
-            t = t->next;
-        }
-        chainappend(r, n);
-        if (t) {
-            t = t->next;
-        }
-        start = t;
-    }
-    if (start) {
-        chainappend(r, extractrange(p, start, c->tail, 0));
-    }
-    return r;
 }
 
 static Token *chainat(Chain *c, iz i)
@@ -861,13 +776,6 @@ static Token *lastof(Chain *c, u32 types)
 {
     Token *t = c ? c->tail : 0;
     for (; t && !(t->type&types); t = t->prev) {}
-    return t;
-}
-
-static Token *lastnotof(Chain *c, u32 types)
-{
-    Token *t = c ? c->tail : 0;
-    for (; t && t->type&types; t = t->prev) {}
     return t;
 }
 
@@ -945,52 +853,6 @@ static Token *firstnestedof(Chain *c, u32 types, Chain **parent)
     return 0;
 }
 
-static iz findtoken(Chain *c, Token *t)  // -1 if not found
-{
-    if (!c || c->count<1) {
-        return -1;
-    }
-    iz i = 0;
-    for (Token *x = c->head; x; x = x->next, i++) {
-        if (x == t) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static Token *prevkeyword(Token *t, i32 kw)
-{
-    if (!t) {
-        return 0;
-    }
-    for (t = t->prev; t && !iskeyword(t, kw); t = t->prev) {}
-    return t;
-}
-
-static Token *nextkeyword(Token *t, i32 kw)
-{
-    if (!t) {
-        return 0;
-    }
-    for (t = t->next; t && !iskeyword(t, kw); t = t->next) {}
-    return t;
-}
-
-static iz firstkeywordindex(Chain *c, i32 kw)  // -1 if not found
-{
-    if (!c || c->count<1) {
-        return -1;
-    }
-    iz i = 0;
-    for (Token *t = c->head; t; t = t->next, i++) {
-        if (iskeyword(t, kw)) {
-            return i;
-        }
-    }
-    return -1;
-}
-
 static Token *firstkeyword(Chain *c, i32 kw)
 {
     if (!c || c->count<1) {
@@ -999,19 +861,6 @@ static Token *firstkeyword(Chain *c, i32 kw)
     Token *t = c->head;
     for (; t && !iskeyword(t, kw); t = t->next) {}
     return t;
-}
-
-static Token *nextidentifier(Token *t, Str name)
-{
-    if (!t) {
-        return 0;
-    }
-    for (t = t->next; t; t = t->next) {
-        if (t->type==T_IDENT && wordstr(t)==name) {
-            return t;
-        }
-    }
-    return 0;
 }
 
 // Take and destroy tokens from..to, inclusive.
