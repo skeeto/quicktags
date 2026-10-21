@@ -194,6 +194,11 @@ static void runcases(Test *t, TagCase *cases, iz n)
 #include "test/parallel_test.cpp"
 #include "test/fuzz_test.cpp"
 
+// On XP, i686 programs may start with a stack aligned to only 4 bytes,
+// short of the 8 that a u64 local needs.
+#if __i386__
+__attribute((force_align_arg_pointer))
+#endif
 int main(int argc, char **argv)
 {
     iz    cap = (iz)1<<30;
