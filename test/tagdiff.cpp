@@ -204,14 +204,22 @@ static Slice<Str> taglines(Arena *a, Str text, Str only)
     return r;
 }
 
+// "= N PATH": up to N differences in the file
+struct FileRule {
+    FileRule *next;
+    Str       path;
+    iz        count;
+    iz        used;
+};
+
 struct Entry {
-    Entry *next;
-    Str    head;    // the "@ ..." line
-    Str    scope;
-    Str    lines;   // "- " and "+ " lines, each ending in a newline
-    Str    files;   // paths explained whole, each ending in a newline
-    iz     used;
-    iz     count;
+    Entry    *next;
+    Str       head;    // the "@ ..." line
+    Str       scope;
+    Str       lines;   // "- " and "+ " lines, each ending in a newline
+    FileRule *files;
+    iz        used;
+    iz        count;
 };
 
 static Entry *readledger(Arena *a, Str text, Str scope)
@@ -239,14 +247,15 @@ static Entry *readledger(Arena *a, Str text, Str scope)
             cur->lines = concat(a, cur->lines, "\n");
             cur->count++;
         } else if (cur && startswith(l, "= ")) {
-            Cut n     = cut(cuthead(l, 2), ' ');
-            iz  count = 0;
+            Cut       n = cut(cuthead(l, 2), ' ');
+            FileRule *r = alloc<FileRule>(a);
             for (iz i = 0; i < n.head.len; i++) {
-                count = count*10 + n.head[i] - '0';
+                r->count = r->count*10 + n.head[i] - '0';
             }
-            cur->count += count;
-            cur->files = concat(a, cur->files, n.tail);
-            cur->files = concat(a, cur->files, "\n");
+            r->path    = n.tail;
+            r->next    = cur->files;
+            cur->files = r;
+            cur->count += r->count;
         }
         if (!c.ok) {
             break;
@@ -255,7 +264,8 @@ static Entry *readledger(Arena *a, Str text, Str scope)
     return head;
 }
 
-// Find a ledger line for a difference, marking it used.
+// Find a ledger line for a difference, marking it used: an exact line,
+// or else the first file rule for its file with room left.
 static b32 explained(Entry *ledger, u8 sign, Str line)
 {
     for (Entry *e = ledger; e; e = e->next) {
@@ -265,9 +275,12 @@ static b32 explained(Entry *ledger, u8 sign, Str line)
                 return 1;
             }
         }
-        Str file = cut(cut(line, '\t').tail, '\t').head;
-        for (Cut c = cut(e->files, '\n'); c.ok; c = cut(c.tail, '\n')) {
-            if (c.head == file) {
+    }
+    Str file = cut(cut(line, '\t').tail, '\t').head;
+    for (Entry *e = ledger; e; e = e->next) {
+        for (FileRule *r = e->files; r; r = r->next) {
+            if (r->path==file && r->used<r->count) {
+                r->used++;
                 e->used++;
                 return 1;
             }

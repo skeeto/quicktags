@@ -366,8 +366,9 @@ static b32 parseclassinternal(Cxx *c, i32 kw, i32 kind, u8 type)
     }
 
     if (c->tok->type == T_SEMICOLON) {
-        // [typedef] struct X Y;
-        if (c->chain->count > 3) {
+        // [typedef] struct X Y; but (departure P6) not a templated
+        // forward declaration: template<class T> class EXPORT X;
+        if (c->chain->count>3 && !c->tmpl) {
             if (seen & SEEN_TYPEDEF) {
                 extracttypedef(c, c->chain, 1, 0);
             } else if (!(c->seen & SEEN_FRIEND)) {
@@ -1054,8 +1055,27 @@ static Chain *templatetochain(Cxx *c, b32 capture)
 
 static b32 parsetemplateprefix(Cxx *c)
 {
-    Pool *p = &c->pool;
+    Pool *p     = &c->pool;
+    b32   first = !c->tok->prev;
     destroylast(p, c->chain);  // the template keyword
+
+    if (first) {
+        // Departure P6: an explicit instantiation, perhaps after extern,
+        // declares nothing: template class X<int>;
+        if (!cxxnext(c)) {
+            return 1;
+        }
+        if (c->tok->type == T_KEYWORD &&
+                (c->tok->kw==KW_class || c->tok->kw==KW_struct || c->tok->kw==KW_union)) {
+            if (!skiptosemicolon(c)) {
+                return 0;
+            }
+            newstatement(c);
+            return 1;
+        }
+        cxxunget(c);
+    }
+
     if (!upto(c, T_LT|T_EOF|T_SEMICOLON, 0)) {
         return 0;
     }

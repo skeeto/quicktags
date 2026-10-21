@@ -363,6 +363,17 @@ static TagCase cxxcases[] = {
      "color\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\tg\tline:1\tfile:\n"
      "colors\tp5.cpp\t/^    std::vector<enum color> colors = { RED };$/;\"\tg\tline:4\tstruct:S\tfile:\n"
      "palette\tp5.cpp\t/^enum color palette[] = { RED, GREEN };$/;\"\tg\tline:2\tfile:\n"},
+    {IMPROVED, "P6 explicit instantiations", "p6.cpp", "",
+     "template<typename T> struct Box { T v; };\n"
+     "template struct Box<int>;\n"
+     "extern template struct Box<long>;\n"
+     "template<typename T> class EXPORT Later;\n",
+     "Box\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\ts\tline:1\tfile:\n"
+     "v\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\tm\tline:1\tstruct:Box\ttyperef:typename:T\tfile:\n",
+     "Box\tp6.cpp\t/^template struct Box<int>;$/;\"\tv\tline:2\ttyperef:meta:struct\n"
+     "Box\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\ts\tline:1\tfile:\n"
+     "Later\tp6.cpp\t/^template<typename T> class EXPORT Later;$/;\"\tv\tline:4\ttyperef:class:EXPORT\n"
+     "v\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\tm\tline:1\tstruct:Box\ttyperef:typename:T\tfile:\n"},
 };
 
 static void test_c(Test *t)
