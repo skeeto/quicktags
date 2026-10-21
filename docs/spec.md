@@ -374,6 +374,7 @@ depends on how far the walk had read when the label was seen. Our
   - Strings: from `'` or `"` to the same quote or the line end, which is consumed. A doubled quote reads as two strings.
   - `::`, `:`, `,`, `(`, `)`, `[`, `]` and `%` are tokens of their own.
   - A token's line and position are those of the input after its first character was read: the line of that character, except in fixed form where a line end was read ahead (FTN-2).
+  - Universal Ctags drops the rest of a line after a NUL byte and joins the next line to it. We read NUL as an ordinary character of no type (X4), so `"\0"` strings in `folding05.f90` stay strings.
 - **FTN-5 Default kinds** [V]: `E M N S b c e f i k l m n p s t v`; `L` and `P` are off.
 
 **Program units and statements** [S][V]. When a unit or block ends, its END statement is consumed together with the word after END, which is read even when it is on the next line (so a bare `end` reads the next statement's first word, which then ends the statement); a joined END already has its word.
