@@ -289,7 +289,8 @@ static void visitdir(Worker *w, Item *it)
     for (Dirent *d = l.head; d; d = d->next) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
-        if ((d->islink && c->opt->nolinks) || excluded(c->opt, path, d->name)) {
+        if ((d->islink && c->opt->nolinks) ||
+            excluded(c->opt, path, d->name)) {
             w->perm.beg = mark;
             continue;
         }

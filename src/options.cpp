@@ -33,7 +33,7 @@ struct Options {
     i32         tagrelative;  // TREL_*
     i32         force;        // forced language, LANG_NONE for none
     u32         langs;        // enabled languages, one bit per LANG_*
-    LangMap     map;
+    LangMap     map;          // which names are of which language
     Slice<Str>  headers;      // the extensions of header files
     Slice<Glob> excludes;     // --exclude patterns, the defaults first
     Slice<Glob> exceptions;   // --exclude-exception patterns
