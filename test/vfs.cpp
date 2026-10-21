@@ -50,7 +50,7 @@ static b32 vfssep(Os *os, u8 c)
 enum : iz { VFSDEPTH = 32 };
 
 // Append a path's names, without empty ones and ".", and with a current
-// directory, each ".." taking the name before it.
+// directory, each ".." taking the name before it, but a drive.
 static iz vfssplit(Os *os, Str path, Str *names, iz len)
 {
     for (iz i = 0; i < path.len;) {
@@ -61,7 +61,9 @@ static iz vfssplit(Os *os, Str path, Str *names, iz len)
         if (!part.len || part==".") {
             continue;
         } else if (part==".." && os->cwd.len) {
-            len -= len > 0;
+            b32 drive = len==1 && os->windows && names[0].len==2 &&
+                        names[0][1]==':';
+            len -= len>0 && !drive;
             continue;
         }
         assert(len < VFSDEPTH);

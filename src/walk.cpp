@@ -322,8 +322,9 @@ static void driveerror(Buf *log, Str path)
 // A path made absolute from the current directory, on Windows from its
 // drive if the path has none: each "." name dropped with the separator
 // before it, each ".." with the separator and name before that, back to
-// a separator of any kind, and past doubled separators (D14), the
-// separators but ':' made '/', and the drive letter uppercased.
+// a separator of any kind, and past doubled separators (D14), but never
+// the drive's ':' (D15), the separators but ':' made '/', and the drive
+// letter uppercased.
 static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
 {
     Str full = path;
@@ -338,8 +339,9 @@ static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
         full = concat(a, {drive, 2}, path);
     }
 
-    u8 *r = allocbytes(a, full.len+1);
-    iz  i = 0;
+    u8 *r    = allocbytes(a, full.len+1);
+    iz  root = windows && full.len>=2 && full[1]==':' ? 2 : 0;  // drive
+    iz  i    = 0;
     for (; i<full.len && !relsep(full[i], windows); i++) {}
     copybytes(r, full.data, i);
     iz len = i;
@@ -351,10 +353,10 @@ static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
         if (name == ".") {
             continue;
         } else if (name == "..") {
-            for (; len>0 && r[len-1]=='/'; len--) {}  // empty names
+            for (; len>root && r[len-1]=='/'; len--) {}  // empty names
             iz cut = len;
-            for (; cut>0 && !relsep(r[cut-1], windows); cut--) {}
-            len = cut ? cut-1 : len;
+            for (; cut>root && !relsep(r[cut-1], windows); cut--) {}
+            len = cut>root ? cut-1 : len;
             continue;
         }
         r[len++] = sep==':' ? ':' : '/';

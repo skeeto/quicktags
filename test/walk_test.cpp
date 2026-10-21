@@ -1181,6 +1181,23 @@ static void test_walk(Test *t)
         };
         runtrel(t, os, cases, countof(cases));
 
+        // D15: ".." at a drive's root stays there, where Universal Ctags
+        // takes the drive's ':' with it
+        struct { Str out, args, want, uctags; } d15[] = {
+            {"-",        "--tag-relative=never C:\\..\\Users\\u\\w\\a.c",
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c"},
+            {"-",        "--tag-relative=never /../../Users/u/w/a.c",
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c"},
+            {"sub/tags", "--tag-relative=always C:/../Users/u/w/a.c",
+                         "a=../a.c",           "a=C/Users/u/w/a.c"},
+            {"-",        "--tag-relative ..\\..\\..\\..\\Users\\u\\w\\a.c",
+                         "a=a.c",              "a=C/Users/u/w/a.c"},
+        };
+        for (iz i = 0; i < countof(d15); i++) {
+            TrelCase c = {d15[i].out, d15[i].args, 0, d15[i].want, ""};
+            runtrel(t, os, &c, 1);
+        }
+
         // The current directory's drive letter in lowercase, as cmd.exe
         // may have it, is uppercased in absolute paths
         os->cwd = "c:\\users\\u\\w";
