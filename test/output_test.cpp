@@ -171,14 +171,24 @@ static void test_output(Test *t)
         tag.anon      = 1;
         tag.qualified = 1;
         tag.aliased   = "a\\b";
+        tag.inherits  = "B<\"\t\">";
+        tag.access    = "public";
+        tag.impl      = "deferred";
+        tag.signature = "(char c='\\\\')";
         Format fmt = {};
         fmt.patmax = PATTERNLIMIT;
         fmt.fields = ~(u64)0;
         expect(t, "all fields", fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
                "f\tx.cpp\t/^  int *f() {}$/;\"\tkind:function\tline:2"
                "\tlanguage:C++\tscope:struct:A\ttyperef:typename:int *\tfile:"
+               "\tinherits:B<\"\\t\">\taccess:public\timplementation:deferred"
+               "\tsignature:(char c='\\\\\\\\')"
                "\troles:def\textras:fileScope,qualified,anonymous"
                "\tname:a\\\\b\n");
+        tag.inherits  = {};
+        tag.access    = {};
+        tag.impl      = {};
+        tag.signature = {};
 
         // Only a pattern, with the original format
         fmt.nofields = 1;
@@ -207,6 +217,33 @@ static void test_output(Test *t)
                "f\\\tx.cpp\t/^  int *f() {}$/\n");
         expect(t, "e-ctags file newline",
                fmttag(&a, "x\n.cpp", LANG_CXX, text, tag, &fmt), "");
+
+        // Signatures as they are too, so one with a tab drops the tag
+        // while written, but base classes escaped (FLD-8, FLD-9)
+        tag.name      = "f";
+        tag.scope     = "A";
+        tag.inherits  = "B\\\t";
+        tag.signature = "(c='\\\\')";
+        fmt.nofields  = 0;
+        fmt.fields    = (u64)1<<FIELD_INHERITS | (u64)1<<FIELD_SIGNATURE;
+        expect(t, "e-ctags signature",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/;\"\tinherits:B\\\\\\t"
+               "\tsignature:(c='\\\\')\n");
+        tag.signature = "(s=\"\t\")";
+        expect(t, "e-ctags signature tab",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");
+        fmt.fields = (u64)1<<FIELD_INHERITS;
+        expect(t, "e-ctags signature tab, not written",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/;\"\tinherits:B\\\\\\t\n");
+        fmt.fields   = (u64)1<<FIELD_SIGNATURE;
+        fmt.nofields = 1;
+        expect(t, "e-ctags signature tab, format 1",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/\n");
+        tag.inherits  = {};
+        tag.signature = {};
 
         // Addresses by excmd (OUT-6)
         tag.name     = "f";

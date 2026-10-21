@@ -53,6 +53,10 @@ struct Tag {
     b32 anon;       // named for an unnamed entity
     b32 qualified;  // a copy named by its scope (--extras=+q)
     Str aliased;    // C++ namespace aliases: the "name:" field
+    Str inherits;   // base classes, a parent type or module
+    Str access;     // "public", "private", "protected", or null
+    Str impl;       // "abstract", "deferred", "non_overridable", or null
+    Str signature;  // parameters
 };
 
 // A finished tags-file line, keyed for sorting by its first bytes.
@@ -234,6 +238,14 @@ static Format *newformat(Options *opt, Arena *a)
     return f;
 }
 
+// Will the file's lines show this field? Parsers build values that cost
+// something, such as signatures, only then.
+static b32 wantfield(File *f, i32 field)
+{
+    Format *fmt = f->fmt;
+    return fmt && !fmt->nofields && fieldon(fmt->fields, field);
+}
+
 static b32 hasbreak(Str s)
 {
     for (iz i = 0; i < s.len; i++) {
@@ -258,8 +270,8 @@ static void beginfield(Buf *b, b32 *any, Str key)
 // Append a tag as the format asks (OUT-6, FLD-5): the address by excmd,
 // then the enabled fields in Universal Ctags' order (FLD-4), the first
 // after ;", which unlike Universal Ctags includes the parser's (D10).
-// E-ctags writes names, paths, and scopes as they are, so it drops tags
-// it could not write that way (FLD-6).
+// E-ctags writes names, paths, scopes, and signatures as they are, so it
+// drops tags it could not write that way (FLD-6).
 static void tagline(File *f, Tag *t)
 {
     Source *src = f->src;
@@ -267,9 +279,11 @@ static void tagline(File *f, Tag *t)
     Buf    *b   = f->out;
     u64     on  = fmt->fields;
     b32     raw = fmt->ectags;
+    b32     ext = !fmt->nofields;  // the fields are written
     if (raw && (hasbreak(t->name) || hasbreak(src->path) ||
-                (!fmt->nofields && fieldon(on, FIELD_SCOPE) &&
-                 hasbreak(t->scope)) ||
+                (ext && fieldon(on, FIELD_SCOPE) && hasbreak(t->scope)) ||
+                (ext && fieldon(on, FIELD_SIGNATURE) &&
+                 hasbreak(t->signature)) ||
                 (fieldon(on, FIELD_CXXNAME) && hasbreak(t->aliased)))) {
         return;
     }
@@ -293,7 +307,7 @@ static void tagline(File *f, Tag *t)
         printpattern(b, src->text, t, fmt->patmax);
     }
 
-    if (!fmt->nofields) {
+    if (ext) {
         b32 any  = 0;
         b32 kind = fieldon(on, FIELD_KINDLONG) || fieldon(on, FIELD_KIND);
         if (kind) {
@@ -332,6 +346,26 @@ static void tagline(File *f, Tag *t)
         }
         if (fieldon(on, FIELD_FILE) && t->filescope) {
             beginfield(b, &any, "file");
+        }
+        if (fieldon(on, FIELD_INHERITS) && t->inherits.data) {
+            beginfield(b, &any, "inherits");
+            printescaped(b, t->inherits, 0);
+        }
+        if (fieldon(on, FIELD_ACCESS) && t->access.data) {
+            beginfield(b, &any, "access");
+            print(b, t->access);
+        }
+        if (fieldon(on, FIELD_IMPL) && t->impl.data) {
+            beginfield(b, &any, "implementation");
+            print(b, t->impl);
+        }
+        if (fieldon(on, FIELD_SIGNATURE) && t->signature.data) {
+            beginfield(b, &any, "signature");
+            if (raw) {
+                print(b, t->signature);
+            } else {
+                printescaped(b, t->signature, 0);
+            }
         }
         if (fieldon(on, FIELD_ROLES)) {
             beginfield(b, &any, "roles");
