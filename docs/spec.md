@@ -193,6 +193,12 @@ apply.
   - Runs of `! % + - / ^ | ? =` merge into one Operator, except that a lone `=` is an Assignment token.
   - `__attribute__(…)`, `__declspec(…)`, `alignas(…)` and `_Alignas(…)` are dropped; `[[…]]` is dropped. `__attribute` without trailing underscores is kept.
   - Limits: 16384 tokens per statement; nesting depth 1024 (braces and parentheses counted together).
+- **LEX-14 [S][V] Identifiers named by `-I`** (OPT-17; `cxx_parser_tokenizer.c`, the macro branch of `cxxParserParseNextToken`; `cpreprocessor.c`, the unget buffers).
+  - Only a word that is no keyword of the language is looked up, so keywords are never replaced, not even those disabled for now (`final`, and `public` in a header, CXX-17): `-I final=char` leaves `final y;` a member of type `final`. In C, C++'s keywords are words like any other. Directives never reach the tokenizer, so a `#define` of a listed name is still tagged, and Fortran has no `-I`.
+  - A listed word is dropped. If its entry takes a group, the whitespace after it is skipped, and if a `(` follows, the group to its matching `)` is dropped too, matching only parentheses (`X(a[)` is a group). A group that never closes ends the input there.
+  - If the entry has a replacement, the character after the word, or after the group or the whitespace, is pushed back, and then the replacement in front of it, to be read again through the preprocessor's filter (LEX-2..LEX-4). So the replacement joins what follows: `-I X+=int` makes `X y;` and `X(a)y;` the word `inty` [V]. Its characters report the dropped word's position, so tokens read from it take its line; once they are read, characters pushed back before it report their own position again (a stack of unget buffers).
+  - No replacement is made, though the word and group are still dropped, while the statement holds 16384 tokens, or nesting (LEX-13, with the replacements being read) is at 1024, or the innermost pushback holds 65536 characters (Universal Ctags measures that buffer's allocated size, here the characters in it). Nor is one made of an entry already replaced 8 times since the input was last read from the file, whose word then stays a plain identifier. That bounds loops: `-I a=b,b=a` turns `a x;` back into `a` after 16 replacements [V].
+  - Then the next token is read in the word's place, its reading one level deeper in the nesting.
 
 ### 1.5 C/C++ tagging rules
 
@@ -622,7 +628,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4), `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), and `-h` other than default. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -677,7 +683,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 
 **Parameters and roles**
 - **OPT-13 [S][V]**
-  - `--param-LANG.NAME=VALUE`: the separator after the language's name must be `.` or `:`, else FATAL `no separator(.) is given for param-C=1`; an empty value is FATAL `no value is given for param-C.x`. C, C++ and Fortran have no parameters: FATAL `no such parameter in C: x`. The C preprocessor's are `_expand` and `if0` (booleans, FATAL `Invalid value for "if0" parameter`), `define`, and `ignore`, which is `-I`'s.
+  - `--param-LANG.NAME=VALUE`: the separator after the language's name must be `.` or `:`, else FATAL `no separator(.) is given for param-C=1`; an empty value is FATAL `no value is given for param-C.x`. C, C++ and Fortran have no parameters: FATAL `no such parameter in C: x`. The C preprocessor's are `_expand` and `if0` (booleans, FATAL `Invalid value for "if0" parameter`), `define`, and `ignore`, which adds its value to `-I`'s table as one token, unsplit (OPT-17): `--param-CPreProcessor.ignore=a=int,b=char` replaces `a` with `int,b=char`.
   - `--roles-LANG.KIND=[+|-]{role}...`: roles mark only reference tags, which this program does not write, so the option is checked and does nothing. Without `.KIND`, or with `.*`, the value must be empty or `*` (FATAL `only '*' or '' (empty string) is acceptable as an argument for --roles-C: x`); `--roles-all.KIND` is FATAL; the kind is a letter or `{name}`, and an unknown one or the file kind only warns; garbage after it, an unclosed brace, an empty `{}`, and a character other than `+`, `-`, `*` or `{role}` are FATAL; an unknown role warns `no such role: "bogus" in kind 'd' in language "C"`. C's roles: `d` condition, undef; `f` foreigndecl; `h` local, system; `s` foreigndecl. C++'s: `M` imported, partOwner; `P` imported; `d` condition, undef; `h` exported, imported, local, system.
 
 **Option files**
@@ -700,6 +706,15 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 
 **Order of checks**
 - **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here OPT-5's `linkName` check and OPT-6's checks follow.
+
+**Identifiers**
+- **OPT-17 [S][V] `-I LIST|@FILE|-`** (`options.c processIgnoreOption`, `cpreprocessor.c saveIgnoreToken`) fills a table of identifiers that the C and C++ tokenizer drops or replaces (LEX-14), each option acting as it is read.
+  - A parameter starting with `@`, `.`, `/` or `\`, or on Windows with a letter and `:`, names a file (after the `@`), read at once: each line, at LF or CRLF, with its trailing whitespace removed, is one token, and empty lines are skipped. Leading whitespace, spaces and commas stay in the token, so `a b` is one that names nothing. One that cannot be read is FATAL `cannot open "FILE" : REASON`, as `Permission denied` for a directory, and `Invalid argument` for an empty name (`-I @`), on Windows.
+  - `-I -` empties the table.
+  - Any other parameter is a list split at spaces, tabs, newlines and commas.
+  - `--param-CPreProcessor.ignore=TOKEN` adds one token, unsplit (OPT-13).
+  - A token's name runs to its first `+` or `=`, and an empty one is ignored. `NAME` drops the identifier; a `+` before any `=` also drops a parenthesized group after it (`NAME+`); the text after the first `=`, when not empty, replaces them (`NAME=TEXT`, `NAME+=TEXT`). Text between the `+` and the `=` is ignored, `NAME=` is `NAME`, and a token ends at a NUL.
+  - A later token for a name replaces an earlier one. In Universal Ctags the table is a hash table whose growth, at 820 entries, reverses its buckets, so that past that size the earlier token can win [S]; here the last always does.
 
 ---
 
@@ -829,8 +844,9 @@ Decided for this program, deliberately different from Universal Ctags.
   grammar and messages (section 1.12). Those that act here are `-R`,
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
-  `--file-scope`, `--file-tags`), `--options`, the listings (OPT-15),
-  `--version`, `--help`, and this program's `--jobs`. The others are
+  `--file-scope`, `--file-tags`), `--options`, `-I` (and
+  `--param-CPreProcessor.ignore`), the listings (OPT-15), `--version`,
+  `--help`, and this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
@@ -855,7 +871,7 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X5** Bytes 0x80 and above are identifier characters.
 - **X6** `_Pragma(...)` and MSVC's `__pragma(...)` are dropped like
   `__attribute__(...)`, so pragmas between a declaration's parts do not
-  hide its type.
+  hide its type. When `-I` names one, it acts as `-I` says (LEX-14).
 - **X7** `#elifdef` and `#elifndef` act as `#elif`.
 - **X8** Conditionals nest 64 deep, and push and pop stay in step beyond.
 - **X9** A `??` that is not a trigraph is pushed back in order.
