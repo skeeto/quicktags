@@ -278,6 +278,21 @@ static TagCase ccases[] = {
      "y\tlp.c\t/^b y;$/;\"\tv\tline:2\ttyperef:typename:b\n"
      "z\tlp.c\t/^x z;$/;\"\tv\tline:3\ttyperef:typename:x\n",
      ""},
+    {SHARED, "-I replacements ending in hex digits", "hx.c", "-I X+=B,Y+=int*F,Z+=g",
+     "struct X\n"
+     "{ int m; };\n"  // B is read past, so it takes the line of '{'
+     "Y\n"
+     "\n"
+     "\n"
+     ";\n"
+     "int Z\n"  // g is not a hex digit
+     "(1)\n"
+     ";\n",
+     "B\thx.c\t/^{ int m; };$/;\"\ts\tline:2\tfile:\n"
+     "F\thx.c\t/^;$/;\"\tv\tline:6\ttyperef:typename:int *\n"
+     "g\thx.c\t/^int Z$/;\"\tv\tline:7\ttyperef:typename:int\n"
+     "m\thx.c\t/^{ int m; };$/;\"\tm\tline:2\tstruct:B\ttyperef:typename:int\tfile:\n",
+     ""},
     {SHARED, "-I groups", "g.c", "-I M+,N+",
      "int M(a[1], {b], <c) v;\n"
      "int N(x) (y) u;\n"

@@ -945,6 +945,10 @@ static i32 cppget(Cpp *p)
                 if (next != '\'') {
                     unget(p, next);
                 }
+            } else if (cppxdigit(c) && p->nmarks) {
+                // Universal Ctags looks past every hex digit, which ends
+                // a replacement read to its end (LEX-14)
+                unget(p, rawget(p));
             }
         enter:
             p->accept = 0;
