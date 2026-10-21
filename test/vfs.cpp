@@ -45,7 +45,8 @@ static b32 vfssep(Os *os, u8 c)
     return c=='/' || (os->windows && c=='\\');
 }
 
-// A path within the current directory, relative to it if absolute.
+// A path within the current directory, relative to it if absolute. On
+// Windows, letters match in either case.
 static Str vfsrelative(Os *os, Str path)
 {
     Str cwd = os->cwd;
@@ -53,13 +54,14 @@ static Str vfsrelative(Os *os, Str path)
         return path;
     }
     for (iz i = 0; i < cwd.len; i++) {
-        u8 a = path[i];
-        u8 b = cwd[i];
+        u8 a = os->windows ? lowercase(path[i]) : path[i];
+        u8 b = os->windows ? lowercase(cwd[i])  : cwd[i];
         if (a!=b && !(vfssep(os, a) && vfssep(os, b))) {
             return path;
         }
     }
-    if (path.len>cwd.len && !vfssep(os, path[cwd.len])) {
+    b32 root = cwd.len && vfssep(os, cwd[cwd.len-1]);  // C:\ or /
+    if (path.len>cwd.len && !root && !vfssep(os, path[cwd.len])) {
         return path;
     }
     return cuthead(path, cwd.len);

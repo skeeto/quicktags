@@ -233,6 +233,20 @@ static void test_walk(Test *t)
         expect(t, "absolute windows out", r.out,
                "x\tC:/work/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
         expect(t, "cwd", os_cwd(os, &a), "C:\\work");
+        r = run(os, a, "-f - c:\\WORK/a.c");
+        expect(t, "absolute windows case out", r.out,
+               "x\tc:/WORK/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
+
+        // From the root, whose path ends in a separator
+        os->cwd = "C:\\";
+        r = run(os, a, "-f - C:/a.c");
+        expect(t, "absolute drive root out", r.out,
+               "x\tC:/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
+        os->windows = 0;
+        os->cwd     = "/";
+        r = run(os, a, "-f - /a.c");
+        expect(t, "absolute root out", r.out,
+               "x\t/a.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n");
     }
     {
         Os *os = newos(&a);
