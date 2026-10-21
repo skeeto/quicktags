@@ -143,6 +143,15 @@ enum : i32 {
     CHARMAX = 10,    // character contents kept
 };
 
+// A replacement pushed back (ungetat): the characters above base, which
+// report the position of the identifier replaced. Once they are read,
+// those below report the position they did before, kept here.
+struct Mark {
+    iz  base;
+    i32 line;
+    iz  pos;
+};
+
 struct Cpp {
     Reader in;
     File  *f;
@@ -153,6 +162,10 @@ struct Cpp {
     b32    backlive;  // pushed-back characters may remain
     i32    backline;  // the position reported while they do
     iz     backpos;
+    Mark  *marks;     // replacements in the pushback, innermost last
+    iz     nmarks;
+    iz     capmarks;
+    i32    drains;    // times the pushback ran dry
     Word   lit;       // contents of the last literal
     Word   name;      // the identifier a directive is reading
     b32    resolve;   // a statement is in progress
@@ -190,15 +203,40 @@ static iz cpppos(Cpp *p)
     return p->backlive ? p->backpos : p->in.linepos;
 }
 
+// Nothing is pushed back any more: read from the file again.
+static void cppdrained(Cpp *p)
+{
+    p->backlive = 0;
+    p->nmarks   = 0;
+    p->drains++;
+}
+
 static i32 rawget(Cpp *p)
 {
     if (p->backlive) {
-        if (p->nback) {
-            return p->back[--p->nback];
+        for (;;) {
+            iz base = p->nmarks ? p->marks[p->nmarks-1].base : 0;
+            if (p->nback > base) {
+                return p->back[--p->nback];
+            } else if (!p->nmarks) {
+                break;
+            }
+            // A replacement was read: what is below it reports its own
+            // position again
+            Mark *m = p->marks + --p->nmarks;
+            p->backline = m->line;
+            p->backpos  = m->pos;
         }
-        p->backlive = 0;
+        cppdrained(p);
     }
     return readbyte(&p->in);
+}
+
+// Characters waiting in the innermost replacement, or in all of the
+// pushback outside replacements.
+static iz cppbacklen(Cpp *p)
+{
+    return p->nback - (p->nmarks ? p->marks[p->nmarks-1].base : 0);
 }
 
 static void pushback(Cpp *p, u8 c)
@@ -243,6 +281,31 @@ static void ungetstr(Cpp *p, Str s)
         p->backline = p->in.line;
         p->backpos  = p->in.linepos;
     }
+    for (iz i = s.len-1; i >= 0; i--) {
+        pushback(p, s[i]);
+    }
+}
+
+// Push back the replacement of an identifier at line and pos, which its
+// characters report until they are read.
+static void ungetat(Cpp *p, Str s, i32 line, iz pos)
+{
+    if (p->nmarks == p->capmarks) {
+        iz    cap   = p->capmarks ? p->capmarks*2 : 16;
+        Mark *marks = alloc<Mark>(p->a, cap);
+        for (iz i = 0; i < p->nmarks; i++) {
+            marks[i] = p->marks[i];
+        }
+        p->marks    = marks;
+        p->capmarks = cap;
+    }
+    Mark *m = p->marks + p->nmarks++;
+    m->base = p->nback;
+    m->line = p->backline;
+    m->pos  = p->backpos;
+    p->backlive = 1;
+    p->backline = line;
+    p->backpos  = pos;
     for (iz i = s.len-1; i >= 0; i--) {
         pushback(p, s[i]);
     }

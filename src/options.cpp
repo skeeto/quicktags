@@ -7,6 +7,22 @@ enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
 enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
 enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 
+// An identifier -I names for the C and C++ tokenizer to drop, with the
+// group in parentheses after it if parens, and to replace with repl if
+// it has one (OPT-17, LEX-14).
+struct Macro {
+    Str name;
+    Str repl;    // null data for none
+    b32 parens;
+    i32 index;   // in its table, for counts of its replacements
+};
+
+// The -I table, read-only once parsed.
+struct Macros {
+    Map<Macro> *map;
+    i32         len;
+};
+
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
@@ -28,7 +44,7 @@ struct Options {
     u32        langs;        // enabled languages, one bit per LANG_*
     Slice<Str> excludes;     // --exclude values, as given
     Slice<Str> exceptions;   // --exclude-exception values, as given
-    Slice<Str> ignores;      // -I lists, as given
+    Macros     macros;       // -I
     Str        listfile;     // -L, null for none
     Str        print;        // for ARGS_EXIT: what to print
     b32        append;
@@ -55,6 +71,9 @@ static Str usage =
 "                          p: pseudo-tags (default: Fp)\n"
 "  --options=FILE|DIR      read options from FILE, one per line, or from\n"
 "                          the *.ctags files in DIR\n"
+"  -I LIST|@FILE|-         C and C++ macros to drop: X, or X+ with the\n"
+"                          (...) after it, or to replace, X=Y and X+=Y;\n"
+"                          comma-separated or one per line, - for none\n"
 "  --jobs=N                threads, 0 for one per processor (default: 0)\n"
 "  --list-languages, --list-kinds[=LANG], --list-kinds-full[=LANG],\n"
 "  --list-extras[=LANG], --list-fields[=LANG]\n"
@@ -252,6 +271,88 @@ static Slice<Str> splitlines(Arena *a, Str s, u32 flags)
         r = push(a, r, line);
     }
     return r;
+}
+
+
+// Macros, as -I names them
+
+// Add a token, NAME, NAME+, NAME=TEXT or NAME+=TEXT, to the table. The
+// name runs to the first '+' or '=', and the replacement is the text
+// after the first '='. A later token for a name replaces the earlier.
+static void macrotoken(Parse *p, Str token)
+{
+    token = cut(token, 0).head;  // a C string in Universal Ctags
+    Macro m   = {};
+    iz    i   = 0;
+    iz    end = -1;  // of the name
+    for (; i<token.len && token[i]!='='; i++) {
+        if (token[i] == '+') {
+            end = end<0 ? i : end;
+            m.parens = 1;
+        }
+    }
+    end = end<0 ? i : end;
+    if (i+1 < token.len) {
+        m.repl = cuthead(token, i+1);
+    }
+    if (!end) {
+        return;
+    }
+
+    Macros *t = &p->opt->macros;
+    m.name = takehead(token, end);
+    Macro *e = upsert(&t->map, m.name, p->perm);
+    m.index = e->name.data ? e->index : t->len++;
+    *e = m;
+}
+
+static b32 macrosep(u8 c)
+{
+    return c==' ' || c=='\t' || c=='\n' || c==',';
+}
+
+// -I LIST|@FILE|-: tokens separated by spaces, tabs, newlines and
+// commas; a file of them, one to a line; or "-" to empty the table.
+static i32 macrosopt(Parse *p, Str list)
+{
+    u8  c    = list[0];
+    b32 path = c=='@' || c=='.' || c=='/' || c=='\\' ||
+               (p->opt->windows && list.len>1 && letter(c) && list[1]==':');
+    if (path) {
+        Str name = cuthead(list, c=='@');
+        if (!name.len) {
+            Str why = p->opt->windows ? Str("Invalid argument")
+                                      : errstr(OSERR_NOENT);
+            return fatal(p, "cannot open \"\" : ", why);
+        }
+        Read r = os_read(p->os, p->perm, name, (iz)1<<30);
+        if (r.err) {
+            return fatal(p, "cannot open \"", name, "\" : ", errstr(r.err));
+        }
+        // Each line, without trailing whitespace, is a token
+        for (Str rest = r.data; rest.len;) {
+            Cut line  = cut(rest, '\n');
+            Str token = trimright(line.head);
+            if (token.len) {
+                macrotoken(p, token);
+            }
+            rest = line.tail;
+        }
+
+    } else if (list == "-") {
+        p->opt->macros = {};
+
+    } else {
+        for (iz i = 0; i < list.len;) {
+            iz beg = i;
+            for (; i<list.len && !macrosep(list[i]); i++) {}
+            if (i > beg) {
+                macrotoken(p, span(list.data+beg, list.data+i));
+            }
+            i += i < list.len;
+        }
+    }
+    return ARGS_OK;
 }
 
 
@@ -919,7 +1020,7 @@ static i32 paramopt(Parse *p, Str name, Str value)
         return ARGS_OK;
     }
     if (param == "ignore") {
-        p->opt->ignores = push(p->perm, p->opt->ignores, value);
+        macrotoken(p, value);  // one token, unlike -I's list
         return ARGS_OK;
     } else if (param=="_expand" || param=="if0") {
         i32 b = parsebool(value);
@@ -1693,8 +1794,7 @@ static i32 shortopt(Parse *p, u8 c, Str param)
         return ARGS_OK;
 
     case 'I':
-        opt->ignores = push(p->perm, opt->ignores, param);
-        return ARGS_OK;
+        return macrosopt(p, param);
 
     case 'L':
         if (opt->listfile.data) {
@@ -1833,7 +1933,6 @@ static i32 parsefinish(Parse *p)
     if (opt->force)                   return notyet(p, "--language-force");        // M2b
     if (opt->mapped)                  return notyet(p, "--langmap");               // M2b
     if (opt->headers)                 return notyet(p, "-h");                      // M2b
-    if (opt->ignores.len)             return notyet(p, "-I");                      // M9
     return ARGS_OK;
 }
 

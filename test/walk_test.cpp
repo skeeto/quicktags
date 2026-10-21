@@ -298,6 +298,29 @@ static void test_walk(Test *t)
     }
 
     {
+        // -I files, a token to a line (OPT-17), named on Windows also
+        // by a drive letter
+        Os *os = newos(&a);
+        vfsfile(os, "m.c", "DECL x;\nWRAP(1) y;\n");
+        vfsfile(os, "list", "DECL=int\r\n  \nWRAP+=long \n");
+        vfsfile(os, "C:list", "DECL=char\n");
+        Str x = "x\tm.c\t/^DECL x;$/;\"\tv\tline:1\ttyperef:typename:";
+        Str y = "y\tm.c\t/^WRAP(1) y;$/;\"\tv\tline:2\ttyperef:typename:";
+        Run r = run(os, a, "-f - -I @list m.c");
+        expect(t, "-I @list err", r.err, "");
+        expect(t, "-I @list out", r.out,
+               concat(&a, concat(&a, concat(&a, x, "int\n"), y), "long\n"));
+        r = run(os, a, "-f - -I C:list m.c");
+        expect(t, "-I C:list out", r.out, concat(&a, x, "DECL\n"));
+        os->windows = 1;
+        r = run(os, a, "-f - -I C:list m.c");
+        expect(t, "-I C:list windows out", r.out, concat(&a, x, "char\n"));
+        r = run(os, a, "-f - -I @ m.c");
+        expect(t, "-I @ windows err", r.err,
+               "ctags: cannot open \"\" : Invalid argument\n");
+    }
+
+    {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-f - b.c a.c c.c");
