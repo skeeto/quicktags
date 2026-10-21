@@ -232,6 +232,30 @@ static void test_output(Test *t)
         }
     }
 
+    // Whether a file's first bytes make it a tags file Universal Ctags
+    // replaces (CLI-3), each checked against it
+    struct { Str head; b32 want; } heads[] = {
+        {"a\tb\t/x/\n",        1}, {"a\tb\t?x?\n",       1},
+        {"a\tb\t12\n",         1}, {"a\tb\t12;\"\tv\n",   1},
+        {"a\tb\t12x\n",        0}, {"a\tb\t;12\n",        0},
+        {"a\tb\t\n",           0}, {"a\tb\t\r\n",         0},
+        {"a\tb\t\t/x/\n",      0}, {"a\t\tb\t/x/\n",      0},
+        {"a\tb;\t/x/\n",       0}, {"#a\tb\t/x/\n",       0},
+        {"\tb\t/x/\n",         0}, {"a\tb\n",             0},
+        {"hello\n",            0}, {"\f\nx,1\n",          1},
+        {"\f\rx",              1}, {"\fx",                0},
+        {"\f",                 0}, {"a\0\tb\t/x/\n",      0},
+        {"a\tb\t1\r2\n",       1}, {"a\tb\t12\r\n",       1},
+        {"int a;\t/* x */\n",  0}, {"#define X\t1\n",     0},
+        {"a\tb\t/\n",          1}, {"a b\tc d\t 1\n",     0},
+        {"a\tb\t1 2;x\n",      0},
+        {"!_TAG_FILE_FORMAT\t2\t/x/\n", 1},
+    };
+    for (iz i = 0; i < countof(heads); i++) {
+        expect(t, heads[i].head, num(&a, istagsline(heads[i].head)),
+               num(&a, heads[i].want));
+    }
+
     struct { Str name, want; } names[] = {
         {" x",    "\\x20x"},
         {"!x",    "\\x21x"},

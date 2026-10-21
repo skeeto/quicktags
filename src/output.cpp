@@ -248,22 +248,34 @@ static Str pseudotags(Os *os, Options *opt, Arena *a, Buf *log)
     return finish(&b);
 }
 
-// Universal Ctags' test for an existing tags file it may overwrite: its
-// first line has a name, a file, and an address, separated by tabs.
+// Universal Ctags' test for an existing tags file it may overwrite (CLI-3):
+// its first line, up to a NUL, starts an etags section, or is a name not
+// starting with '#', a file not ending in ';', each followed by exactly
+// one tab, and an address, up to a CR, that is a pattern or digits up to
+// a ';'.
 static b32 istagsline(Str s)
 {
-    if (s.len && s[0]=='\f') {
+    if (s.len>=2 && s[0]=='\f' && (s[1]=='\n' || s[1]=='\r')) {
         return 1;  // etags
     }
-    Cut line = cut(s, '\n');
-    Str l    = line.head;
-    if (endswith(l, "\r")) {
-        l = cuttail(l, 1);
-    }
-    Cut name = cut(l, '\t');
+    Str line = cut(cut(s, '\n').head, 0).head;
+    Cut name = cut(line, '\t');
     Cut file = cut(name.tail, '\t');
-    return name.ok && file.ok && name.head.len && !startswith(name.head, "#") &&
-           file.head.len && !endswith(file.head, ";") && file.tail.len;
+    Str addr = cut(file.tail, '\r').head;
+    if (!name.ok || !file.ok || !name.head.len || name.head[0]=='#' ||
+        !file.head.len || endswith(file.head, ";") || !addr.len ||
+        addr[0]=='\t') {
+        return 0;
+    } else if (addr[0]=='/' || addr[0]=='?') {
+        return 1;
+    }
+    Str num = cut(addr, ';').head;
+    for (iz i = 0; i < num.len; i++) {
+        if (!digit(num[i])) {
+            return 0;
+        }
+    }
+    return num.len > 0;
 }
 
 // Refuse to replace a directory or a file that isn't a tags file.
