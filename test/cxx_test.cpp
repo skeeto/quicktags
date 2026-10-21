@@ -470,3 +470,66 @@ static void test_cxx(Test *t)
 {
     runcases(t, cxxcases, countof(cxxcases));
 }
+
+// A data table long enough to reach the token limit, with things in
+// it the fast path must stop at, then a tag whose line is checked.
+static Str bigtable(Arena *a, Str head, Str tail, i32 *afterline)
+{
+    Buf b(a, 1<<20);
+    print(&b, head);
+    for (i32 i = 0; i < 40000; i++) {
+        print(&b, "0x");
+        printhex(&b, (u32)i&0xff, 2);
+        switch (i % 5000) {
+        case 1000: print(&b, " /* , */"); break;
+        case 1500: print(&b, "\n#if 1\n,0x1\n#endif\n"); break;
+        case 2000: print(&b, ", 1'000"); break;
+        case 2500: print(&b, ", 1.5e3f, 0x1p3, .5, 077uLL"); break;
+        case 3000: print(&b, ", u8'x', \"s,1\""); break;
+        case 3500: print(&b, ", \v1"); break;
+        case 4000: print(&b, ", ID(2), x"); break;
+        }
+        print(&b, i%12==11 ? (i%24==11 ? Str(",\r\n") : Str(",\n")) : Str(", "));
+    }
+    print(&b, tail);
+    *afterline = 1;
+    for (iz i = 0; i < b.len; i++) {
+        *afterline += b.data[i] == '\n';
+    }
+    print(&b, "int after;\n");
+    return finish(&b);
+}
+
+static void test_fastpaths(Test *t)
+{
+    struct {
+        Str name;
+        Str head;
+        Str tail;
+    } tables[] = {
+        {"table", "unsigned char data[] = {\n", "};\n"},
+        {"nested", "int f(void) { static int v[] = {\n", "}; return 0; }\n"},
+        {"call", "int x = f(\n", "0);\n"},
+    };
+    for (iz i = 0; i < countof(tables); i++) {
+        Arena a     = t->perm;
+        i32   line  = 0;
+        Str   src   = bigtable(&a, tables[i].head, tables[i].tail, &line);
+        Os   *os    = newos(&a);
+        vfsfile(os, "big.c", src);
+        Run fast = run(os, a, "-f - big.c");
+        Run slow = run(os, a, "--_nofast -f - big.c");
+        expect(t, tables[i].name, fast.out, slow.out);
+
+        Buf want(&a, 64);
+        print(&want, "after\tbig.c\t/^int after;$/;\"\tv\tline:");
+        print(&want, (i64)line);
+        Str got = {};
+        for (Cut c = cut(fast.out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+            if (startswith(c.head, "after\t")) {
+                got = cuttail(c.head, c.head.len - want.len);
+            }
+        }
+        expect(t, tables[i].name, got, finish(&want));
+    }
+}

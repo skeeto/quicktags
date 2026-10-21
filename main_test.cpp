@@ -200,6 +200,7 @@ int main(int argc, char **argv)
         {"walk",    test_walk,    0},
         {"c",       test_c,       1},
         {"cxx",     test_cxx,     1},
+        {"fast",    test_fastpaths, 0},
         {"fortran", test_fortran, 1},
     };
 

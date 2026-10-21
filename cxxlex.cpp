@@ -89,6 +89,32 @@ static i32 readbyte(Reader *r)
     return c;
 }
 
+// Read up to (not including) to, as readbyte would, for the fast paths.
+// The last byte read must not be a CR before a LF.
+static void advance(Reader *r, u8 *to)
+{
+    if (r->p == to) {
+        return;
+    }
+    if (r->newline) {
+        r->line++;
+        r->linepos = r->p - r->beg;
+        r->newline = 0;
+    }
+    for (u8 *s = r->p;; s++) {
+        s = (u8 *)__builtin_memchr(s, '\n', (uz)(to - s));
+        if (!s) {
+            break;
+        } else if (s+1 == to) {
+            r->newline = 1;
+            break;
+        }
+        r->line++;
+        r->linepos = s+1 - r->beg;
+    }
+    r->p = to;
+}
+
 enum : i32 {
     D_NONE,     // ignore to the end of the line
     D_DEFINE,   // after "#define"

@@ -106,6 +106,7 @@ struct Cxx {
     b32    scopedirty;
     Token *module;     // the current C++20 module
     b32    dryrun;     // tags are not written
+    b32    skipnums;   // numbers and commas may be skipped (skipnumbers)
     Tag    tag;
 };
 
@@ -503,6 +504,67 @@ static void nextchar(Cxx *c)
     c->ch = cppget(&c->cpp);
 }
 
+static b32 innumber(u8 b)  // CC_NUMBER, from a bit table
+{
+    static u64 const bits[2] = {
+        0x03ff400000000000,  // . 0-9
+        0x0120117e0120117e,  // A-F H L U X a-f h l u x
+    };
+    return b<0x80 && bits[b>>6]>>(b&63) & 1;
+}
+
+static u8 *skipblanks(u8 *s, u8 *end)  // spaces, tabs, and newlines
+{
+    for (; s < end; s++) {
+        u8 b = *s;
+        if (b!=' ' && b!='\t' && b!='\n' && !(b=='\r' && s+1<end && s[1]=='\n')) {
+            break;
+        }
+    }
+    return s;
+}
+
+// Fast path for data tables: at a ',' in a statement already at the
+// token limit, where each token replaces the last until one matters,
+// skip a run of plain numbers and commas in the source, leaving the
+// last ',' as the current character with the state reading it would
+// leave. Anything else stops the run, before the number it is in.
+static void skipnumbers(Cxx *c)
+{
+    Cpp *p = &c->cpp;
+    if (p->nback || p->state!=D_NONE) {
+        return;
+    }
+
+    u8 *s    = p->in.p;
+    u8 *end  = p->in.end;
+    u8 *stop = 0;  // just past the last ',' of a complete number
+    for (;;) {
+        s = skipblanks(s, end);
+        if (s==end || (u8)(*s-'0')>9) {
+            break;
+        }
+        for (s++; s<end && innumber(*s); s++) {}
+        if (s<end && (cppident(*s) || *s=='\'')) {
+            break;  // more of a token than a number
+        }
+        s = skipblanks(s, end);
+        if (s==end || *s!=',') {
+            break;
+        }
+        stop = ++s;
+    }
+
+    if (stop) {
+        advance(&p->in, stop);
+        p->backlive  = 0;
+        p->innum     = 0;
+        p->prevident = 0;
+        p->accept    = 0;
+        c->ch = ',';
+    }
+}
+
 static void putch(Cxx *c, Token *t, i32 ch)
 {
     if (ch == C_STRING) {
@@ -592,6 +654,10 @@ static b32 cxxnext(Cxx *c)
         c->tok   = c->unget;
         c->unget = 0;
         return c->tok->type != T_EOF;
+    }
+
+    if (c->skipnums && c->ch==',' && c->chain->count>=CHAINMAX-1 && !c->f->nofast) {
+        skipnumbers(c);
     }
 
     Token *t = newtoken(p);
@@ -893,7 +959,10 @@ static b32 condenseupto(Cxx *c, u32 types, u32 markers, b32 reduce)
         if (c->tok->type & closers) {
             return 0;  // mismatched
         }
-        if (!cxxnext(c)) {
+        c->skipnums = !(types & (T_COMMA|T_NUMBER));
+        b32 more = cxxnext(c);
+        c->skipnums = 0;
+        if (!more) {
             return !!(types & T_EOF);
         }
     }

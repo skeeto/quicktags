@@ -41,3 +41,22 @@ if(CTAGS_CORPUS_LLVM AND ctags_units_ok)
     endif()
   endforeach()
 endif()
+
+# The fast paths and threads must not change the output (label "same")
+function(ctags_same_test name root opts)
+  add_test(NAME same/${name} COMMAND ${CMAKE_COMMAND}
+    -DOURS=$<TARGET_FILE:ctags> -DROOT=${root} -DOPTS=${opts}
+    -DWORK=${PROJECT_BINARY_DIR}/work/same/${name}
+    -P ${PROJECT_SOURCE_DIR}/cmake/runsame.cmake)
+  set_tests_properties(same/${name} PROPERTIES
+    LABELS "corpus;same" TIMEOUT 1800 PROCESSORS 8)
+endfunction()
+
+if(CTAGS_CORPUS_LLAMA)
+  ctags_same_test(llama/nofast ${CTAGS_CORPUS_LLAMA} --_nofast)
+  ctags_same_test(llama/jobs1  ${CTAGS_CORPUS_LLAMA} --jobs=1)
+endif()
+if(CTAGS_CORPUS_LLVM)
+  ctags_same_test(llvm/nofast ${CTAGS_CORPUS_LLVM} --_nofast)
+  ctags_same_test(llvm/jobs1  ${CTAGS_CORPUS_LLVM} --jobs=1)
+endif()
