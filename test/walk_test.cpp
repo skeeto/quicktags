@@ -1,5 +1,16 @@
 // Discovery: paths, exclusions, languages, and whole runs
 
+// The names of the tags in output, in order, separated by spaces.
+static Str tagnames(Arena *a, Str out)
+{
+    Buf b(a, 64);
+    for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        if (b.len) putbyte(&b, ' ');
+        print(&b, cut(c.head, '\t').head);
+    }
+    return finish(&b);
+}
+
 static void test_walk(Test *t)
 {
     Arena a = t->perm;
@@ -24,6 +35,136 @@ static void test_walk(Test *t)
     expect(t, "posix backslash", outpath(&a, joinpath(&a, "a\\b", "c.c", 0), 0),
            "a\\\\b/c.c");
 
+    // Patterns as fnmatch() without flags matches them (DISC-8). The
+    // Windows rows are Universal Ctags' results, from patterns in an
+    // --exclude=@FILE list, which keeps '\' an escape there
+    struct { Str pat, name; b32 windows, want; } globs[] = {
+        {"*.c",           "a.c",       0, 1},
+        {"*.C",           "a.c",       0, 0},
+        {"*.C",           "a.c",       1, 1},
+        {"a?c",           "a.c",       0, 1},
+        {"*",             "",          0, 1},
+        {"?",             "",          0, 0},
+        {"*?",            "",          0, 0},
+        {"dir*c",         "dir/a.c",   0, 1},
+        {".*",            ".",         0, 1},
+        {".*",            "./sub",     0, 1},
+        {"*/a.c",         "dir\\a.c",  1, 1},
+        {"*/a.c",         "dir\\a.c",  0, 0},
+        {"*a*b*c",        "xaybzc",    0, 1},
+        {"*a*b*c",        "xaybzcb",   0, 0},
+        {"[ab].c",        "a.c",       1, 1},
+        {"[ab].c",        "c.c",       1, 0},
+        {"[!ab].c",       "c.c",       1, 1},
+        {"[!ab].c",       "b.c",       1, 0},
+        {"[^ab].c",       "[.c",       1, 1},
+        {"[^ab].c",       "a.c",       1, 0},
+        {"[a-c].c",       "b.c",       1, 1},
+        {"[a-c].c",       "d.c",       1, 0},
+        {"[A-C].c",       "b.c",       0, 0},
+        {"[A-C].c",       "b.c",       1, 1},
+        {"[]a].c",        "].c",       1, 1},
+        {"[!]].c",        "].c",       1, 0},
+        {"[!]].c",        "^.c",       1, 1},
+        {"[a-].c",        "-.c",       0, 1},
+        {"[a-].c",        "a.c",       1, 1},
+        {"[a-].c",        "b.c",       1, 0},
+        {"[a-",           "[a-",       0, 0},
+        {"[a-",           "a",         0, 0},
+        {"[ab.c",         "[ab.c",     1, 1},
+        {"[ab.c",         "a.c",       1, 0},
+        {"[[a",           "[[a",       0, 0},
+        {"[!a",           "[!a",       0, 1},
+        {"*[ab",          "x[ab",      0, 1},
+        {"[[:digit:]].c", "5.c",       0, 1},
+        {"[[:digit:]].c", "x.c",       0, 0},
+        {"[[:digit:]].c", "5.c",       1, 0},
+        {"[[:alpha:]].c", "x.c",       0, 1},
+        {"[[:alpha:]].c", "\xe9.c",    0, 0},
+        {"[[:alpha:]].c", "x.c",       1, 0},
+        {"[[:alpha:]].c", "a].c",      1, 1},
+        {"[[:alpha:]].c", "P].c",      1, 1},
+        {"[[:alpha:]].c", "x].c",      1, 0},
+        {"[[:punct:]x]",  "!",         0, 1},
+        {"[[:space:]]",   "\v",        0, 1},
+        {"[[:xdigit:]]",  "F",         0, 1},
+        {"[[:xdigit:]]",  "g",         0, 0},
+        {"[[:bogus:]].c", "x.c",       0, 0},
+        {"[[::]]",        ":",         0, 0},
+        {"[[:digit:]-z]", "-",         0, 1},
+        {"[[:digit:]-z]", "y",         0, 0},
+        {"[[:].c",        "[.c",       1, 1},
+        {"[[:-].c",       "[.c",       1, 1},
+        {"[\\]].c",       "].c",       1, 1},
+        {"[a\\-c].c",     "c.c",       1, 1},
+        {"[a\\-c].c",     "b.c",       1, 0},
+        {"[\\a-c].c",     "b.c",       0, 1},
+        {"[a-\\c].c",     "b.c",       0, 1},
+        {"[a-\\",         "b",         0, 0},
+        {"[\\",           "[",         0, 0},
+        {"\\a.c",         "a.c",       1, 1},
+        {"a\\.c",         "a.c",       1, 1},
+        {"\\*.c",         "*.c",       0, 1},
+        {"\\*.c",         "a.c",       0, 0},
+        {"a\\",           "a",         0, 0},
+        {"a\\",           "a\\",       0, 0},
+        {"[x[=a=]].c",    "a].c",      1, 1},
+        {"[x[=a=]].c",    "x.c",       1, 1},
+        {"[x[=a=]].c",    "x].c",      1, 0},
+        {"[x[=a].c",      "x.c",       0, 0},
+        {"[x[.y.]].c",    "x.c",       1, 1},
+        {"[x[.y.]].c",    "y].c",      1, 1},
+        {"[x[.y",         "x",         1, 0},
+        {"[x[:a].c",      "x.c",       0, 1},
+        {"[[:x",          "[",         1, 0},
+    };
+    for (iz i = 0; i < countof(globs); i++) {
+        Str name = concat(&a, concat(&a, globs[i].pat, " "), globs[i].name);
+        expect(t, name, num(&a, globmatch(globs[i].pat, globs[i].name,
+                                          globs[i].windows)),
+               num(&a, globs[i].want));
+    }
+
+    // Classified patterns match as the general matcher does
+    {
+        Str pats[] = {"a.c", "*.c", "a*", "x*y", "*", "", ".*.swp", "?",
+                      "CVS", "{arch}", "*~", "a*b*", "*a*", "*/*", "*.C*",
+                      "**", "*X\\*"};
+        Str names[] = {"a.c", "A.C", "b.c", "a", "", "xy", "xzzy", "x\\y",
+                       "d/a/x.c", "x.cpp", "X*", "d\\e",
+                       ".x.swp", "cvs", "{ARCH}", "~", "a\\b"};
+        for (iz i = 0; i < countof(pats); i++) {
+            Slice<Glob> one = {};
+            one = push(&a, one, newglob(pats[i]));
+            for (iz j = 0; j < countof(names); j++) {
+                for (b32 w = 0; w < 2; w++) {
+                    Str name = concat(&a, concat(&a, pats[i], " "), names[j]);
+                    expect(t, name, num(&a, globsmatch(one, names[j], w)),
+                           num(&a, globmatch(pats[i], names[j], w)));
+                }
+            }
+        }
+        struct { Str pat; i32 kind; } kinds[] = {
+            {"CVS",     GLOB_EXACT},
+            {"*.o",     GLOB_STAR},
+            {".*.swp",  GLOB_STAR},
+            {"*/x/*",   GLOB_INFIX},
+            {"**",      GLOB_ANY},
+            {"*x*y*",   GLOB_ANY},
+            {"x*y*",    GLOB_ANY},
+            {"x?",      GLOB_ANY},
+            {"[x]",     GLOB_ANY},
+            {"\\x",     GLOB_ANY},
+        };
+        for (iz i = 0; i < countof(kinds); i++) {
+            expect(t, kinds[i].pat, num(&a, newglob(kinds[i].pat).kind),
+                   num(&a, kinds[i].kind));
+        }
+        // A pattern ends at a NUL, as a C string does
+        Glob g = newglob({(u8 *)"a\0*", 3});
+        expect(t, "NUL", g.pat, "a");
+    }
+
     struct { Str path; b32 windows, want; } excl[] = {
         {".git",          0, 1},
         {"src/.git",      0, 1},
@@ -41,38 +182,180 @@ static void test_walk(Test *t)
         {"notes~",        0, 1},
     };
     for (iz i = 0; i < countof(excl); i++) {
-        expect(t, excl[i].path, num(&a, excluded(excl[i].path, excl[i].windows)),
-               num(&a, excl[i].want));
+        Arena   tmp = a;
+        Options opt = {};
+        Parse   p   = {};
+        Buf     log(&tmp, 64);
+        opt.windows = excl[i].windows;
+        parseinit(&p, &opt, newos(&tmp), &tmp, &log);
+        Str path = excl[i].path;
+        Str base = basename(path, opt.windows);
+        expect(t, path, num(&tmp, excluded(&opt, path, base)),
+               num(&tmp, excl[i].want));
     }
 
-    struct { Str path; i32 lang; b32 header; } langs[] = {
-        {"a.c",         LANG_C,       0},
-        {"a.C",         LANG_CXX,     0},  // u-ctags on Windows: C
-        {"a.CPP",       LANG_CXX,     0},
-        {"a.cc",        LANG_CXX,     0},
-        {"a.h",         LANG_CXX,     1},
-        {"a.H",         LANG_CXX,     1},
-        {"a.hpp",       LANG_CXX,     1},
-        {"a.inl",       LANG_CXX,     1},  // u-ctags: not a header
-        {"a.hp",        LANG_CXX,     1},  // u-ctags: not a header
-        {"a.f",         LANG_FORTRAN, 0},
-        {"A.F90",       LANG_FORTRAN, 0},
-        {"a.f08",       LANG_FORTRAN, 0},
-        {"config.h.in", LANG_CXX,     1},
-        {"x.c.in",      LANG_C,       0},
-        {"x.in",        LANG_NONE,    0},
-        {"x.inc",       LANG_NONE,    0},
-        {"x.cu",        LANG_NONE,    0},
-        {"Makefile",    LANG_NONE,    0},
-        {"vector",      LANG_NONE,    0},
-        {".c",          LANG_C,       0},
-        {"dir.c/x",     LANG_NONE,    0},
-        {"d/x.cpp",     LANG_CXX,     0},
+    // Languages by name, with options, as Universal Ctags 6.2.1 on
+    // Windows chooses them, but where noted (LANG-2, LANG-5, LANG-6)
+    i32 C   = LANG_C;
+    i32 CXX = LANG_CXX;
+    i32 FTN = LANG_FORTRAN;
+    i32 NO  = LANG_NONE;
+    struct { Str args, path; i32 lang; b32 header, windows; } langs[] = {
+        {"", "a.c",         C,   0, 1},
+        {"", "a.C",         CXX, 0, 1},  // D1, u-ctags: C
+        {"", "a.C",         CXX, 0, 0},
+        {"", "a.CPP",       CXX, 0, 1},
+        {"", "a.cc",        CXX, 0, 1},
+        {"", "a.h",         CXX, 1, 1},
+        {"", "a.H",         CXX, 1, 1},
+        {"", "a.hpp",       CXX, 1, 1},
+        {"", "a.inl",       CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "a.hp",        CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "a.f",         FTN, 0, 1},
+        {"", "A.F90",       FTN, 0, 1},
+        {"", "a.f08",       FTN, 0, 1},
+        {"", "config.h.in", CXX, 1, 1},  // D2, u-ctags: not a header
+        {"", "x.c.in",      C,   0, 1},
+        {"", "x.c.IN",      C,   0, 1},  // D2, u-ctags: none
+        {"", "x.in",        NO,  0, 1},
+        {"", "x.inc",       NO,  0, 1},
+        {"", "x.cu",        NO,  0, 1},
+        {"", "Makefile",    NO,  0, 1},
+        {"", "vector",      NO,  0, 1},
+        {"", ".c",          C,   0, 1},
+        {"", "dir.c/x",     NO,  0, 1},
+        {"", "d/x.cpp",     CXX, 0, 1},
+        {"", "d\\x.cpp",    CXX, 0, 1},
+
+        {"--langmap=c:.h",                      "a.h",    C,   1, 1},
+        {"--langmap=c:.h",                      "a.c",    NO,  0, 1},
+        {"--langmap=c:+.h",                     "a.c",    C,   0, 1},
+        {"--langmap=c:+.h",                     "a.h",    C,   1, 1},
+        {"--langmap=c++:+.xyz",                 "x.xyz",  CXX, 0, 1},
+        {"--langmap=c++:+(no*)",                "noext",  CXX, 0, 1},
+        {"--langmap=c++:+.",                    "noext",  CXX, 0, 1},
+        {"--langmap=c++:+.",                    "d/q",    CXX, 0, 1},
+        {"--langmap=c++:+.",                    "d/q.",   CXX, 0, 1},
+        {"--map-C=+.h",                         "b.h",    C,   1, 1},
+        {"--map-C++=-.h",                       "b.h",    NO,  0, 1},
+        {"--map-C++=-.H",                       "b.h",    NO,  0, 1},
+        {"--map-C=.xyz",                        "a.c",    NO,  0, 1},
+        {"--map-C=.xyz",                        "x.xyz",  C,   0, 1},
+        {"--map-C=+.H",                         "b.H",    C,   1, 1},
+        {"--map-C=+.H",                         "b.h",    C,   1, 1},
+        {"--map-C=+(*.h)",                      "z.h",    C,   1, 1},
+        {"--map-C=+(*.H)",                      "z.h",    C,   1, 1},
+        {"--map-C=+(*.H)",                      "z.h",    CXX, 1, 0},
+        {"--langmap=c:+(*.x) --langmap=c++:+(*.X)", "p.x", CXX, 0, 1},
+        {"--map-C=+(*.x) --map-c++=+(*.x)",     "p.x",    C,   0, 1},
+        {"--map-Fortran=+.x --map-c++=+.x",     "p.x",    CXX, 0, 1},
+        {"--map-Fortran=+(*.x) --map-c++=+.x",  "p.x",    FTN, 0, 1},
+        {"--map-Fortran=+.in --map-C++=+.in",   "x.in",     CXX, 0, 1},
+        {"--map-Fortran=+.in --map-C++=+.in",   "x.c.in",   C,   0, 1},
+        {"--map-Fortran=+.in --map-C++=+.in",   "y.f90.in", FTN, 0, 1},
+        {"--map-Fortran=+.in --map-C++=+.in",   "z.h.in",   CXX, 1, 1},
+        {"--map-Fortran=+.in --map-C=+.in",     "x.in",     C,   0, 1},
+        {"--map-C=+.in --map-C++=+.in",         "y.f90.in", C,   0, 1},
+        {"--map-Fortran=+.in --map-C=+.in --map-C++=+.in", "y.f90.in", FTN, 0, 1},
+        {"--map-Fortran=+(*.in) --map-C++=+(*.in)", "x.c.in", C,  0, 1},
+        {"--map-Fortran=+(*.in) --map-C++=+(*.in)", "x.in",   CXX, 0, 1},
+        {"--map-Fortran=+.c",                   "x.c.in",   C,   0, 1},
+        {"--map-Fortran=+.f90 --map-C=+.f90",   "y.f90.in", C,   0, 1},
+        {"--langmap=C:.X",                      "q.X",    C,   0, 1},
+        {"--langmap=C:.X",                      "p.x",    C,   0, 1},
+        {"--langmap=c:+.HH",                    "u.hh",   C,   1, 1},
+        {"--map-C=-.c",                         "a.c",    NO,  0, 1},
+        {"--map-C=-.c",                         "a.C",    CXX, 0, 1},  // D1, u-ctags: none
+        {"--languages=-C",                      "a.C",    CXX, 0, 1},  // D1, u-ctags: none
+        {"--map-C++=+.x",                       "a.C",    CXX, 0, 1},  // D1, u-ctags: C
+        {"--map-C++=-.C",                       "a.C",    C,   0, 1},
+        {"--map-C++=-.c",                       "a.C",    C,   0, 1},
+        {"--map-C++=+.c --map-C++=-.c",         "a.C",    C,   0, 1},
+        {"--map-C++=-.C --langmap=c++:default", "a.C",    CXX, 0, 1},  // D1, u-ctags: C
+        {"--map-C++=.cpp",                      "a.C",    C,   0, 1},
+        {"--langmap=c++:.C",                    "a.c",    CXX, 0, 1},
+        {"--langmap=c++:+.c",                   "a.C",    CXX, 0, 1},
+        {"--langmap=c:+.c",                     "a.C",    C,   0, 1},
+        {"--langmap=c++:+.in",                  "y.c.in", CXX, 0, 1},
+        {"--langmap=c++:+.in",                  "r.in",   CXX, 0, 1},
+        {"--langmap=c:(*.c.in)",                "y.c.in", C,   0, 1},
+        {"--langmap=c:(*.c.in) --langmap=c++:+(*.C.IN)", "y.c.in", CXX, 0, 1},
+        {"--map-C=+.c.in",                      "y.c.in", C,   0, 1},
+        {"--map-C=.c.h",                        "z.h",    CXX, 1, 1},
+        {"--map-C=(x)y",                        "z.h",    CXX, 1, 1},
+        {"--map-C=(x)y",                        "x",      C,   0, 1},
+        {"--langmap=C++:.cpp",                  "z.h",    NO,  0, 1},
+        {"--langmap=C++:+.cpp.h",               "z.h",    CXX, 1, 1},
+        {"--langmap=C++:.cpp --langmap=default", "z.h",   CXX, 1, 1},
+        {"--langmap=c++:default,c:.h",          "b.h",    C,   1, 1},
+        {"--langmap=c:.h --langmap=c:default",  "b.h",    NO,  0, 1},
+        {"--langmap=c:.h --langmap=c:default",  "a.c",    C,   0, 1},
+        {"--langmap=fortran:.c",                "a.c",    FTN, 0, 1},
+        {"--langmap=python:.c",                 "a.c",    NO,  0, 1},
+        {"--langmap=python:+.h,c:+.x",          "a.h",    NO,  0, 1},
+        {"--langmap=python:+.h,c:+.x",          "a.x",    C,   0, 1},
+        {"--map-python=+.c",                    "a.c",    C,   0, 1},
+        {"--languages=+python --map-python=+.c", "a.c",   C,   0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c",         "a.c",    NO,  0, 1},
+        {"--langdef=Zzz --map-Zzz=+.c",         "a.c",    C,   0, 1},
+        {"--langdef=Aaa --map-Aaa=+.h",         "a.h",    NO,  0, 1},
+        {"--langdef=CC --map-CC=+.cpp",         "a.cpp",  CXX, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+(a*)",       "a.c",    NO,  0, 1},
+        {"--langdef=Aaa{base=C} --map-Aaa=+.c", "a.c",    NO,  0, 1},
+        {"--langdef=Aaa --langmap=Aaa:+.c",     "a.c",    NO,  0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --languages=-Aaa", "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --languages=C",    "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --languages=-all,+C,+aaa", "a.c", NO, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --languages=all",  "a.c", NO, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --langmap=default",     "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --langmap=aaa:default", "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --langmap=c:+.c",  "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --map-aaa=-.C",    "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=.c --map-aaa=.x",      "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.c --language-force=C", "a.c", C, 0, 1},
+        {"--langdef=Aaa --map-Aaa=+.in",        "x.c.in", NO,  0, 1},
+        {"--langdef=Aaa --langmap=Aaa:.in --map-C=+.in", "x.c.in", C, 0, 1},
+        {"--map-C=+.c --map-C=+.c --langmap=c++:+.c", "a.c", C, 0, 1},
+        {"--languages=-C",                      "a.c",    NO,  0, 1},
+        {"--languages=-C",                      "a.C",    CXX, 0, 1},
+        {"--languages=-C++",                    "a.C",    C,   0, 1},
+        {"--languages=",                        "a.c",    NO,  0, 1},
+        {"--languages=Python,C++",              "a.h",    CXX, 1, 1},
+        {"--languages=-C++ --map-C=+(z*)",      "z.h",    C,   1, 1},
+        {"--language-force=C++",                "x.xyz",  CXX, 0, 1},
+        {"--language-force=c",                  "z.h",    C,   1, 1},
+        {"--language-force=c",                  "Makefile", C, 0, 1},
+        {"--language-force=Fortran",            "a.c",    FTN, 0, 1},
+        {"--language-force=python",             "a.c",    NO,  0, 1},
+        {"--language-force=c --language-force=auto", "a.f", FTN, 0, 1},
+        {"-h .x --language-force=C++",          "p.x",    CXX, 1, 1},
+        {"-h .x --language-force=C++",          "p.x.in", CXX, 1, 1},  // D2
+        {"-h .xyz --langmap=c:+.xyz",           "x.xyz",  C,   1, 1},
+        {"-h .xyz",                             "b.h",    CXX, 0, 1},
+        {"-h +.xyz --langmap=c:+.xyz",          "b.h",    CXX, 1, 1},
+        {"-h .c",                               "a.c",    C,   1, 1},
+        {"-h .C",                               "a.c",    C,   1, 1},
+        {"-h default",                          "b.h",    CXX, 1, 1},
+        {"-h DEFAULT",                          "b.h",    CXX, 0, 1},
+        {"-h h..c --map-C=+.",                  "noext",  C,   1, 1},
+        {"-h c. --map-C=+.",                    "noext",  C,   1, 1},
+        {"-h c --map-C=+.",                     "noext",  C,   0, 1},
+        {"-h +",                                "b.h",    CXX, 1, 1},
+        {"-h .x -h +.y",                        "a.h",    CXX, 0, 1},
+        {"-h .x -h +.h",                        "a.h",    CXX, 1, 1},
     };
     for (iz i = 0; i < countof(langs); i++) {
-        Lang l = detectlang(langs[i].path, 1);
-        expect(t, langs[i].path, num(&a, l.lang), num(&a, langs[i].lang));
-        expect(t, langs[i].path, num(&a, l.header), num(&a, langs[i].header));
+        Arena tmp = a;
+        Os   *os  = newos(&tmp);
+        os->windows = langs[i].windows;
+        Str    args = concat(&tmp, langs[i].args, " x");
+        Parsed r    = parseos(&tmp, os, args);
+        Str    name = concat(&tmp, concat(&tmp, args, ": "), langs[i].path);
+        name = concat(&tmp, name, langs[i].windows ? Str("") : Str(" (posix)"));
+        Lang   l    = detectlang(&r.opt, langs[i].path);
+        expect(t, name, r.log, "");
+        expect(t, name, num(&tmp, l.lang), num(&tmp, langs[i].lang));
+        expect(t, name, num(&tmp, l.header), num(&tmp, langs[i].header));
     }
 
     // Whole runs
@@ -298,6 +581,262 @@ static void test_walk(Test *t)
     }
 
     {
+        // Exclusions (DISC-3), as Universal Ctags makes them in this tree,
+        // where it runs on Windows, and by the same rules elsewhere
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "b.cpp",        "int b;\n");
+        vfsfile(os, "x.h",          "int h;\n");
+        vfsfile(os, "sub/s.c",      "int s;\n");
+        vfsfile(os, "sub/deep/d.c", "int d;\n");
+        vfsfile(os, "other/o.c",    "int o;\n");
+        vfsfile(os, "wild",         "sub\\deep\n  b.cpp  \n#a.c\n\n*.h\r\n");
+        Str all     = "a b d h o s";
+        Str nosuchw = "ctags: Warning: cannot open input file \"nosuch.c\" : "
+                      "No such file or directory\n";
+        struct { Str args; i32 windows; Str names, err; } cases[] = {
+            {"-R --exclude=sub",                      2, "a b h o",   ""},
+            {"-R --exclude=sub/deep",                 2, "a b h o s", ""},
+            {"-R --exclude=sub\\deep",                1, "a b h o s", ""},
+            {"-R --exclude=sub\\deep",                0, all,         ""},
+            {"-R --exclude=*/s.c",                    2, "a b d h o", ""},
+            {"-R --exclude=[ab].*",                   2, "d h o s",   ""},
+            {"-R --exclude=[!a].*",                   2, "a",         ""},
+            {"-R --exclude=s*",                       2, "a b h o",   ""},
+            {"-R --exclude=A.C",                      1, "b d h o s", ""},
+            {"-R --exclude=A.C",                      0, all,         ""},
+            {"-R --exclude= --exclude=a.c",           2, "b d h o s", ""},
+            {"--exclude=a.c a.c b.cpp",               2, "b",         ""},
+            {"--exclude=nosuch.c nosuch.c",           2, "",          ""},
+            {"-R --exclude=*.c --exclude-exception=s.c", 2, "b h s",  ""},
+            {"-R --exclude-exception=x --exclude=sub --exclude-exception=",
+             2, "a b h o", ""},
+            {"-R --exclude=@wild",                    0, "a b d o s", ""},
+            {"-R --exclude=./sub",                    2, all,         ""},
+            {"-R --exclude=./sub ./sub",              2, "",          ""},
+            {"--exclude=sub ./sub",                   2, "",          ""},
+            {"--exclude=sub/s.c ./sub",               2, "d s",       ""},
+            {"--exclude=./sub/s.c ./sub",             2, "d",         ""},
+            {"--exclude=.\\sub\\s.c ./sub",           1, "d",         ""},
+            {"--exclude=*b\\s.c .\\sub",              1, "d",         ""},
+            {"--exclude=SUB/DEEP sub",                1, "s",         ""},
+            {"--exclude=SUB/DEEP sub",                0, "d s",       ""},
+            {"-R --exclude=.*",                       2, all,         ""},
+            {"-R --exclude=.* .",                     2, "",          ""},
+            {"--exclude=.* ./sub sub",                2, "d s",       ""},
+            {"-R --exclude=sub --exclude-exception=sub",     2, all,  ""},
+            {"-R --exclude=sub --exclude-exception=s*",      2, all,  ""},
+            {"-R --exclude=*.c --exclude-exception=su*",     2, "b d h s", ""},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            for (i32 w = 0; w < 2; w++) {
+                if (cases[i].windows!=2 && cases[i].windows!=w) {
+                    continue;
+                }
+                os->windows = w;
+                Str args = concat(&a, "-f - ", cases[i].args);
+                Str name = concat(&a, args, w ? Str(" (windows)") : Str(""));
+                Run r    = run(os, a, args);
+                expect(t, name, num(&a, r.status), "0");
+                expect(t, name, tagnames(&a, r.out), cases[i].names);
+                expect(t, name, r.err, cases[i].err);
+            }
+        }
+
+        // D11: with exceptions given, an excluded directory is still
+        // pruned unless one matches it, and an excluded file is never
+        // examined. Universal Ctags then walks every excluded directory,
+        // and warns of a missing file it excludes.
+        os->windows = 0;
+        struct { Str args, names, err, uctags, uerr; } d11[] = {
+            {"-R --exclude=sub --exclude-exception=nothing",
+             "a b h o", "", all, ""},
+            {"-R --exclude=sub --exclude-exception=s.c",
+             "a b h o", "", all, ""},
+            {"--exclude=nosuch.c --exclude-exception=zz nosuch.c",
+             "", "", "", nosuchw},
+        };
+        for (iz i = 0; i < countof(d11); i++) {
+            Str args = concat(&a, "-f - ", d11[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, tagnames(&a, r.out), d11[i].names);
+            expect(t, args, r.err, d11[i].err);
+            b32 same = d11[i].names==d11[i].uctags && d11[i].err==d11[i].uerr;
+            expect(t, args, num(&a, same), "0");
+        }
+
+        // D12: on Windows, '\' is '/' in the patterns of an @FILE too, so
+        // "sub\deep" in it excludes sub/deep. Universal Ctags keeps the
+        // '\', an escape there, so the pattern matches only "subdeep".
+        os->windows = 1;
+        Str uctags = "a b d o s";
+        Run r      = run(os, a, "-f - -R --exclude=@wild");
+        Str names  = tagnames(&a, r.out);
+        expect(t, "D12", names, "a b o s");
+        expect(t, "D12 departs", num(&a, names==uctags), "0");
+    }
+
+    {
+        // -L lists (DISC-6): trimmed lines, comments and blank lines
+        // skipped, options among the entries, directories recursed (D8)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",     "int a;\nint pa(void);\n");
+        vfsfile(os, "b.cpp",   "int b;\n");
+        vfsfile(os, "x.h",     "int h;\n");
+        vfsfile(os, "sub/s.c", "int s;\n");
+        vfsfile(os, "list",    "a.c\r\n  b.cpp  \n# x.h\n\n--kinds-C=+p\rsub\n");
+        vfsfile(os, "list2",   "a.c\n-L\nlist\n");
+        vfsfile(os, "list3",   "--exclude=b.cpp\na.c\n");
+        vfsfile(os, "list4",   "--version\na.c\n");
+        vfsfile(os, "empty",   "");
+        Str again = "ctags: Warning: -L option specified more than once, "
+                    "last value used\n";
+        struct { Str args; i32 status; Str names, err; } cases[] = {
+            {"-L list",           0, "a b pa s",   ""},
+            {"-L list x.h",       0, "a b h pa s", ""},
+            {"-R -L list",        0, "a b pa s",   ""},
+            {"-L list2",          0, "a",          again},
+            {"-L empty",          0, "",           ""},
+            {"-R -L empty",       0, "",           ""},
+            {"-L nosuch a.c",     1, "",           "ctags: cannot open list "
+                                                   "file \"nosuch\" : No such "
+                                                   "file or directory\n"},
+            {"-L sub",            1, "",           "ctags: cannot open list "
+                                                   "file \"sub\" : Is a "
+                                                   "directory\n"},
+            // Options apply to every file wherever they are: Universal
+            // Ctags excludes nothing here, as b.cpp comes first
+            {"-L list3 b.cpp",    0, "a",          ""},
+            {"-L - b.cpp",        0, "a b h",      ""},
+        };
+        os->input = "x.h\n\na.c";
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), num(&a, cases[i].status));
+            if (!cases[i].status) {
+                expect(t, args, tagnames(&a, r.out), cases[i].names);
+            }
+            expect(t, args, r.err, cases[i].err);
+        }
+        Run r = run(os, a, "-L list4");
+        expect(t, "-L list4", r.out, "ctags 0.1\n");
+
+        // D13: a -L after a file name is read as any other. Universal
+        // Ctags parses it but never reads the list, so it tags x.h alone,
+        // and a list that cannot be opened is no error.
+        Str nosuch = "ctags: cannot open list file \"nosuch\" : No such "
+                     "file or directory\n";
+        struct {
+            Str args;
+            i32 status;
+            Str names, err;
+            i32 ustatus;
+            Str unames, uerr;
+        } d13[] = {
+            {"x.h -L list",   0, "a b h pa s", "",     0, "h", ""},
+            {"x.h -L -",      0, "a h",        "",     0, "h", ""},
+            {"x.h -L nosuch", 1, "",           nosuch, 0, "h", ""},
+        };
+        for (iz i = 0; i < countof(d13); i++) {
+            Str args = concat(&a, "-f - ", d13[i].args);
+            r = run(os, a, args);
+            Str names = tagnames(&a, r.out);
+            expect(t, args, num(&a, r.status), num(&a, d13[i].status));
+            expect(t, args, names, d13[i].names);
+            expect(t, args, r.err, d13[i].err);
+            b32 same = r.status==d13[i].ustatus && names==d13[i].unames &&
+                       r.err==d13[i].uerr;
+            expect(t, args, num(&a, same), "0");
+        }
+    }
+
+    {
+        // Languages in whole runs (LANG-6): forced on every input, walked
+        // or given, disabled, mapped, and -h deciding which are headers
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",   "static int sa;\n");
+        vfsfile(os, "b.h",   "static int sb;\n");
+        vfsfile(os, "noext", "static int sn;\n");
+        vfsfile(os, "x.o",   "static int so;\n");
+        vfsfile(os, "d/q",   "static int sq;\n");
+        vfsfile(os, "f.f90", "module m\nend module\n");
+        Str off = "ctags: C parser specified with --language-force is "
+                  "disabled\n";
+        struct { Str args; i32 status; Str names, err; } cases[] = {
+            {"-R",                            0, "m sa sb",        ""},
+            {"-R --language-force=C",         0, "sa sb sn sq",    ""},
+            {"--language-force=C f.f90 d",    0, "sq",             ""},
+            {"-R --language-force=Python",    0, "",               ""},
+            {"-R --languages=-C",             0, "m sb",           ""},
+            {"-R --languages=Fortran",        0, "m",              ""},
+            {"-R --languages=",               0, "",               ""},
+            {"-R --langmap=c:+.",             0, "m sa sb sn sq",  ""},
+            {"-R --langmap=fortran:+.h.c",    0, "m",              ""},
+            {"--languages=-C --language-force=C a.c", 1, "", off},
+            {"--language-force=C --languages=-C nosuch.c", 1, "", off},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), num(&a, cases[i].status));
+            expect(t, args, tagnames(&a, r.out), cases[i].names);
+            expect(t, args, r.err, cases[i].err);
+        }
+
+        // Only headers' static variables lack file: (LANG-5)
+        Str sa = "sa\ta.c\t/^static int sa;$/;\"\tv\tline:1\t"
+                 "typeref:typename:int";
+        Str sb = "sb\tb.h\t/^static int sb;$/;\"\tv\tline:1\t"
+                 "typeref:typename:int";
+        struct { Str args, out; } hs[] = {
+            {"a.c b.h",              "%a\tfile:\n%b\n"},
+            {"-h .c a.c b.h",        "%a\n%b\tfile:\n"},
+            {"-h +.c a.c b.h",       "%a\n%b\n"},
+            {"-h c.H a.c b.h",       "%a\n%b\n"},
+            {"-h x -h default a.c",  "%a\tfile:\n"},
+        };
+        for (iz i = 0; i < countof(hs); i++) {
+            Buf want(&a, 256);
+            for (iz j = 0; j < hs[i].out.len; j++) {
+                u8 c = hs[i].out[j];
+                if (c == '%') {
+                    print(&want, hs[i].out[++j]=='a' ? sa : sb);
+                } else {
+                    putbyte(&want, c);
+                }
+            }
+            Str args = concat(&a, "-f - ", hs[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, r.out, finish(&want));
+            expect(t, args, r.err, "");
+        }
+    }
+
+    {
+        // --links=no skips links to files, walked or given (DISC-7)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c",     "int a;\n");
+        vfslink(os, "l.c",     "int l;\n");
+        vfslink(os, "sub/m.c", "int m;\n");
+        vfsfile(os, "sub/n.c", "int n;\n");
+        struct { Str args, names; } cases[] = {
+            {"-R",                         "a l m n"},
+            {"-R --links=no",              "a n"},
+            {"--links=no a.c l.c sub",     "a n"},
+            {"--links=no --links a.c l.c", "a l"},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "-f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, tagnames(&a, r.out), cases[i].names);
+            expect(t, args, r.err, "");
+        }
+    }
+
+    {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-f - b.c a.c c.c");
@@ -307,5 +846,88 @@ static void test_walk(Test *t)
                "No such file or directory\n"
                "ctags: Warning: cannot open input file \"c.c\" : "
                "No such file or directory\n");
+    }
+
+    {
+        // Workers, as many as there are files to tag, without directories
+        // to walk, however many arguments are examined, by the workers or
+        // not: each worker takes a share of the memory
+        Os *os = newos(&a);
+        os->ncpu = 4;
+        Str srcs[] = {"a.c", "b.c", "c.c", "d.c", "e.c", "f.c", "sub/s.c"};
+        for (iz i = 0; i < countof(srcs); i++) {
+            vfsfile(os, srcs[i], "int x;\n");
+        }
+        Str docs[] = {"README", "Makefile", "notes.txt", "x.o", "y.txt"};
+        Buf list(&a, 256);
+        print(&list, "a.c\n");
+        for (iz i = 0; i < countof(docs); i++) {
+            vfsfile(os, docs[i], "text\n");
+            print(&list, docs[i]);
+            putbyte(&list, '\n');
+        }
+        vfsfile(os, "list", finish(&list));
+        struct { Str args, jobs; } cases[] = {
+            {"a.c",                                       "1"},
+            {"a.c b.c",                                   "2"},
+            {"a.c README nosuch.c",                       "1"},
+            {"a.c README notes.txt Makefile nosuch.c",    "1"},
+            {"-L list",                                   "1"},
+            {"a.c README notes.txt Makefile y.txt sub",   "4"},
+            {"a.c b.c README notes.txt Makefile",         "2"},
+            {"a.c b.c c.c d.c e.c f.c",                   "4"},
+            {"--jobs=2 a.c b.c c.c d.c",                  "2"},
+            {"",                                          "4"},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "--_stats -R -f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            Str jobs = {};
+            for (Cut c = cut(r.err, '\n'); c.ok; c = cut(c.tail, '\n')) {
+                if (find(c.head, " jobs, ") > 0) {
+                    jobs = cut(cuthead(c.head, 7), ' ').head;
+                }
+            }
+            expect(t, args, jobs, cases[i].jobs);
+        }
+    }
+
+    {
+        // The workers' warnings, more than the log first holds, sorted
+        // after those of missing arguments, and each message intact
+        // however full the log is when the tags file cannot be written
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int a;\n");
+        for (i32 i = 0; i < 100; i++) {
+            Buf name(&a, 16);
+            print(&name, "tags.tmp");
+            print(&name, (i64)i);
+            vfsfile(os, finish(&name), "");
+        }
+        Str nosuch = "ctags: Warning: cannot open input file \"nosuch.c\" : "
+                     "No such file or directory\n";
+        Str nowrite = "ctags: cannot open tag file \"tags.tmp99\" : "
+                      "File exists\n";
+        Buf want(&a, 1<<14);
+        print(&want, nosuch);
+        for (i32 i = 0; i < 120; i++) {
+            Buf name(&a, 16);
+            print(&name, "d/u");
+            printpad(&name, i, 3);
+            print(&name, ".c");
+            vfsunreadable(os, finish(&name));
+            print(&want, "ctags: Warning: cannot open input file \"");
+            print(&want, finish(&name));
+            print(&want, "\" : Permission denied\n");
+
+            Str  args = num(&a, i);
+            Run  r    = run(os, a, "a.c nosuch.c d");
+            Str  err  = concat(&a, finish(&want), nowrite);
+            expect(t, concat(&a, "warnings, tags ", args), r.err, err);
+            r = run(os, a, "-f - a.c nosuch.c d");
+            expect(t, concat(&a, "warnings ", args), r.err, finish(&want));
+            expect(t, concat(&a, "warnings out ", args), tagnames(&a, r.out),
+                   "a");
+        }
     }
 }

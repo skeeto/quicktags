@@ -42,6 +42,7 @@ enum : i32 {
     PAGE_READWRITE                = 4,
     STACK_SIZE_PARAM_IS_A_RESERVATION = 0x10000,
     STD_ERROR_HANDLE              = -12,
+    STD_INPUT_HANDLE              = -10,
 };
 
 enum : uz {
@@ -223,25 +224,6 @@ static b32 writeall(uz h, Str s)
     return 1;
 }
 
-static Stat os_stat(Os *, Arena scratch, Str path)
-{
-    Stat           r = {};
-    FileAttributes a = {};
-    if (!GetFileAttributesExW(widepath(&scratch, path).data, GetFileExInfoStandard, &a)) {
-        r.err = oserr(GetLastError());
-        return r;
-    }
-    if (a.attr & FILE_ATTRIBUTE_DIRECTORY) {
-        r.type = STAT_DIR;
-    } else if (a.attr & FILE_ATTRIBUTE_DEVICE) {
-        r.type = STAT_OTHER;
-    } else {
-        r.type = STAT_FILE;
-        r.size = (i64)((u64)a.sizehi<<32 | a.sizelo);
-    }
-    return r;
-}
-
 // The first entry of a listing, fetching many at a time where the
 // system supports it (Windows 7). Earlier versions reject the arguments,
 // and from then on get theirs.
@@ -268,6 +250,42 @@ static uz findfirst(Os *os, c16 *pattern, FindData *fd)
     return FindFirstFileExW(
         pattern, FindExInfoStandard, fd, FindExSearchNameMatch, 0, 0
     );
+}
+
+// Whether a found entry is a symbolic link or a junction.
+static b32 linked(FindData *fd)
+{
+    return fd->attr&FILE_ATTRIBUTE_REPARSE_POINT &&
+           fd->reparsetag&IO_REPARSE_TAG_NAME_SURROGATE;
+}
+
+static Stat os_stat(Os *os, Arena scratch, Str path)
+{
+    Stat           r = {};
+    FileAttributes a = {};
+    c16           *w = widepath(&scratch, path).data;
+    if (!GetFileAttributesExW(w, GetFileExInfoStandard, &a)) {
+        r.err = oserr(GetLastError());
+        return r;
+    }
+    if (a.attr & FILE_ATTRIBUTE_REPARSE_POINT) {
+        // Only a search finds the kind of reparse point
+        FindData fd = {};
+        uz       h  = findfirst(os, w, &fd);
+        if (h != INVALID_HANDLE_VALUE) {
+            r.islink = linked(&fd);
+            FindClose(h);
+        }
+    }
+    if (a.attr & FILE_ATTRIBUTE_DIRECTORY) {
+        r.type = STAT_DIR;
+    } else if (a.attr & FILE_ATTRIBUTE_DEVICE) {
+        r.type = STAT_OTHER;
+    } else {
+        r.type = STAT_FILE;
+        r.size = (i64)((u64)a.sizehi<<32 | a.sizelo);
+    }
+    return r;
 }
 
 static Listing os_list(Os *os, Arena *a, Str path)
@@ -310,16 +328,16 @@ static Listing os_list(Os *os, Arena *a, Str path)
             continue;
         }
         b32 isdir = !!(fd.attr & FILE_ATTRIBUTE_DIRECTORY);
-        if (isdir && fd.attr&FILE_ATTRIBUTE_REPARSE_POINT &&
-                fd.reparsetag&IO_REPARSE_TAG_NAME_SURROGATE) {
+        if (isdir && linked(&fd)) {
             continue;  // a link or junction, which might make a cycle
         }
         iz namelen = 0;
         for (; namelen<countof(fd.name) && name[namelen]; namelen++) {}
         Dirent *d = alloc<Dirent>(a);
-        d->name  = fromwide(a, name, namelen);
-        d->size  = (i64)((u64)fd.sizehi<<32 | fd.sizelo);
-        d->isdir = isdir;
+        d->name   = fromwide(a, name, namelen);
+        d->size   = (i64)((u64)fd.sizehi<<32 | fd.sizelo);
+        d->isdir  = isdir;
+        d->islink = linked(&fd);
         *tail = d;
         tail  = &d->next;
     } while (FindNextFileW(h, &fd));
@@ -364,6 +382,29 @@ static Read os_read(Os *, Arena *a, Str path, iz max)
     }
     CloseHandle(h);
     return r;
+}
+
+// Read in chunks that extend one another at the arena's front, until
+// end of file, the end of a pipe (ERROR_BROKEN_PIPE), or an error.
+static Str os_stdin(Os *, Arena *a)
+{
+    Str r = {};
+    uz  h = GetStdHandle(STD_INPUT_HANDLE);
+    if (!h || h==INVALID_HANDLE_VALUE) {
+        return r;  // no standard input at all
+    }
+    r.data = (u8 *)a->beg;
+    for (;;) {
+        i32 cap = 1<<16;
+        i32 n   = 0;
+        u8 *buf = allocbytes(a, cap);
+        b32 ok  = ReadFile(h, buf, cap, &n, 0);
+        a->beg -= cap - n;
+        r.len  += n;
+        if (!ok || !n) {
+            return r;
+        }
+    }
 }
 
 static i32 os_create(Os *os, Arena scratch, Str path)

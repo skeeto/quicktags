@@ -24,10 +24,11 @@ struct Os;
 struct Worker;
 
 struct Dirent {
-    Dirent *next;   // in the order the system listed them
+    Dirent *next;    // in the order the system listed them
     Str     name;
     i64     size;
     b32     isdir;
+    b32     islink;  // a symbolic link (to a file)
 };
 
 enum : i32 { STAT_NONE, STAT_FILE, STAT_DIR, STAT_OTHER };
@@ -40,11 +41,12 @@ enum : i32 {
     OSERR_IO,
 };
 
-struct Stat    { i32 type; i64 size; i32 err; };
+struct Stat    { i32 type; i64 size; i32 err; b32 islink; };
 struct Listing { Dirent *head; i32 err; };      // !err && !head: empty
 struct Read    { Str data; i64 size; i32 err; };
 
-// Classify a path, following links.
+// Classify a path, following links, and note whether it is a link
+// itself, which a dangling link also is.
 static Stat    os_stat(Os *, Arena, Str path);
 // List a directory in system order, without "." and "..", devices, or
 // links and junctions to directories. Links to files are listed.
@@ -52,6 +54,9 @@ static Listing os_list(Os *, Arena *, Str path);
 // Read at most max bytes of a regular file into the arena, not zeroed.
 // The size is the whole file's: size > max means the data was cut.
 static Read    os_read(Os *, Arena *, Str path, iz max);
+// Read standard input to its end into the arena: empty if it is closed
+// or unreadable, and cut short by an error.
+static Str     os_stdin(Os *, Arena *);
 // Create a new file for writing as fd 3, or fail with OSERR_EXIST.
 static i32     os_create(Os *, Arena, Str path);  // 0 or OSERR_*
 // Write all of s to fd 1, fd 2 (console-aware), or the created fd 3.
@@ -119,6 +124,7 @@ static Arena carve(Arena *a, iz len)
 
 
 #include "kinds.cpp"
+#include "glob.cpp"
 #include "options.cpp"
 #include "tags.cpp"
 
@@ -190,51 +196,73 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     ctx.os  = os;
     ctx.opt = &opt;
 
-    // The arguments are the roots of the work
-    iz    nroots = 0;
-    b32   anydir = 0;
+    // The arguments are the roots of the work, or with none, "." itself,
+    // which is not checked for exclusion (DISC-1)
+    b32   dot     = !opt.files.len && !opt.listfile.data;
+    iz    ninputs = dot ? 1 : opt.files.len;
+    Item *roots   = alloc<Item>(&g, ninputs);
+    iz    nroots  = 0;
+    for (iz i = 0; i < ninputs; i++) {
+        Str path = dot ? Str(".") : opt.files[i];
+        Str base = basename(path, opt.windows);
+        if (dot || !excluded(&opt, path, base)) {
+            Lang  lang = detectlang(&opt, path);
+            Item *it   = roots + nroots++;
+            it->path   = path;
+            it->type   = ITEM_ARG;
+            it->lang   = lang.lang;
+            it->header = lang.header;
+        }
+    }
+
+    // Workers, as many as asked or as there are processors, but no more
+    // than there are files if there are no directories to walk, and
+    // only as many as can each have a generous share of memory. Roots
+    // are examined first: here if they are few, else by the workers,
+    // with scratch from the memory they are yet to share.
+    i32 n = opt.jobs ? opt.jobs : os_ncpu(os);
+    n = n<1 ? 1 : n>32 ? 32 : n;
+    if (nroots > n) {
+        Arena   tmp  = g;
+        Arena   rest = mem;
+        Worker *ws   = alloc<Worker>(&tmp, n);
+        for (i32 i = 0; i < n; i++) {
+            ws[i].ctx     = &ctx;
+            ws[i].scratch = carve(&rest, arenasize(mem)/n);
+        }
+        for (iz i = 1; i < nroots; i++) {
+            roots[i-1].next = roots + i;
+        }
+        pushitems(&ctx.queue, roots, roots+nroots-1);
+        os_parallel(os, ws, n, examineall);
+    } else {
+        for (iz i = 0; i < nroots; i++) {
+            examine(&ctx, roots+i, g);
+        }
+    }
     Item *first  = 0;
     Item *last   = 0;
-    for (iz i = 0; i < opt.files.len; i++) {
-        Str path = opt.files[i];
-        if (excluded(path, opt.windows)) {
-            continue;
-        }
-        Stat  s  = os_stat(os, g, path);
-        Item *it = 0;
-        if (s.type == STAT_NONE) {
-            warn(&log, "cannot open input file", path, s.err);
-        } else if (s.type == STAT_DIR) {
-            it = newitem(&g, path, ITEM_DIR, {});
-            anydir = 1;
-        } else if (s.type == STAT_FILE) {
-            Lang lang = detectlang(path, opt.windows);
-            if (lang.lang) {
-                it = newitem(&g, path, ITEM_FILE, lang);
-            }
-        }
-        if (it) {
+    iz    count  = 0;
+    b32   anydir = 0;
+    for (iz i = 0; i < nroots; i++) {
+        Item *it = roots + i;
+        if (it->type != ITEM_NONE) {
             if (last) {
                 last->next = it;
             } else {
                 first = it;
             }
             last = it;
-            nroots++;
+            count++;
+            anydir |= it->type == ITEM_DIR;
         }
     }
-    if (first) {
-        ctx.queue.pending = nroots;
-        pushitems(&ctx.queue, first, last);
-    }
-
-    // Workers, as many as asked or as there are processors, but no more
-    // than there are files if there are no directories to walk, and
-    // only as many as can each have a generous share of memory
-    i32 n = opt.jobs ? opt.jobs : os_ncpu(os);
-    n = n<1 ? 1 : n>32 ? 32 : n;
     if (!anydir) {
-        n = nroots<n ? (i32)(nroots>1 ? nroots : 1) : n;
+        n = count<n ? (i32)(count>1 ? count : 1) : n;
+    }
+    if (first) {
+        ctx.queue.pending = count;
+        pushitems(&ctx.queue, first, last);
     }
     iz slotmin = !mem.lim ? (iz)1<<20 : sizeof(void *)==8 ? (iz)1<<30 : (iz)128<<20;
     iz slot    = arenasize(mem) / n;
@@ -257,8 +285,21 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     os_parallel(os, ws, n, work);
     i64 t1 = opt.stats ? os_clock(os) : 0;
 
-    // Warnings in a stable order, whatever the scheduling
+    // Arguments that do not exist, in their order
+    for (iz i = 0; i < nroots; i++) {
+        if (roots[i].err) {
+            warn(&log, "cannot open input file", roots[i].path, roots[i].err);
+        }
+    }
+
+    // Warnings in a stable order, whatever the scheduling. The log grows
+    // to hold them first, as it would otherwise grow over the list.
     {
+        iz total = 0;
+        for (i32 i = 0; i < n; i++) {
+            total += ws[i].log.len + 1;  // a newline, if the last lacks one
+        }
+        reserve(&log, total);
         Arena      tmp   = g;
         Slice<Str> warns = {};
         for (i32 i = 0; i < n; i++) {
@@ -275,6 +316,9 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         }
     }
 
+    // Room for a message about the tags file, which names a temporary
+    // file in the scratch arena that the log would otherwise grow over
+    reserve(&log, opt.output.len + 128);
     iz  ntags = 0;
     b32 ok    = writetags(os, &opt, ws, n, &ntags, g, &log);
     i64 t2    = opt.stats ? os_clock(os) : 0;

@@ -66,6 +66,7 @@ static Parsed parseos(Arena *a, Os *os, Str cmd)
     Parsed     r    = {};
     Slice<Str> args = words(a, cmd);
     Buf        log(a, 256);
+    r.opt.windows = os_windows(os);
     r.status = parseargs(&r.opt, os, args.data, (i32)args.len, a, &log);
     r.log    = finish(&log);
     return r;
@@ -250,12 +251,12 @@ static void test_cli(Test *t)
     }
 
     struct { Str args; i32 status; Str output, files, log; } opts[] = {
-        {"-R",               ARGS_OK, "tags", ".", ""},
+        {"-R",               ARGS_OK, "tags", "", ""},
         {"-Rf- x.c",         ARGS_OK, "-", "x.c", ""},
-        {"-R -f out.tags",   ARGS_OK, "out.tags", ".", ""},
+        {"-R -f out.tags",   ARGS_OK, "out.tags", "", ""},
         {"-o out a.c b.f",   ARGS_OK, "out", "a.c b.f", ""},
         {"-f /dev/stdout a", ARGS_OK, "-", "a", ""},
-        {"--recurse=yes",    ARGS_OK, "tags", ".", ""},
+        {"--recurse=yes",    ARGS_OK, "tags", "", ""},
         {"--recurse=OFF a",  ARGS_OK, "tags", "a", ""},
         {"--jobs=4 a",       ARGS_OK, "tags", "a", ""},
         {"-f a -f b x",      ARGS_OK, "b", "x",
@@ -314,6 +315,7 @@ static void test_cli(Test *t)
     // supported" for what this program will do
     i32 OK    = ARGS_OK;
     i32 FATAL = ARGS_FATAL;
+    i32 EXIT  = ARGS_EXIT;
     struct { Str args; i32 status; Str log; } gs[] = {
         // Short options
         {"-x a",          FATAL, "ctags: -x: not supported\n"},
@@ -342,13 +344,19 @@ static void test_cli(Test *t)
         {"-n a",          FATAL, "ctags: --excmd: not yet supported\n"},
         {"-N a",          FATAL, "ctags: --excmd: not yet supported\n"},
         {"-u a",          FATAL, "ctags: --sort: not yet supported\n"},
-        {"-L x",          FATAL, "ctags: -L: not yet supported\n"},
+        {"-L x",          FATAL, "ctags: cannot open list file \"x\" : No "
+                                 "such file or directory\n"},
         {"-L x -L y",     FATAL, "ctags: Warning: -L option specified more "
                                  "than once, last value used\n"
-                                 "ctags: -L: not yet supported\n"},
+                                 "ctags: cannot open list file \"y\" : No "
+                                 "such file or directory\n"},
+        {"-L -",          OK,    ""},
+        {"-L- -R",        OK,    ""},
         {"-I X a",        FATAL, "ctags: -I: not yet supported\n"},
         {"-h default a",  OK,    ""},
-        {"-h .x a",       FATAL, "ctags: -h: not yet supported\n"},
+        {"-h .x a",       OK,    ""},
+        {"-h+ a",         OK,    ""},
+        {"-h. a",         FATAL, "ctags: -h: Invalid list\n"},
 
         // Values
         {"--excmd=mixed a",     OK,    ""},
@@ -439,7 +447,9 @@ static void test_cli(Test *t)
         {"--append=x a",       FATAL, "ctags: Invalid value for \"append\" "
                                       "option\n"},
         {"--links a",          OK,    ""},
-        {"--links=no a",       FATAL, "ctags: --links: not yet supported\n"},
+        {"--links=no a",       OK,    ""},
+        {"--links=x a",        FATAL, "ctags: Invalid value for \"links\" "
+                                      "option\n"},
         {"--if0=no a",         OK,    ""},
         {"--if0 a",            FATAL, "ctags: --if0: not supported\n"},
         {"--if0=x a",          FATAL, "ctags: Invalid value for \"if0\" "
@@ -447,10 +457,13 @@ static void test_cli(Test *t)
         {"--line-directives=no a", OK, ""},
         {"--line-directives a", FATAL, "ctags: --line-directives: not "
                                        "supported\n"},
-        {"--exclude=x a",      FATAL, "ctags: --exclude: not yet supported\n"},
-        {"--exclude= a",       FATAL, "ctags: --exclude: not yet supported\n"},
-        {"--exclude-exception=x a", FATAL,
-         "ctags: --exclude-exception: not yet supported\n"},
+        {"--exclude=x --exclude= --exclude=y a",         OK, ""},
+        {"--exclude-exception=x --exclude-exception= a", OK, ""},
+        {"--exclude=@nosuch a", FATAL, "ctags: cannot open \"nosuch\" : No "
+                                       "such file or directory\n"},
+        {"--exclude-exception=@nosuch a", FATAL, "ctags: cannot open "
+                                                 "\"nosuch\" : No such "
+                                                 "file or directory\n"},
         {"--file-tags a",      FATAL, "ctags: Warning: \"--file-tags\" option "
                                       "is obsolete; use \"--extras=+f\" "
                                       "instead\n"
@@ -478,23 +491,23 @@ static void test_cli(Test *t)
         {"--languages=C,C++,Fortran,Python a", OK, ""},
         {"--languages=python,+C,C++,fortran a", OK, ""},
         {"--languages=-Python a",              OK, ""},
-        {"--languages=C,-C++ a",  FATAL, "ctags: --languages: not yet "
-                                         "supported\n"},
-        {"--languages= a",        FATAL, "ctags: --languages: not yet "
-                                         "supported\n"},
-        {"--languages=cpp a",     FATAL, "ctags: Warning: Unknown language "
-                                         "\"cpp\" in \"languages\" option\n"
-                                         "ctags: --languages: not yet "
-                                         "supported\n"},
-        {"--languages=ALL a",     FATAL, "ctags: Warning: Unknown language "
-                                         "\"ALL\" in \"languages\" option\n"
-                                         "ctags: --languages: not yet "
-                                         "supported\n"},
+        {"--languages=C,-C++ a",  OK,    ""},
+        {"--languages= a",        OK,    ""},
+        {"--languages=cpp a",     OK,    "ctags: Warning: Unknown language "
+                                         "\"cpp\" in \"languages\" option\n"},
+        {"--languages=ALL a",     OK,    "ctags: Warning: Unknown language "
+                                         "\"ALL\" in \"languages\" option\n"},
+        {"--languages=+QtMoc,JNI,ObjectiveC a", OK, ""},
         {"--language-force=auto --language-force=AUTO a", OK, ""},
-        {"--language-force=C a",  FATAL, "ctags: --language-force: not yet "
-                                         "supported\n"},
-        {"--language-force=python a", FATAL, "ctags: --language-force: not "
-                                             "yet supported\n"},
+        {"--language-force=C a",  OK,    ""},
+        {"--language-force=python a", OK, ""},
+        {"--languages=-C --language-force=python a", OK, ""},
+        {"--languages=-C --language-force=C a", FATAL,
+         "ctags: C parser specified with --language-force is disabled\n"},
+        {"--language-force=c++ --languages=c a", FATAL,
+         "ctags: C++ parser specified with --language-force is disabled\n"},
+        {"--language-force=c --languages=-c --language-force=auto a", OK, ""},
+        {"--languages=-c --language-force=c --list-languages", EXIT, ""},
         {"--language-force=cpp a", FATAL, "ctags: Unknown language \"cpp\" "
                                           "in \"language-force\" option\n"},
         {"--language-force= a",   FATAL, "ctags: Unknown language \"\" in "
@@ -557,8 +570,7 @@ static void test_cli(Test *t)
          "ctags: Warning: long flags specifier opened with `{' is not "
          "closed `}': \"{base=C}{dedicated\"\n"
          "ctags: --regex-Foo: not supported\n"},
-        {"--langdef=a{x} --map-A=+.c a", FATAL, "ctags: --langmap: not yet "
-                                                "supported\n"},
+        {"--langdef=a{x} --map-A=+.c a", OK, ""},
         {"--langdef=a#+ --langdef=All a", OK, ""},
         {"--langdef=foo --langdef=FOO a", FATAL, "ctags: Language \"FOO\" "
                                                  "already defined\n"},
@@ -580,17 +592,12 @@ static void test_cli(Test *t)
         {"--langmap= a",                  OK, ""},
         {"--langmap=python:.py a",        OK, ""},
         {"--langmap=python:+.pyx.pyi,ruby:.rb a", OK, ""},
-        {"--langmap=python:+(*.py3) a", FATAL, "ctags: --langmap: not yet "
-                                               "supported\n"},
+        {"--langmap=python:+(*.py3) a",   OK, ""},
         {"--langmap=c:default,C++:DEFAULT a", OK, ""},
-        {"--langmap=python:.C a", FATAL, "ctags: --langmap: not yet "
-                                         "supported\n"},
-        {"--langmap=make:(Makefile) a", FATAL, "ctags: --langmap: not yet "
-                                               "supported\n"},
-        {"--langmap=c:.c a",      FATAL, "ctags: --langmap: not yet "
-                                         "supported\n"},
-        {"--langmap=fortran: a",  FATAL, "ctags: --langmap: not yet "
-                                         "supported\n"},
+        {"--langmap=python:.C a",         OK, ""},
+        {"--langmap=make:(Makefile) a",   OK, ""},
+        {"--langmap=c:.c a",              OK, ""},
+        {"--langmap=fortran: a",          OK, ""},
         {"--langmap=c:.c --langmap=default a", OK, ""},
         {"--langmap=cpp:.x a",    OK,    "ctags: Warning: Unknown language "
                                          "\"cpp:.x\" in \"langmap\" option\n"},
@@ -606,12 +613,16 @@ static void test_cli(Test *t)
         {"--langmap=python:x a",  FATAL, "ctags: Badly formed language map "
                                          "for Python language\n"},
         {"--map-python=+.pyx --map-PYTHON=-.c --map-python=-(x\\)y) a", OK, ""},
-        {"--map-python=(x\\)y) a", FATAL, "ctags: --langmap: not yet "
-                                          "supported\n"},
-        {"--map-python=+.c a",    FATAL, "ctags: --langmap: not yet "
-                                         "supported\n"},
-        {"--map-C=+.x a",         FATAL, "ctags: --langmap: not yet "
-                                         "supported\n"},
+        {"--map-python=(x\\)y) a", OK,   ""},
+        {"--map-python=+.c a",    OK,    ""},
+        {"--map-C=+.x a",         OK,    ""},
+        {"--map-C=-.x a",         OK,    ""},
+        {"--map-C=-x a",          FATAL, "ctags: Badly formed language map "
+                                         "for C language\n"},
+        {"--map-C=- a",           FATAL, "ctags: Badly formed language map "
+                                         "for C language\n"},
+        {"--map-c++=+(x a",       FATAL, "ctags: Unterminated file name "
+                                         "pattern for C++ language\n"},
         {"--map-C= a",            FATAL, "ctags: no parameter is given for "
                                          "map-C\n"},
         {"--map-cpp=+.x a",       FATAL, "ctags: Unknown language \"cpp\" in "
@@ -1158,6 +1169,24 @@ static void test_cli(Test *t)
         Str last =
             "Fortran   v      variable   yes     no      0      NONE   program (global) and module variables\n";
         expect(t, "full kinds tail", num(&tmp, endswith(r.opt.print, last)), "1");
+    }
+    {
+        // A list's files follow the arguments' (DISC-6)
+        Arena tmp = a;
+        Os   *os  = newos(&tmp);
+        vfsfile(os, "list", "a.c\n--extras=+q\nsub\n-f\nout\n");
+        os->input = "b.c\n";
+        Parsed r = parseos(&tmp, os, "-L list x.c --kinds-C=+p y.c");
+        Buf files(&tmp, 64);
+        for (iz j = 0; j < r.opt.files.len; j++) {
+            if (j) putbyte(&files, ' ');
+            print(&files, r.opt.files[j]);
+        }
+        expect(t, "-L order", finish(&files), "x.c y.c a.c sub");
+        expect(t, "-L output", r.opt.output, "out");
+        expect(t, "-L extras", showextras(&tmp, r.opt.extras), "{anonymous}Fpqs");
+        r = parseos(&tmp, os, "-L - x.c");
+        expect(t, "-L -", r.opt.files[1], "b.c");
     }
     {
         Arena tmp = a;

@@ -66,9 +66,13 @@ name:
 
 - `ctags.cpp`: the core; includes the modules, declares the platform API
   (`os_*`), and holds `ctags_main`.
-- `kinds.cpp`, `options.cpp`: kind tables and the command line.
+- `kinds.cpp`, `options.cpp`: kind tables and the command line, with
+  the per-run exclusions and language maps.
+- `glob.cpp`: file name patterns, matched as gnulib's `fnmatch()` does,
+  and classified so that long exclusion lists stay cheap.
 - `tags.cpp`: tag lines, patterns, escaping, anonymous names.
-- `walk.cpp`: discovery and the worker threads (a lock-free work stack).
+- `walk.cpp`: discovery (exclusion, language detection) and the worker
+  threads (a lock-free work stack).
 - `output.cpp`: per-worker sorting, merging, writing the tags file.
 - `cxx.cpp`, `fortran.cpp`: the parsers, called by `parsefile` in
   `ctags.cpp`, which retries a failed first pass with the second pass's

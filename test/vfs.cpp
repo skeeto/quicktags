@@ -10,11 +10,14 @@ struct VNode {
     Str     name;
     Str     data;
     b32     isdir;
+    b32     islink;  // a link to a file, which data stands for
+    i32     err;     // reading it fails so: OSERR_*
 };
 
 struct Os {
     Arena *a;        // for the file system and captured output
     VNode  root;     // the current directory
+    Str    input;    // standard input
     Buf    out;      // fd 1
     Buf    err;      // fd 2
     Buf    file;     // fd 3, until closed
@@ -83,6 +86,20 @@ static void vfsfile(Os *os, Str path, Str data)
     n->data = clone(os->a, data);
 }
 
+// Add a link to a file, standing for the file with its contents.
+static void vfslink(Os *os, Str path, Str data)
+{
+    vfsfile(os, path, data);
+    vfsfind(os, path, 0)->islink = 1;
+}
+
+// Add a file that can be examined but not read.
+static void vfsunreadable(Os *os, Str path)
+{
+    vfsfile(os, path, "");
+    vfsfind(os, path, 0)->err = OSERR_ACCES;
+}
+
 static void vfsdir(Os *os, Str path)
 {
     VNode *n = vfsfind(os, path, os->a);
@@ -121,8 +138,9 @@ static Stat os_stat(Os *os, Arena, Str path)
     } else if (n->isdir) {
         r.type = STAT_DIR;
     } else {
-        r.type = STAT_FILE;
-        r.size = n->data.len;
+        r.type   = STAT_FILE;
+        r.size   = n->data.len;
+        r.islink = n->islink;
     }
     return r;
 }
@@ -138,9 +156,10 @@ static Listing os_list(Os *os, Arena *a, Str path)
     Dirent **tail = &r.head;
     for (VNode *c = n->child; c; c = c->next) {
         Dirent *d = alloc<Dirent>(a);
-        d->name  = clone(a, c->name);
-        d->size  = c->data.len;
-        d->isdir = c->isdir;
+        d->name   = clone(a, c->name);
+        d->size   = c->data.len;
+        d->isdir  = c->isdir;
+        d->islink = c->islink;
         *tail = d;
         tail  = &d->next;
     }
@@ -157,6 +176,9 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
     } else if (n->isdir) {
         r.err = OSERR_ISDIR;
         return r;
+    } else if (n->err) {
+        r.err = n->err;
+        return r;
     }
     r.size = n->data.len;
     iz len = r.size<max ? (iz)r.size : max;
@@ -164,6 +186,11 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
     r.data.len  = len;
     copybytes(r.data.data, n->data.data, len);
     return r;
+}
+
+static Str os_stdin(Os *os, Arena *a)
+{
+    return clone(a, os->input);
 }
 
 static i32 os_create(Os *os, Arena, Str path)

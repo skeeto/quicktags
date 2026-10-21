@@ -598,6 +598,132 @@ static TagCase cxxcases[] = {
      "v\ta.cpp\t/^struct { int a; } v;$/;\"\tv\tline:2\ttyperef:struct:__anon0ef536770108\n"
      "y\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tz\tline:3\tfunction:__anon0ef536770202\ttyperef:typename:int\tfile:\n",
      ""},
+
+    // Languages chosen by options (LANG-6): the same source as C++, then
+    // as C, by its name or forced
+    {SHARED, "forced C++", "k.c", "--language-force=C++",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "Thing\tk.c\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "get\tk.c\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
+     "v\tk.c\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "forced C++ without an extension", "vector", "--language-force=c++",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "Thing\tvector\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "get\tvector\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
+     "v\tvector\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "forced C", "k.cpp", "--language-force=C",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "get\tk.cpp\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.cpp\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "an extension moved to C++", "k.c", "--langmap=c++:+.c",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "Thing\tk.c\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "get\tk.c\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
+     "v\tk.c\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "an extension shared, C first", "k.c", "--map-C++=+.c",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "get\tk.c\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.c\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "an extension shared, C disabled", "k.c",
+     "--map-C++=+.c --languages=-C",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "Thing\tk.c\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "get\tk.c\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
+     "v\tk.c\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "a header as C", "k.h", "--langmap=c:+.h",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "get\tk.h\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.h\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "a pattern before extensions", "k.h", "--map-C=+(k*)",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "get\tk.h\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.h\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "C disabled", "k.c", "--languages=-C",
+     "class Thing { int v; };\n",
+     "",
+     ""},
+    {SHARED, "headers by -h", "s.c", "-h .c",
+     "static int s;\n"
+     "#define M 1\n",
+     "M\ts.c\t/^#define M /;\"\td\tline:2\n"
+     "s\ts.c\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "headers added by -h", "s.h", "-h +.c",
+     "static int s;\n"
+     "#define M 1\n",
+     "M\ts.h\t/^#define M /;\"\td\tline:2\n"
+     "s\ts.h\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "headers replaced by -h", "s.h", "-h .c",
+     "static int s;\n"
+     "#define M 1\n",
+     "M\ts.h\t/^#define M /;\"\td\tline:2\tfile:\n"
+     "s\ts.h\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "an extension in capitals shared, C first", "k.h", "--map-C=+.H",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "get\tk.h\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.h\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "an extension in capitals, ignoring case", "k.x", "--langmap=c:.X",
+     "int v;\n",
+     "v\tk.x\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "a tie with Fortran decided by the template", "k.c.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "class Thing { int v; };\n",
+     "v\tk.c.in\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "a tie with Fortran left to the first by name", "k.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "class Thing { int v; };\n",
+     "Thing\tk.in\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "v\tk.in\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "an extension taken by a defined language first by name", "k.c",
+     "--langdef=Aaa --map-Aaa=+.c",
+     "int v;\n",
+     "",
+     ""},
+    {SHARED, "an extension shared with a defined language, C first", "k.c",
+     "--langdef=Zzz --map-Zzz=+.c",
+     "int v;\n",
+     "v\tk.c\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {IMPROVED, "D1 C++'s own C without C's", "k.C", "--map-C=-.c",
+     "class Thing { int v; };\n",
+     "Thing\tk.C\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "C++'s own C removed", "k.C", "--map-C++=-.C",
+     "class Thing { int v; };\n",
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {IMPROVED, "D2 a forced header template", "k.x.in", "-h .x --language-force=C",
+     "static int s;\n",
+     "s\tk.x.in\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     "s\tk.x.in\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\tfile:\n"},
+    {OURS, "forced to another language", "k.c", "--language-force=Python",
+     "int v;\n",
+     "",
+     ""},
 };
 
 static void test_c(Test *t)

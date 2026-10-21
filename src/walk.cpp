@@ -1,7 +1,12 @@
 // Discovery: walking the inputs in parallel and tagging each file
 // This is free and unencumbered software released into the public domain.
 
-enum : i32 { ITEM_DIR, ITEM_FILE };
+enum : i32 {
+    ITEM_DIR,
+    ITEM_FILE,
+    ITEM_ARG,   // an argument, to examine
+    ITEM_NONE,  // an argument with nothing to do
+};
 
 enum : iz { FILEMAX = (iz)64<<20 };  // larger files are skipped
 
@@ -12,12 +17,14 @@ struct Item {
     i32   type;
     i32   lang;
     b32   header;
+    i32   err;     // an argument that cannot be examined: OSERR_*
 };
 
-// A lock-free stack of items (Treiber). Each item is pushed exactly
-// once and never reused, so a popped item cannot reappear at the top,
-// and the stack has no ABA problem. Work is done when pending, items
-// pushed but not yet finished, reaches zero.
+// A lock-free stack of items (Treiber). While workers run, each item is
+// pushed at most once and never reused, so a popped item cannot reappear
+// at the top, and the stack has no ABA problem. (Arguments examined by
+// workers are pushed again for the next run.) Work is done when pending,
+// items pushed but not yet finished, reaches zero.
 struct Queue {
     alignas(64) Item *top;
     alignas(64) iz    pending;
@@ -97,58 +104,21 @@ static Str joinpath(Arena *a, Str dir, Str name, b32 windows)
     return concat(a, r, name);
 }
 
-static b32 globchar(u8 p, u8 c, b32 fold)
+// Whether patterns match a path's base name, or else the whole path as
+// constructed (DISC-3).
+static b32 pathmatch(Slice<Glob> globs, Str path, Str base, b32 windows)
 {
-    return p=='?' || p==c || (fold && lowercase(p)==lowercase(c));
+    return globsmatch(globs, base, windows) ||
+           (base.len!=path.len && globsmatch(globs, path, windows));
 }
 
-// Match a glob of literal bytes, '?', and '*', which also matches '/',
-// like fnmatch() without flags. Optionally ignores ASCII case.
-static b32 globmatch(Str pat, Str s, b32 fold)
+// Whether an entry is excluded, checked before it is examined: patterns
+// match it and no exception does, so an excluded directory is pruned
+// unless an exception matches it (D11).
+static b32 excluded(Options *opt, Str path, Str base)
 {
-    iz p    = 0;
-    iz i    = 0;
-    iz star = -1;
-    iz mark = 0;
-    while (i < s.len) {
-        if (p<pat.len && pat[p]=='*') {
-            star = p++;
-            mark = i;
-        } else if (p<pat.len && globchar(pat[p], s[i], fold)) {
-            p++;
-            i++;
-        } else if (star >= 0) {
-            p = star + 1;
-            i = ++mark;
-        } else {
-            return 0;
-        }
-    }
-    for (; p<pat.len && pat[p]=='*'; p++) {}
-    return p == pat.len;
-}
-
-// Universal Ctags' built-in exclusions, tried against the base name
-// and then the whole path, ignoring case on Windows.
-static b32 excluded(Str path, b32 windows)
-{
-    static Str patterns[] = {
-        "*.a", "*.class", "*.dll", "*.exe", "*.gcda", "*.gcno", "*.lib",
-        "*.o", "*.obj", "*.pyc", "*.pyo", "*.so", "*~", ".*.swp",
-        ".DS_Store", ".arch-ids", ".arch-inventory", ".bzr", ".bzrignore",
-        ".cvsignore", ".deps", ".dvi", ".git", ".gitattributes",
-        ".gitignore", ".hg", ".hgignore", ".svn", "BitKeeper", "CVS",
-        "EIFGEN", "PENDING", "RCS", "RESYNC", "SCCS", "_darcs",
-        "autom4te.cache", "{arch}",
-    };
-    Str base = basename(path, windows);
-    for (iz i = 0; i < countof(patterns); i++) {
-        if (globmatch(patterns[i], base, windows) ||
-            globmatch(patterns[i], path, windows)) {
-            return 1;
-        }
-    }
-    return 0;
+    return pathmatch(opt->excludes, path, base, opt->windows) &&
+           !pathmatch(opt->exceptions, path, base, opt->windows);
 }
 
 struct Lang {
@@ -156,58 +126,142 @@ struct Lang {
     b32 header;
 };
 
-static b32 anyfold(Str s, Str *set, iz len)
+// A name's extension: after its last '.', or empty without one.
+static Str extension(Str name)
 {
-    for (iz i = 0; i < len; i++) {
-        if (equalsfold(s, set[i])) {
+    iz dot = name.len;
+    for (; dot>0 && name[dot-1]!='.'; dot--) {}
+    return dot ? cuthead(name, dot) : Str("");
+}
+
+// Whether a list holds a string, ignoring case.
+static b32 inlist(Slice<Str> list, Str s)
+{
+    for (iz i = 0; i < list.len; i++) {
+        if (equalsfold(list[i], s)) {
             return 1;
         }
     }
     return 0;
 }
 
-// Choose a language by the file name's extension, ignoring case, after
-// stripping a ".in" suffix. Unlike Universal Ctags on Windows, ".C" is
-// C++, and ".inl" and ".hp" count as headers.
-static Lang detectlang(Str path, b32 windows)
+// Whether a name sorts before another, ignoring case, as strcasecmp()
+// orders them.
+static b32 lessfold(Str a, Str b)
 {
-    static Str c[]   = {"c"};
-    static Str cxx[] = {
-        "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp",
-        "hxx", "inl",
-    };
-    static Str ftn[] = {
-        "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08", "f15",
-    };
-    static Str hdr[] = {
-        "h", "hh", "hpp", "hxx", "h++", "inc", "def", "inl", "hp",
-    };
-
-    Lang r    = {};
-    Str  base = basename(path, windows);
-    for (i32 tries = 0; tries < 2; tries++) {
-        iz dot = base.len - 1;
-        for (; dot>=0 && base[dot]!='.'; dot--) {}
-        if (dot < 0) {
-            break;
+    for (iz i = 0; i<a.len && i<b.len; i++) {
+        u8 x = lowercase(a[i]);
+        u8 y = lowercase(b[i]);
+        if (x != y) {
+            return x < y;
         }
-        Str ext = cuthead(base, dot+1);
-        if (!tries && equalsfold(ext, "in")) {
-            base = takehead(base, dot);
-            continue;
-        }
-        if (ext == "C") {
-            r.lang = LANG_CXX;
-        } else if (anyfold(ext, c, countof(c))) {
-            r.lang = LANG_C;
-        } else if (anyfold(ext, cxx, countof(cxx))) {
-            r.lang = LANG_CXX;
-        } else if (anyfold(ext, ftn, countof(ftn))) {
-            r.lang = LANG_FORTRAN;
-        }
-        r.header = r.lang && anyfold(ext, hdr, countof(hdr));
-        break;
     }
+    return a.len < b.len;
+}
+
+// Whether a map takes a name: in the first pass by a pattern, in the
+// second by its extension, ignoring case.
+static b32 maptakes(Slice<Str> globs, Slice<Str> exts, Str name, Str ext,
+                    i32 pass, b32 windows)
+{
+    if (pass) {
+        return inlist(exts, ext);
+    }
+    for (iz i = 0; i < globs.len; i++) {
+        if (globmatch(globs[i], name, windows)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// The languages that take a name, gathered: how many, the first by
+// name, and whether any lacks the selector C and C++ share (LANG-2).
+struct Candidates {
+    iz  count;
+    Str name;
+    i32 lang;    // LANG_*, LANG_FOREIGN for one from --langdef
+    b32 others;  // neither C nor C++
+};
+
+static void nominate(Candidates *c, i32 lang, Str name)
+{
+    if (!c->count || lessfold(name, c->name)) {
+        c->name = name;
+        c->lang = lang;
+    }
+    c->count++;
+    c->others |= lang!=LANG_C && lang!=LANG_CXX;
+}
+
+// A language chosen for a name, or, of several that took it with none
+// chosen, a fallback (LANG-2).
+struct Pick {
+    i32 lang;
+    i32 fallback;
+};
+
+// Which of the enabled languages, ours and those from --langdef, take a
+// base name: those with a pattern that matches it, else those with its
+// extension, ignoring case, but for C++'s own "C", which takes only
+// ".C", and first (D1). Of several, C and C++ choose the first by name,
+// as their shared selector does, and with any other among them none is
+// chosen: the first is a fallback.
+static Pick matchlang(Options *opt, Str name)
+{
+    Pick       r   = {};
+    LangMap   *m   = &opt->map;
+    Candidates c   = {};
+    Str        ext = extension(name);
+    for (i32 pass = 0; pass<2 && !c.count; pass++) {
+        if (pass && ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
+            r.lang = LANG_CXX;
+            return r;
+        }
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            if (opt->langs>>lang&1 && maptakes(m->globs[lang], m->exts[lang],
+                                               name, ext, pass, opt->windows)) {
+                nominate(&c, lang, langnames[lang]);
+            }
+        }
+        for (iz i = 0; i < m->langdefs.len; i++) {
+            Langdef *d = &m->langdefs[i];
+            if (d->on && maptakes(d->globs, d->exts, name, ext, pass,
+                                  opt->windows)) {
+                nominate(&c, LANG_FOREIGN, d->name);
+            }
+        }
+    }
+    if (c.count>1 && c.others) {
+        r.fallback = c.lang;
+    } else {
+        r.lang = c.lang;
+    }
+    return r;
+}
+
+// Choose a file's language by its base name, then without a final
+// ".in", unless one is forced, and say whether it is a header by the
+// name without ".in", whatever the language (LANG-2, LANG-5, D2). One
+// this program does not parse is no language here.
+static Lang detectlang(Options *opt, Str path)
+{
+    Lang r    = {};
+    Str  base = basename(path, opt->windows);
+    b32  in   = base.len>=3 && equalsfold(taketail(base, 3), ".in");
+    Str  bare = in ? cuttail(base, 3) : base;
+    i32  lang = opt->force;
+    if (!lang) {
+        Pick p = matchlang(opt, base);
+        if (!p.lang && in) {
+            Pick t = matchlang(opt, bare);
+            p.lang     = t.lang;
+            p.fallback = p.fallback ? p.fallback : t.fallback;
+        }
+        lang = p.lang ? p.lang : p.fallback;
+    }
+    r.lang   = lang!=LANG_FOREIGN ? lang : LANG_NONE;
+    r.header = r.lang && inlist(opt->headers, extension(bare));
     return r;
 }
 
@@ -286,7 +340,8 @@ static void visitdir(Worker *w, Item *it)
     for (Dirent *d = l.head; d; d = d->next) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
-        if (excluded(path, windows)) {
+        if ((d->islink && c->opt->nolinks) ||
+            excluded(c->opt, path, d->name)) {
             w->perm.beg = mark;
             continue;
         }
@@ -296,7 +351,7 @@ static void visitdir(Worker *w, Item *it)
             dirs    = n;
             if (!dlast) dlast = n;
         } else {
-            Lang lang = detectlang(path, windows);
+            Lang lang = detectlang(c->opt, path);
             if (!lang.lang) {
                 w->perm.beg = mark;
                 continue;
@@ -365,6 +420,33 @@ static void visitfile(Worker *w, Item *it)
     w->nfiles++;
     w->nbytes += r.data.len;
     w->scratch.end = tmp.end>w->scratch.end ? tmp.end : w->scratch.end;
+}
+
+// Examine an argument, making it a directory to list, a file to tag, or
+// nothing to do. One that is missing records why, for a warning given
+// in the arguments' order.
+static void examine(Ctx *c, Item *it, Arena scratch)
+{
+    Stat s = os_stat(c->os, scratch, it->path);
+    it->type = ITEM_NONE;
+    if (s.islink && c->opt->nolinks) {
+        return;  // even one that leads nowhere (DISC-7)
+    } else if (s.type == STAT_NONE) {
+        it->err = s.err;
+    } else if (s.type == STAT_DIR) {
+        it->type = ITEM_DIR;
+    } else if (s.type==STAT_FILE && it->lang) {
+        it->type = ITEM_FILE;
+    }
+}
+
+// Examine arguments from the work stack until none are left.
+static void examineall(Worker *w)
+{
+    Queue *q = &w->ctx->queue;
+    for (Item *it = popitem(q); it; it = popitem(q)) {
+        examine(w->ctx, it, w->scratch);
+    }
 }
 
 enum : i32 { STEP_DONE, STEP_DID, STEP_WAIT };

@@ -851,6 +851,24 @@ static TagCase fortrancases[] = {
      "main\tf.f90\t/^program main$/;\"\tp\tline:1\n"
      "s\tf.f90\t/^subroutine s(/;\"\ts\tline:5\n",
      ""},
+    {SHARED, "forced Fortran", "f.c", "--language-force=Fortran",
+     "      program main\n"
+     "      integer i\n"
+     "      end\n",
+     "i\tf.c\t/^      integer i$/;\"\tv\tline:2\tprogram:main\n"
+     "main\tf.c\t/^      program main$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "a C extension mapped to Fortran", "f.c", "--langmap=fortran:+.c",
+     "      program main\n"
+     "      end\n",
+     "main\tf.c\t/^      program main$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "a tie with C++ decided by the template", "f.f90.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "program main\n"
+     "end program\n",
+     "main\tf.f90.in\t/^program main$/;\"\tp\tline:1\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.
