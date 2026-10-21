@@ -1033,8 +1033,9 @@ Decided for this program, deliberately different from Universal Ctags.
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
-  `--tag-relative`, the listings (OPT-15), `--version`, `--help`, and
-  this program's `--jobs`. The others are
+  `--tag-relative`, `--sort` and `-u` (SORT-3, SORT-4), the listings
+  (OPT-15), `--version` (OPT-19), `--help`, and this program's
+  `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
