@@ -232,6 +232,43 @@ static void test_output(Test *t)
         }
     }
 
+    // Escapes in other formats, as by default: given the default fields,
+    // tagline writes the same lines as tagemit
+    {
+        Str text = "struct A {\n  int *f() {}\n};\n";
+        Str head = "\tx.cpp\t/^  int *f() {}$/;\"\tf\tline:2\tstruct:";
+        struct { Str name, scope, type, aliased, want; } tags[] = {
+            {" x",   "A",    "int *", {},
+             "\\x20x|A\ttyperef:typename:int *\n"},
+            {"!x",   "A\\B", "int *", {},
+             "\\x21x|A\\\\B\ttyperef:typename:int *\n"},
+            {"a\\b", "A\tB", "B\\",   "c\x01",
+             "a\\\\b|A\\tB\ttyperef:typename:B\\\\\tname:c\\x01\n"},
+            {"x!",   "\x7f", "int",   " y",
+             "x!|\\x7F\ttyperef:typename:int\tname: y\n"},
+        };
+        Format fmt = {};
+        fmt.fields = defaultfields();
+        fmt.patmax = PATTERNLIMIT;
+        for (iz i = 0; i < countof(tags); i++) {
+            Tag tag = {};
+            tag.name      = tags[i].name;
+            tag.kind      = K_FUNCTION;
+            tag.line      = 2;
+            tag.linepos   = 11;
+            tag.scopekind = "struct";
+            tag.scope     = tags[i].scope;
+            tag.typekind  = "typename";
+            tag.type      = tags[i].type;
+            tag.aliased   = tags[i].aliased;
+            Cut parts = cut(tags[i].want, '|');
+            Str want  = concat(&a, concat(&a, parts.head, head), parts.tail);
+            expect(t, want, fmttag(&a, "x.cpp", LANG_CXX, text, tag), want);
+            expect(t, want, fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+                   want);
+        }
+    }
+
     // Whether a file's first bytes make it a tags file Universal Ctags
     // replaces (CLI-3), each checked against it
     struct { Str head; b32 want; } heads[] = {

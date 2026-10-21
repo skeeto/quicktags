@@ -1,7 +1,8 @@
 // Fuzzing in process: generated token soup and mutated tag-case sources,
 // each tagged with default and with all kinds, and in other formats,
-// checking that the output is well formed. Debug builds also trap on
-// undefined behavior.
+// checking that the output is well formed, and that fields added to the
+// default ones change nothing else. Debug builds also trap on undefined
+// behavior.
 
 static u32 rand32(u64 *rng)
 {
@@ -104,18 +105,20 @@ struct Lint {
     i32 excmd;     // the address: EXCMD_*
     b32 nofields;  // --format=1: nothing after the address
     b32 deflt;     // the kind letter first, then line:
+    b32 strip;     // the default output once stripped (fuzzstrip)
 };
 
 static Lint lints[] = {
-    {"",                                                EXCMD_MIXED,   0, 1},
-    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1},
+    {"",                                                EXCMD_MIXED,   0, 1, 0},
+    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1, 0},
     // One of the following too, in turn
-    {"--fields=*-Saim --extras=+q --kinds-C++=* ",      EXCMD_MIXED,   0, 0},
-    {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0},
-    {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1},
-    {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0},
-    {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0},
-    {"--output-format=e-ctags --fields=+zE ",           EXCMD_MIXED,   0, 0},
+    {"--fields=*-Saim --extras=+q --kinds-C++=* ",      EXCMD_MIXED,   0, 0, 0},
+    {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0, 0},
+    {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1, 0},
+    {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0, 0},
+    {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0, 0},
+    {"--output-format=e-ctags --fields=+zE ",           EXCMD_MIXED,   0, 0, 0},
+    {"--fields=+lzZEr ",                                EXCMD_MIXED,   0, 0, 1},
 };
 
 // Universal Ctags' order of the fields written here (FLD-4), by key,
@@ -190,6 +193,19 @@ static b32 lintextras(Str s)
     return 1;
 }
 
+// Offset of the last ;" and tab in a line, which ends the address and
+// any pattern in it, or -1.
+static iz fieldsat(Str line)
+{
+    iz at = -1;
+    for (iz i = 0; i+2 < line.len; i++) {
+        if (line[i]==';' && line[i+1]=='"' && line[i+2]=='\t') {
+            at = i;
+        }
+    }
+    return at;
+}
+
 // Is the tags output well formed for the source and options? Sorted,
 // each address as the excmd says, the fields in order, and the line
 // field in range, and equal to a line number in the address.
@@ -214,16 +230,10 @@ static Str fuzzlint(Str out, Str src, Lint *x)
             return "no address";
         }
 
-        // The address ends at the last ;" and tab, after any pattern
         Str addr   = file.tail;
         Str fields = {};
         if (!x->nofields) {
-            iz at = -1;
-            for (iz i = 0; i+2 < addr.len; i++) {
-                if (addr[i]==';' && addr[i+1]=='"' && addr[i+2]=='\t') {
-                    at = i;
-                }
-            }
+            iz at = fieldsat(addr);
             if (at < 0) {
                 return "no ;\" before the fields";
             }
@@ -268,6 +278,47 @@ static Str fuzzlint(Str out, Str src, Lint *x)
     return {};
 }
 
+// Output with --fields=+lzZEr as the default options would write it:
+// each line without its language, roles, and extras fields, and without
+// the kind and scope keys, then sorted, each line once.
+static Str fuzzstrip(Arena *a, Str out)
+{
+    Slice<Str> lines = {};
+    for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        Str l  = c.head;
+        iz  at = fieldsat(l);
+        if (at < 0) {
+            lines = push(a, lines, l);
+            continue;
+        }
+        Buf b(a, l.len);  // only shrinks
+        print(&b, takehead(l, at+2));
+        Cut f = {};
+        f.tail = cuthead(l, at+3);
+        while (f.tail.len) {
+            f = cut(f.tail, '\t');
+            Cut kv  = cut(f.head, ':');
+            Str key = kv.ok ? kv.head : Str{};
+            if (key=="language" || key=="roles" || key=="extras") {
+                continue;
+            }
+            putbyte(&b, '\t');
+            print(&b, key=="kind" || key=="scope" ? kv.tail : f.head);
+        }
+        lines = push(a, lines, finish(&b));
+    }
+
+    sort(lines.data, lines.len, strless, *a);
+    Buf b(a, out.len+1);
+    for (iz i = 0; i < lines.len; i++) {
+        if (!i || !(lines[i] == lines[i-1])) {
+            print(&b, lines[i]);
+            putbyte(&b, '\n');
+        }
+    }
+    return finish(&b);
+}
+
 #ifndef FUZZRUNS
 #  define FUZZRUNS 3000  // more for a longer campaign: -DFUZZRUNS=1000000
 #endif
@@ -303,6 +354,7 @@ static void test_fuzz(Test *t)
 
         // Default options, all kinds, and a format option set in turn
         Lint *runs[] = {lints, lints+1, lints + 2 + i%(countof(lints)-2)};
+        Str   deflt  = {};
         for (iz o = 0; o < countof(runs); o++) {
             Buf cmd(&a, 128);
             print(&cmd, runs[o]->opts);
@@ -310,6 +362,11 @@ static void test_fuzz(Test *t)
             print(&cmd, file);
             Run r = runcap(os, a, finish(&cmd), (iz)8<<20);
             Str bad = fuzzlint(r.out, src, runs[o]);
+            if (!o) {
+                deflt = r.out;
+            } else if (runs[o]->strip && !(fuzzstrip(&a, r.out) == deflt)) {
+                bad = "not the default output once stripped";
+            }
             for (iz j = 0; j < r.out.len; j++) {
                 ntags += r.out[j] == '\n';
             }
