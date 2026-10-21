@@ -49,9 +49,21 @@ static b32 vfssep(Os *os, u8 c)
 
 enum : iz { VFSDEPTH = 32 };
 
+// How many of a path's names are its root on Windows: a drive, or a
+// UNC path's host and share. None elsewhere.
+static iz vfsroot(Os *os, Str path)
+{
+    if (!os->windows || path.len<2) {
+        return 0;
+    } else if (path[1] == ':') {
+        return 1;
+    }
+    return vfssep(os, path[0]) && vfssep(os, path[1]) ? 2 : 0;
+}
+
 // Append a path's names, without empty ones and ".", and with a current
-// directory, each ".." taking the name before it, but a drive.
-static iz vfssplit(Os *os, Str path, Str *names, iz len)
+// directory, each ".." taking the name before it, but those of a root.
+static iz vfssplit(Os *os, Str path, Str *names, iz len, iz root)
 {
     for (iz i = 0; i < path.len;) {
         iz end = i;
@@ -61,9 +73,7 @@ static iz vfssplit(Os *os, Str path, Str *names, iz len)
         if (!part.len || part==".") {
             continue;
         } else if (part==".." && os->cwd.len) {
-            b32 drive = len==1 && os->windows && names[0].len==2 &&
-                        names[0][1]==':';
-            len -= len>0 && !drive;
+            len -= len > root;
             continue;
         }
         assert(len < VFSDEPTH);
@@ -74,26 +84,28 @@ static iz vfssplit(Os *os, Str path, Str *names, iz len)
 
 // The names to find a path by, from the current directory, the root.
 // With an absolute current directory, a path is first made absolute,
-// on Windows with its drive when it names none, then loses the names
-// of the current directory if it lies under it, compared regardless of
-// case on Windows. Other absolute paths keep all their names: "/x" and
-// "D:\x" are "x" and "D:/x" from the root.
+// on Windows from the directory's root when it has none of its own,
+// then loses the directory's names if it lies under it, compared
+// regardless of case on Windows. Other absolute paths keep all their
+// names: "/x" and "D:\x" are "x" and "D:/x" from the root.
 static iz vfsnames(Os *os, Str path, Str *names)
 {
     Str cwd   = os->cwd;
+    iz  root  = vfsroot(os, path);
+    iz  croot = vfsroot(os, cwd);
     iz  len   = 0;
-    b32 drive = os->windows && path.len>=2 && path[1]==':';
-    if (cwd.len && !drive) {
-        if (!path.len || !vfssep(os, path[0])) {
-            len = vfssplit(os, cwd, names, 0);
-        } else if (os->windows && cwd.len>=2 && cwd[1]==':') {
-            names[len++] = takehead(cwd, 2);
-        }
+    if (!cwd.len || root) {
+        len = vfssplit(os, path, names, 0, root);
+    } else if (path.len && vfssep(os, path[0])) {
+        len = vfssplit(os, cwd, names, 0, croot);
+        len = vfssplit(os, path, names, len<croot ? len : croot, croot);
+    } else {
+        len = vfssplit(os, cwd, names, 0, croot);
+        len = vfssplit(os, path, names, len, croot);
     }
-    len = vfssplit(os, path, names, len);
 
     Str here[VFSDEPTH];
-    iz  nhere = vfssplit(os, cwd, here, 0);
+    iz  nhere = vfssplit(os, cwd, here, 0, croot);
     if (!nhere || len<nhere) {
         return len;
     }

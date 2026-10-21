@@ -1240,4 +1240,52 @@ static void test_walk(Test *t)
         };
         runtrel(t, os, cases, countof(cases));
     }
+    {
+        // D16: a UNC path is rooted at its share, as a path at its drive,
+        // where Universal Ctags puts the current drive before it, or
+        // before a path rooted without a drive, from a share, "@:"
+        Os *os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\Users\\u\\w";
+        vfsfile(os, "//host/share/x/a.c", "int a;\n");
+        Str unc = "a=//host/share/x/a.c";
+        struct { Str out, args, want, uctags; } d16[] = {
+            {"-",        "--tag-relative=never \\\\host\\share\\x\\a.c",
+                         unc, "a=C://host/share/x/a.c"},
+            {"sub/tags", "--tag-relative=always //host/share/x/a.c",
+                         unc, "a=../../../..//host/share/x/a.c"},
+            {"-",        "--tag-relative=never //host/share/../x/a.c",
+                         unc, "a=C://host/x/a.c"},
+            {"-",        "--tag-relative //host/share/x/a.c", unc, unc},
+        };
+        for (iz i = 0; i < countof(d16); i++) {
+            TrelCase c = {d16[i].out, d16[i].args, 0, d16[i].want, ""};
+            runtrel(t, os, &c, 1);
+        }
+
+        os->cwd = "\\\\host\\share\\w";
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "sub/b.c",      "int b;\n");
+        vfsfile(os, "\\x\\c.c",     "int c;\n");
+        vfsfile(os, "//host/other/d.c", "int d;\n");
+        Str here = "a=//host/share/w/a.c b=//host/share/w/sub/b.c";
+        struct { Str out, args, want, uctags; } cwd16[] = {
+            // As Universal Ctags writes them
+            {"-",        "--tag-relative=never a.c sub\\b.c", here, here},
+            {"sub/tags", "--tag-relative a.c sub\\b.c",
+                         "a=../a.c b=b.c",              "a=../a.c b=b.c"},
+            {"-",        "--tag-relative=never ..\\..\\w\\a.c",
+                         "a=//host/share/w/a.c",        "a=//host/w/a.c"},
+            {"-",        "--tag-relative=never \\x\\c.c",
+                         "c=//host/share/x/c.c",        "c=@:/x/c.c"},
+            {"-",        "--tag-relative=always \\\\HOST\\Share\\w\\sub\\b.c",
+                         "b=sub/b.c",                   "b=@://HOST/Share/w/sub/b.c"},
+            {"sub/tags", "--tag-relative=always //host/other/d.c",
+                         "d=//host/other/d.c",          "d=@://host/other/d.c"},
+        };
+        for (iz i = 0; i < countof(cwd16); i++) {
+            TrelCase c = {cwd16[i].out, cwd16[i].args, 0, cwd16[i].want, ""};
+            runtrel(t, os, &c, 1);
+        }
+    }
 }

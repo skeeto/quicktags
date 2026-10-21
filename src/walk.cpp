@@ -319,31 +319,49 @@ static void driveerror(Buf *log, Str path)
     print(log, ": relative file names with drive letters not supported\n");
 }
 
+// The length of a path's root on Windows: a drive, "C:", or a UNC
+// path's "\\host\share" (D16). None elsewhere.
+static iz rootlen(Str path, b32 windows)
+{
+    if (!windows || path.len<2) {
+        return 0;
+    } else if (path[1] == ':') {
+        return 2;
+    } else if (!isseparator(path[0], 1) || !isseparator(path[1], 1)) {
+        return 0;
+    }
+    iz i = 2;
+    for (; i<path.len && !isseparator(path[i], 1); i++) {}  // host
+    if (i < path.len) {
+        for (i++; i<path.len && !isseparator(path[i], 1); i++) {}  // share
+    }
+    return i;
+}
+
 // A path made absolute from the current directory, on Windows from its
-// drive if the path has none: each "." name dropped with the separator
-// before it, each ".." with the separator and name before that, back to
-// a separator of any kind, and past doubled separators (D14), but never
-// the drive's ':' (D15), the separators but ':' made '/', and the drive
-// letter uppercased.
+// root, drive or share, if the path has none (D16): each "." name
+// dropped with the separator before it, each ".." with the separator and
+// name before that, back to a separator of any kind, and past doubled
+// separators (D14), but never into the root (D15), the separators but
+// ':' made '/', and the drive letter uppercased.
 static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
 {
     Str full = path;
     if (!isabsolute(path, windows)) {
         b32 sep = cwd.len && relsep(cwd[cwd.len-1], windows);
         full = concat(a, concat(a, cwd, sep ? Str("") : Str("/")), path);
-    } else if (windows && (path.len<2 || path[1]!=':')) {
-        u8 drive[] = {'@', ':'};  // the current drive, none for UNC
-        if (cwd.len>=2 && cwd[1]==':') {
-            drive[0] = cwd[0]>='a' && cwd[0]<='z' ? (u8)(cwd[0]-32) : cwd[0];
-        }
-        full = concat(a, {drive, 2}, path);
+    } else if (windows && !rootlen(path, windows)) {
+        full = concat(a, takehead(cwd, rootlen(cwd, windows)), path);
     }
 
     u8 *r    = allocbytes(a, full.len+1);
-    iz  root = windows && full.len>=2 && full[1]==':' ? 2 : 0;  // drive
-    iz  i    = 0;
+    iz  root = rootlen(full, windows);
+    for (iz j = 0; j < root; j++) {
+        r[j] = full[j]=='\\' ? '/' : full[j];
+    }
+    iz i = root;
     for (; i<full.len && !relsep(full[i], windows); i++) {}
-    copybytes(r, full.data, i);
+    copybytes(r+root, full.data+root, i-root);
     iz len = i;
     while (i < full.len) {
         u8 sep = full[i++];
@@ -378,9 +396,15 @@ static Str abspath(Arena *a, Str cwd, Str path, b32 windows)
 // Windows: a "../" for each separator the directory has past the last
 // separator they share, but doubled ones, then the path past it, which
 // without a "../" does not begin with a separator (D14). With none
-// shared, as on another drive, the path itself.
+// shared, or another root, drive or share (D16), the path itself.
 static Str relpath(Arena *a, Str path, Str dir, b32 windows)
 {
+    iz root = rootlen(path, windows);
+    if (root != rootlen(dir, windows) ||
+        !equalsfold(takehead(path, root), takehead(dir, root))) {
+        return path;
+    }
+
     iz same = 0;
     for (; same<path.len && same<dir.len; same++) {
         u8 x = path[same];
