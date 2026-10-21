@@ -459,13 +459,13 @@ static Token *settype(Cxx *c, Tag *tag, Token *start, Token *end)
 }
 
 // A signature field's value: the parameter list's tokens, each followed
-// by a space if marked so, then " const" for a const member function
-// (FLD-8). Valid until the next signature.
-static Str joinsig(Cxx *c, Chain *params, Token *sigconst)
+// by a space if marked so (unless nospace), then " const" for a const
+// member function (FLD-8). Valid until the next signature.
+static Str joinsig(Cxx *c, Chain *params, Token *sigconst, b32 nospace)
 {
     Word *w = &c->sig;
     w->len = 0;
-    joinchain(&c->pool, params, w, {}, 0);
+    joinchain(&c->pool, params, w, {}, nospace);
     if (sigconst) {
         wordput(&c->pool, w, ' ');
         tokenappend(&c->pool, w, sigconst);

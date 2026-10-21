@@ -155,7 +155,6 @@ struct Cpp {
     iz     backpos;
     Word   lit;       // contents of the last literal
     Word   name;      // the identifier a directive is reading
-    Buf    sig;       // a macro's signature field
     b32    resolve;   // a statement is in progress
     b32    brace;     // the second pass's rules
     i32    depth;     // the parser's block depth
@@ -446,6 +445,19 @@ static void readname(Cpp *p, i32 c, Word *w)
     unget(p, c);
 }
 
+// Append a byte to a word, growing it in the arena.
+static void cppput(Cpp *p, Word *w, i32 c)
+{
+    if (w->len == w->cap) {
+        iz  cap  = w->cap ? w->cap*2 : 16;
+        u8 *data = allocbytes(p->a, cap);
+        copybytes(data, w->data, w->len);
+        w->data = data;
+        w->cap  = cap;
+    }
+    w->data[w->len++] = (u8)c;
+}
+
 // Tag a macro, unless file-scoped kinds are... (always on here)
 static void cppmacro(Cpp *p, Str name, i32 line, iz linepos, Str sig)
 {
@@ -480,7 +492,10 @@ static void cppparam(Cpp *p, Str name, Str macro)
     tagemit(f, &t);
 }
 
-static void directivedefine(Cpp *p, i32 c)
+// Tag a #define's macro and parameters. Not inlined into cppget, which
+// runs for every character: there its registers and stack would cost
+// every call, a few percent of the whole run.
+[[gnu::noinline]] static void directivedefine(Cpp *p, i32 c)
 {
     p->state = D_NONE;
     if (!cppident1(c)) {
@@ -502,59 +517,41 @@ static void directivedefine(Cpp *p, i32 c)
         return;
     }
 
-    // The signature lists the parameters in full (FLD-10)
-    Buf *sig = 0;
-    if (wantfield(p->f, FIELD_SIGNATURE)) {
-        if (!p->sig.a) {
-            p->sig = Buf(p->a, 64);
-        }
-        sig = &p->sig;
-        sig->len = 0;
-        putbyte(sig, '(');
-    }
-
-    // Parameters are read raw, without removing comments
-    Word param = {};
+    // Parameters are read raw, without removing comments, into a list
+    // of them in full, which is the signature (FLD-10)
+    Word list  = {};
+    iz   param = 1;  // where the parameter being read begins
+    cppput(p, &list, '(');
     do {
         n = rawget(p);
         if ((n>='0' && n<='9') || cppalpha(n) || n=='_' || n=='$' || n=='.') {
-            if (param.len == param.cap) {
-                iz  cap  = param.cap ? param.cap*2 : 16;
-                u8 *data = allocbytes(p->a, cap);
-                copybytes(data, param.data, param.len);
-                param.data = data;
-                param.cap  = cap;
-            }
-            param.data[param.len++] = (u8)n;
+            cppput(p, &list, n);
             continue;
         }
-        if (param.len) {
-            Str s = {param.data, param.len};
+        if (list.len > param) {
+            Str s = {list.data+param, list.len-param};
             if (s.len>3 && endswith(s, "...")) {
                 cppparam(p, cuttail(s, 3), name);  // GNU args...
             } else if (s[0] != '.') {
                 cppparam(p, s, name);
             }
-            if (sig) {
-                print(sig, s);
-                putbyte(sig, ',');
-            }
-            param.len = 0;
+            cppput(p, &list, ',');
+            param = list.len;
         }
         if (n == '\\') {
             rawget(p);  // throw away the next character
         }
     } while (n!=')' && n!=C_EOF);
 
-    Str signature = {};
-    if (sig && n==')') {
-        if (sig->len > 1) {
-            sig->len--;  // the comma after the last parameter
+    Str sig = {};
+    if (n==')' && wantfield(p->f, FIELD_SIGNATURE)) {
+        if (list.len > 1) {
+            list.len--;  // the comma after the last parameter
         }
-        putbyte(sig, ')');
-        signature = finish(sig);
+        cppput(p, &list, ')');
+        sig = {list.data, list.len};
     }
-    cppmacro(p, name, line, linepos, signature);
+    cppmacro(p, name, line, linepos, sig);
 }
 
 static void directivepragma(Cpp *p, i32 c)

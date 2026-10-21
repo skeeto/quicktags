@@ -113,9 +113,9 @@ static i32 knrfunction(Cxx *c)
     if (tag) {
         tag->filescope = c->seen&SEEN_STATIC && !isheader(c);
         if (wantfield(c->f, FIELD_SIGNATURE)) {
-            normalizechain(paren->chain);
-            paren->chain->tail->space = 0;
-            tag->signature = joinsig(c, paren->chain, 0);
+            // Names, commas, and "...", which spaced as a type name has
+            // no spaces at all
+            tag->signature = joinsig(c, paren->chain, 0, 1);
         }
         cxxcommit(c, tag);
     }
@@ -559,7 +559,7 @@ static i32 emitfunction(Cxx *c, Sig *sig, i32 kind, b32 pushscopes)
         sig->paren->chain->tail->space = 0;
         if (wantfield(c->f, FIELD_SIGNATURE)) {
             // Before settype, which may respace a type around it
-            tag->signature = joinsig(c, sig->paren->chain, sig->sigconst);
+            tag->signature = joinsig(c, sig->paren->chain, sig->sigconst, 0);
         }
 
         if (kind == K_PROTOTYPE) {
