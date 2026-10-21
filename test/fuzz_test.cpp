@@ -1,6 +1,8 @@
-// Fuzzing in process: generated token soup and mutated tag-case sources,
-// each tagged with default and with all kinds, checking that the output
-// is well formed. Debug builds also trap on undefined behavior.
+// Fuzzing in process: inputs that once failed, generated token soup, and
+// mutated tag-case sources, each tagged with default and with all kinds,
+// and in other formats, checking that the output is well formed, and
+// that fields added to the default ones change nothing else. Debug
+// builds also trap on undefined behavior.
 
 static u32 rand32(u64 *rng)
 {
@@ -38,6 +40,9 @@ static Str fuzzf[] = {
     "common", "block", "data", "entry", "enum", "enumerator", "namelist",
     "procedure", "generic", "abstract", "pure", "elemental", "recursive",
     "impure", "use", "only", "result", "bind(c)", "kind=8", "len=*",
+    "extends(t)", "deferred", "non_overridable", "type, extends(t) ::",
+    "type, abstract ::", "procedure(p), deferred ::",
+    "procedure, non_overridable ::", "submodule (m)",
     "a", "b", "x", "_u", "100", "1.5d0", "'s'", "\"t\"", "::", ",", "=",
     "(", ")", "(/", "/)", "%", "&", "&\n", "!c", "\n", "\n", "\n", ";",
     "\nC comment\n", "\n      ", "\n     &", "\n100   ", "*", "\0", "\x80",
@@ -97,8 +102,133 @@ static Str fuzzmutate(Arena *a, u64 *rng, Str src)
     return finish(&b);
 }
 
-// Is the tags output well formed for the source?
-static Str fuzzlint(Str out, Str src)
+// A run's options, and what they promise of each line.
+struct Lint {
+    Str opts;      // before "-f - FILE"
+    i32 excmd;     // the address: EXCMD_*
+    b32 nofields;  // --format=1: nothing after the address
+    b32 deflt;     // the kind letter first, then line:
+    b32 strip;     // the default output once stripped (fuzzstrip)
+};
+
+static Lint lints[] = {
+    {"",                                                EXCMD_MIXED,   0, 1, 0},
+    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1, 0},
+    // -I macros, with loops (T leads to one, and S and R bring themselves
+    // back after other tokens, also at the end) and replacements that
+    // open groups they do not close
+    {"-I x=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R ",
+                                                        EXCMD_MIXED,   0, 1, 0},
+    // One of the following too, in turn
+    {"--fields=* --extras=+q --kinds-C++=* ",           EXCMD_MIXED,   0, 0, 0},
+    {"--excmd=number --fields=+lKzZEr --extras=+q ",    EXCMD_NUMBER,  0, 0, 0},
+    {"--excmd=combine --kinds-Fortran=+L --fields=+E ", EXCMD_COMBINE, 0, 1, 0},
+    {"-N --pattern-length-limit=10 --fields=+Zr ",      EXCMD_PATTERN, 0, 0, 0},
+    {"--format=1 -n ",                                  EXCMD_NUMBER,  1, 0, 0},
+    {"--output-format=e-ctags --fields=+zES ",          EXCMD_MIXED,   0, 0, 0},
+    {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1},
+};
+
+// Universal Ctags' order of the fields written here (FLD-4), by key,
+// where a scope's key is its kind, and the kind may have none.
+static i32 fieldrank(Str key)
+{
+    static Str keys[] = {
+        "kind", "line", "language", "scope", "typeref", "file", "inherits",
+        "access", "implementation", "signature", "roles", "extras", "name",
+    };
+    for (i32 i = 0; i < countof(keys); i++) {
+        if (key == keys[i]) {
+            return i;
+        }
+    }
+    return 3;
+}
+
+// Is it a line number in [1, max]?
+static b32 lintnum(Str s, iz max)
+{
+    iz n = 0;
+    for (iz i = 0; i < s.len; i++) {
+        if (!digit(s[i]) || n>max) {
+            return 0;
+        }
+        n = n*10 + s[i] - '0';
+    }
+    return n>=1 && n<=max;
+}
+
+static b32 lintpattern(Str s)
+{
+    return s.len>=3 && startswith(s, "/^") && endswith(s, "/");
+}
+
+// Is the address what the excmd asks for? Digits are a line number.
+static b32 lintaddress(Str addr, i32 excmd, iz lines)
+{
+    iz digits = 0;
+    for (; digits<addr.len && digit(addr[digits]); digits++) {}
+    Str number = takehead(addr, digits);
+    Str rest   = cuthead(addr, digits);
+    if (digits && !lintnum(number, lines)) {
+        return 0;
+    }
+    switch (excmd) {
+    case EXCMD_MIXED:   return digits ? !rest.len : lintpattern(addr);
+    case EXCMD_NUMBER:  return digits && !rest.len;
+    case EXCMD_PATTERN: return lintpattern(addr);
+    case EXCMD_COMBINE:
+        return digits && (!rest.len || (startswith(rest, ";") &&
+                                        lintpattern(cuthead(rest, 1))));
+    }
+    return 0;
+}
+
+// Are extras a subsequence of those written here, in their order?
+static b32 lintextras(Str s)
+{
+    Str names[] = {"fileScope", "qualified", "anonymous"};
+    iz  next    = 0;
+    Cut c       = {};
+    c.tail = s;
+    do {
+        c = cut(c.tail, ',');
+        for (; next<countof(names) && !(names[next]==c.head); next++) {}
+        if (next++ == countof(names)) {
+            return 0;
+        }
+    } while (c.ok);
+    return 1;
+}
+
+// Offset of the ;" and tab just after the address that begins s, or -1.
+// The address is read as written, a line number, a pattern, or both
+// (N;/^.../), whose escapes hide each '/' and '\' within, so a field
+// value may hold ;" and a tab, as readers allow.
+static iz fieldsat(Str s)
+{
+    iz i = 0;
+    for (; i<s.len && digit(s[i]); i++) {}
+    if (i && i+1<s.len && s[i]==';' && s[i+1]=='/') {
+        i++;
+    }
+    if (i<s.len && s[i]=='/') {
+        for (i++; i<s.len && s[i]!='/'; i++) {
+            i += s[i] == '\\';
+        }
+        if (i >= s.len) {
+            return -1;
+        }
+        i++;
+    }
+    b32 ok = i+2<s.len && s[i]==';' && s[i+1]=='"' && s[i+2]=='\t';
+    return ok ? i : -1;
+}
+
+// Is the tags output well formed for the source and options? Sorted,
+// each address as the excmd says, the fields in order, and the line
+// field in range, and equal to a line number in the address.
+static Str fuzzlint(Str out, Str src, Lint *x)
 {
     iz lines = 1;
     for (iz i = 0; i < src.len; i++) {
@@ -111,42 +241,183 @@ static Str fuzzlint(Str out, Str src)
             return "lines not sorted and unique";
         }
         prev = l;
+        if (cut(l, 0).ok) {
+            return "a NUL byte";  // a reader would end the line there
+        }
         Cut name = cut(l, '\t');
+        Cut file = cut(name.tail, '\t');
         if (!name.ok || !name.head.len) {
             return "empty name";
+        } else if (!file.ok) {
+            return "no address";
         }
-        iz at = -1;
-        for (iz i = 0; i+2 < l.len; i++) {
-            if (l[i]==';' && l[i+1]=='"' && l[i+2]=='\t') {
-                at = i + 3;
+
+        Str addr   = file.tail;
+        Str fields = {};
+        if (!x->nofields) {
+            iz at = fieldsat(addr);
+            if (at < 0) {
+                return "no ;\" before the fields";
             }
+            fields = cuthead(addr, at+3);
+            addr   = takehead(addr, at);
         }
-        if (at < 0) {
-            return "no ;\" before the kind";
-        }
-        Cut kind = cut(cuthead(l, at), '\t');
-        if (kind.head.len!=1 || !startswith(kind.tail, "line:")) {
-            return "bad kind or line field";
-        }
-        Cut num  = cut(cuthead(kind.tail, 5), '\t');
-        iz  line = 0;
-        for (iz i = 0; i < num.head.len; i++) {
-            if (num.head[i]<'0' || num.head[i]>'9') {
-                return "bad line number";
-            }
-            line = line*10 + num.head[i] - '0';
-        }
-        if (line<1 || line>lines) {
-            return "line number out of range";
-        }
-        Cut addr = cut(cut(l, '\t').tail, '\t');
-        Str a    = addr.tail;
-        if (!startswith(a, "/^") && !(a.len && a[0]>='0' && a[0]<='9')) {
+        if (!lintaddress(addr, x->excmd, lines)) {
             return "bad address";
+        }
+        iz digits = 0;
+        for (; digits<addr.len && digit(addr[digits]); digits++) {}
+
+        i32 rank = -1;
+        b32 line = 0;
+        Cut f    = {};
+        f.tail = fields;
+        while (f.tail.len) {
+            f = cut(f.tail, '\t');
+            Cut kv = cut(f.head, ':');
+            i32 r  = kv.ok ? fieldrank(kv.head) : 0;
+            if (r <= rank) {
+                return "fields out of order";
+            } else if (x->deflt && rank<0 && (kv.ok || kv.head.len!=1)) {
+                return "the kind letter is not first";
+            }
+            rank = r;
+            if (kv.ok && kv.head=="line") {
+                line = 1;
+                if (!lintnum(kv.tail, lines)) {
+                    return "line number out of range";
+                } else if (digits && !(takehead(addr, digits) == kv.tail)) {
+                    return "address and line differ";
+                }
+            } else if (kv.ok && kv.head=="extras" && !lintextras(kv.tail)) {
+                return "bad extras";
+            }
+        }
+        if (x->deflt && !line) {
+            return "no line field";
         }
     }
     return {};
 }
+
+// Output with --fields=+lzZEriaSm as the default options would write it:
+// each line without its language, inherits, access, implementation,
+// signature, roles, and extras fields, and without the kind and scope
+// keys, then sorted, each line once.
+static Str fuzzstrip(Arena *a, Str out)
+{
+    Slice<Str> lines = {};
+    for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        Str l    = c.head;
+        Cut name = cut(l, '\t');
+        Cut file = cut(name.tail, '\t');
+        iz  at   = fieldsat(file.tail);
+        if (at < 0) {
+            lines = push(a, lines, l);
+            continue;
+        }
+        at += l.len - file.tail.len;
+        Buf b(a, l.len);  // only shrinks
+        print(&b, takehead(l, at+2));
+        Cut f = {};
+        f.tail = cuthead(l, at+3);
+        while (f.tail.len) {
+            f = cut(f.tail, '\t');
+            Cut kv  = cut(f.head, ':');
+            Str key = kv.ok ? kv.head : Str{};
+            if (key=="language" || key=="inherits" || key=="access" ||
+                key=="implementation" || key=="signature" ||
+                key=="roles" || key=="extras") {
+                continue;
+            }
+            putbyte(&b, '\t');
+            print(&b, key=="kind" || key=="scope" ? kv.tail : f.head);
+        }
+        lines = push(a, lines, finish(&b));
+    }
+
+    sort(lines.data, lines.len, strless, *a);
+    Buf b(a, out.len+1);
+    for (iz i = 0; i < lines.len; i++) {
+        if (!i || !(lines[i] == lines[i-1])) {
+            print(&b, lines[i]);
+            putbyte(&b, '\n');
+        }
+    }
+    return finish(&b);
+}
+
+// The checks of one input: the first problem found, if any, with the
+// options that showed it, and what the outputs held.
+struct Fuzzed {
+    Str   bad;       // null for none
+    Lint *lint;
+    iz    ntags;
+    iz    inherits;  // Fortran's inherits: fields
+    iz    impl;      // Fortran's implementation: fields
+};
+
+// Tag the file with each option set in turn, the first the default
+// options, checking each output, and stopping at the first problem.
+static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
+{
+    Fuzzed r   = {};
+    Os    *os  = newos(&a);
+    b32    ftn = endswith(file, ".f90") || endswith(file, ".f");
+    vfsfile(os, file, src);
+    Str deflt = {};
+    for (iz o = 0; o<nruns && !r.bad.data; o++) {
+        Buf cmd(&a, 128);
+        print(&cmd, runs[o]->opts);
+        print(&cmd, "-f - ");
+        print(&cmd, file);
+        Run got = runcap(os, a, finish(&cmd), (iz)8<<20);
+        r.bad  = fuzzlint(got.out, src, runs[o]);
+        r.lint = runs[o];
+        if (!o) {
+            deflt = got.out;
+        } else if (runs[o]->strip && !(fuzzstrip(&a, got.out) == deflt)) {
+            r.bad = "not the default output once stripped";
+        }
+        for (Cut c = cut(got.out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+            r.ntags++;
+            if (ftn) {
+                r.inherits += find(c.head, "\tinherits:") >= 0;
+                r.impl     += find(c.head, "\timplementation:") >= 0;
+            }
+        }
+        if (got.status) {
+            r.bad = "nonzero exit status";
+        }
+    }
+    return r;
+}
+
+// Expect no problem, else print the input, which and how it was tagged.
+static b32 fuzzexpect(Test *t, Fuzzed r, char const *what, i32 i, Str file,
+                      Str src)
+{
+    if (expect(t, "fuzz", r.bad, {})) {
+        return 1;
+    }
+    fprintf(stderr, "  %s %d (%.*s%.*s):\n[", what, i,
+            (int)r.lint->opts.len, (char *)r.lint->opts.data,
+            (int)file.len, (char *)file.data);
+    printstr(stderr, src);
+    fprintf(stderr, "]\n");
+    return 0;
+}
+
+// Inputs the checks once got wrong, each tagged with every option set:
+// field values holding ;" before a tab, and a NUL written as it is.
+static struct {
+    Str file;
+    Str src;
+} fuzzseeds[] = {
+    {"f.h",   "class K : Y<\"x;\" {};\n"},
+    {"f.c",   "typedef struct node\"nde, *nodeptr;\" z;\n"},
+    {"f.cpp", "void f(char c = '\0', int d) {}\n"},
+};
 
 #ifndef FUZZRUNS
 #  define FUZZRUNS 3000  // more for a longer campaign: -DFUZZRUNS=1000000
@@ -157,11 +428,26 @@ static void test_fuzz(Test *t)
     TagCase *sets[]  = {ccases, cxxcases, fortrancases};
     iz       sizes[] = {countof(ccases), countof(cxxcases), countof(fortrancases)};
 
+    Lint *all[countof(lints)] = {};
+    for (iz i = 0; i < countof(lints); i++) {
+        all[i] = lints + i;
+    }
+    for (i32 i = 0; i < countof(fuzzseeds); i++) {
+        Str    file = fuzzseeds[i].file;
+        Str    src  = fuzzseeds[i].src;
+        Fuzzed r    = fuzzcheck(t->perm, file, src, all, countof(all));
+        if (!fuzzexpect(t, r, "seed", i, file, src)) {
+            return;
+        }
+    }
+
     // GCC 16 places u64 locals below their alignof (8) on i686 Windows,
     // which UBSan traps through the pointer: a regression w64devkit
     // patched in 0de8f07, explicit here for unpatched compilers
-    alignas(8) u64 rng   = 1;
-    iz             ntags = 0;
+    alignas(8) u64 rng      = 1;
+    iz             ntags    = 0;
+    iz             inherits = 0;
+    iz             impl     = 0;
     for (i32 i = 0; i < FUZZRUNS; i++) {
         Arena a   = t->perm;
         i32   ext = (i32)(rand32(&rng) % countof(fuzzexts));
@@ -174,41 +460,27 @@ static void test_fuzz(Test *t)
             src = fuzzmutate(&a, &rng, tc->src);
         }
 
-        Os *os = newos(&a);
         Buf path(&a, 16);
         print(&path, "f");
         print(&path, fuzzexts[ext]);
         Str file = finish(&path);
-        vfsfile(os, file, src);
 
-        // Also -I macros, with loops (T leads to one, and S and R bring
-        // themselves back after other tokens, also at the end) and
-        // replacements that open groups they do not close
-        Str opts[] = {
-            "", "--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",
-            "-I x=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R ",
+        // Default options, all kinds, -I macros, and a format option set
+        // in turn
+        Lint  *runs[] = {
+            lints, lints+1, lints+2, lints + 3 + i%(countof(lints)-3)
         };
-        for (iz o = 0; o < countof(opts); o++) {
-            Buf cmd(&a, 128);
-            print(&cmd, opts[o]);
-            print(&cmd, "-f - ");
-            print(&cmd, file);
-            Run r = runcap(os, a, finish(&cmd), (iz)8<<20);
-            Str bad = fuzzlint(r.out, src);
-            for (iz j = 0; j < r.out.len; j++) {
-                ntags += r.out[j] == '\n';
-            }
-            if (r.status) {
-                bad = "nonzero exit status";
-            }
-            if (!expect(t, "fuzz", bad, {})) {
-                fprintf(stderr, "  input %d (%.*s):\n[", i,
-                        (int)file.len, (char *)file.data);
-                printstr(stderr, src);
-                fprintf(stderr, "]\n");
-                return;
-            }
+        Fuzzed r = fuzzcheck(a, file, src, runs, countof(runs));
+        ntags    += r.ntags;
+        inherits += r.inherits;
+        impl     += r.impl;
+        if (!fuzzexpect(t, r, "input", i, file, src)) {
+            return;
         }
     }
     expect(t, "fuzz found tags", num(&t->perm, ntags > FUZZRUNS), "1");
+    expect(t, "fuzz found Fortran's inherits:",
+           num(&t->perm, inherits > FUZZRUNS/200), "1");
+    expect(t, "fuzz found Fortran's implementation:",
+           num(&t->perm, impl > FUZZRUNS/200), "1");
 }

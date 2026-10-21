@@ -55,10 +55,13 @@ struct Macros {
     i64            buckets;
 };
 
+struct Format;
+
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
     Str         output;       // "-" is standard output
+    Format     *fmt;          // how lines are written, null for the default
     Slice<Str>  files;
     Kinds       kinds;
     b32         filekind;     // the file kind, F, which all languages share
@@ -135,7 +138,8 @@ struct Parse {
 
 enum : i32 { OPTFILEDEPTH = 16 };
 
-static Str errstr(i32 err);  // walk.cpp
+static Str     errstr(i32 err);                  // walk.cpp
+static Format *newformat(Options *, Arena *);    // tags.cpp
 
 
 // Messages
@@ -2152,15 +2156,6 @@ static i32 notyet(Parse *p, Str option)
     return fatal(p, option, ": not yet supported");
 }
 
-// Whether fields differ from the defaults where it matters: the parsers'
-// fields but C++'s name are accepted and do nothing.
-static b32 fieldschanged(u64 bits)
-{
-    u64 mask = ((u64)1<<NCOMMONFIELDS) - 1;
-    mask |= (u64)1 << FIELD_CXXNAME;
-    return ((bits ^ defaultfields()) & mask) != 0;
-}
-
 // Read the -L list, then check and complete the options.
 static i32 parsefinish(Parse *p)
 {
@@ -2193,11 +2188,6 @@ static i32 parsefinish(Parse *p)
     // milestone lands
     b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
-    if (opt->writer == WRITER_ECTAGS) return notyet(p, "--output-format=e-ctags"); // M3a
-    if (fieldschanged(opt->fields))   return notyet(p, "--fields");                // M3a
-    if (opt->excmd != EXCMD_MIXED)    return notyet(p, "--excmd");                 // M3a
-    if (opt->format != 2)             return notyet(p, "--format");                // M3a
-    if (opt->patmax != 96)            return notyet(p, "--pattern-length-limit");  // M3a
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
@@ -2208,6 +2198,8 @@ static i32 parsefinish(Parse *p)
         return fatal(p, langnames[force], " parser specified with "
                      "--language-force is disabled");
     }
+
+    opt->fmt = newformat(opt, p->perm);
     return ARGS_OK;
 }
 

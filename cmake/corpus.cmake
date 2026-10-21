@@ -22,8 +22,10 @@ option(CTAGS_CORPUS_REUSE_REF
 #   set(ctags_fmt_sortno --sort=no)
 #   set(ctags_fmt_sortno_diff --ordered)
 #   list(APPEND ctags_fmt_sets sortno)
-set(ctags_fmt_sets "")
-set(ctags_fmt_llvm "")
+set(ctags_fmt_fields --fields=+iaSmlKzZEr)  # 1
+set(ctags_fmt_combine --excmd=combine)   # 2
+set(ctags_fmt_sets fields combine)
+set(ctags_fmt_llvm fields combine)
 
 # A list as one argument of add_test
 function(ctags_listarg var)
@@ -107,11 +109,17 @@ function(ctags_same_test name root opts)
     LABELS "corpus;same" TIMEOUT 1800 PROCESSORS 8)
 endfunction()
 
+# Fields built from token runs (signatures, base classes) too
+set(ctags_same_fields --fields=+iaSm)
 if(CTAGS_CORPUS_LLAMA)
   ctags_same_test(llama/nofast ${CTAGS_CORPUS_LLAMA} --_nofast)
   ctags_same_test(llama/jobs1  ${CTAGS_CORPUS_LLAMA} --jobs=1)
+  ctags_same_test(llama/nofast-fields ${CTAGS_CORPUS_LLAMA} --_nofast
+    ${ctags_same_fields})
 endif()
 if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast ${CTAGS_CORPUS_LLVM} --_nofast)
   ctags_same_test(llvm/jobs1  ${CTAGS_CORPUS_LLVM} --jobs=1)
+  ctags_same_test(llvm/nofast-fields ${CTAGS_CORPUS_LLVM} --_nofast
+    ${ctags_same_fields})
 endif()

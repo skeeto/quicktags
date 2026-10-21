@@ -41,6 +41,7 @@ apply.
   - A name starting with `-` that is longer than one character is FATAL `output file name may not begin with a '-'`.
   - Repeating the option gives a warning naming the letter given, `-o option specified more than once, last value used`, and the last value wins, unchecked for a leading `-`.
   - Output to an existing directory is FATAL; so is overwriting a file that is not a tags file (G9) [S].
+  - A file is a tags file (`entry.c isTagFile`) when it is empty, or its first line, up to a NUL, is an etags section's start (`\f`, then CR or LF), or a tag line: a name not starting with `#`, exactly one tab, a file not ending in `;`, exactly one tab, and an address up to the first CR or LF that starts with `/` or `?`, or is digits up to its first `;` (`12`, `12;"\tv`). So `int a;\t/* x */` and `#define X\t1` are not [S].
 - **CLI-4 [V]** `--kinds-<LANG>=SPEC`.
   - The language name is case-insensitive (`c++`, `C++`, `fortran`). There are no aliases: `--kinds-cpp` gives WARNING `Unknown language "cpp" in "kinds-cpp" option` and is ignored.
   - SPEC grammar:
@@ -481,7 +482,7 @@ depends on how far the walk had read when the label was seen. Our
 - **FLD-2 [S]** Escaping:
   - Name: `\`→`\\`; 0x01–0x1F and 0x7F become `\a \b \t \n \v \f \r` or `\xHH` (uppercase); a leading space becomes `\x20` and a leading `!` becomes `\x21`.
   - File field: same, without the leading-character rule.
-  - Scope name and the typeref value: same as the name.
+  - Scope name, the typeref value, and the parser's fields (C++'s `name:`): same as the name.
   - Typeref prefix: as-is.
 - **FLD-3 [V]** The C++ `name:` field is never seen by default; it appears only on `A` tags.
 - **FLD-4 [S][V]** Order of all fields (`writer-ctags.c`):
@@ -489,9 +490,46 @@ depends on how far the walk had read when the label was seen. Our
   - `line:`, `language:`, the scope (`KIND:NAME`, or `scope:KIND:NAME` with `Z`), `typeref:`, `file:`;
   - `inherits:`, `access:`, `implementation:`, `signature:`, `roles:`, `extras:`, `end:`, `epoch:`, `nth:`;
   - then the parser's own fields.
-  - `;"` comes before the first built-in field written (any of the above but the parser's own). The parser's fields are appended without it, so a line with only those has none: `--fields= --fields-C++=+{properties}` writes `st\ta.cpp\t/^static int st;$/\tproperties:static`. That is malformed; the planned departure D10 writes `;"` before whichever field comes first.
+  - `;"` comes before the first built-in field written (any of the above but the parser's own). The parser's fields are appended without it, so a line with only those has none: `--fields= --fields-C++=+{properties}` writes `st\ta.cpp\t/^static int st;$/\tproperties:static`. That is malformed: a reader takes `\tproperties:static` as part of the address. Here D10 writes `;"` before whichever field comes first.
   - `extras:` lists a tag's extras by commas in their table's order: `fileScope`, `inputFile`, `pseudo`, `qualified`, `reference`, `guest`, `subparser`, `anonymous`.
   - A tags file has a `!_TAG_FIELD_DESCRIPTION` pseudo-tag for each enabled field that has a long name (in `--list-fields`), so none for `k`, `s`, `K` or `R`: `file` goes with `--fields=-f`, `line` comes with `+n`, and `extras` with `+E`. A parser's own enabled fields get `!_TAG_FIELD_DESCRIPTION!LANG` lines, such as C++'s `name`.
+- **FLD-5 [S][V] Field values** (`writer-ctags.c addExtensionFields`, `field.c`), each written only while its field is enabled (`--fields`, OPT-9):
+  - The kind: its long name with `K`, else its letter with `k`, either after `kind:` with `z` (`kind:variable`). With neither `k` nor `K` there is no kind, and with no field at all no `;"` (`--fields=` writes `x\ta.c\t/^int x;$/`).
+  - `line:N` (`n`), and `language:NAME` (`l`) with the parser's name, `C`, `C++` or `Fortran`, so a `.h` file's tags say `C++` (LANG-4).
+  - The scope (`s`), `typeref:` (`t`) and `file:` (`f`) as by default (FLD-1), the scope after `scope:` with `Z`, only on tags that have one: a scope, a type, file scope.
+  - `roles:def` (`r`) on every tag written here: only reference tags, which are not written (EX-6), have other roles.
+  - `extras:` (`E`) on a tag with any extra, in FLD-4's order: `fileScope` on every tag with `file:` (those that `--extras=-F` drops, EX-2), `qualified` on the copies made by `--extras=+q` (EX-4), and `anonymous` on tags named for unnamed entities (EX-3), so at most `fileScope,qualified,anonymous`.
+  - `inherits:` (`i`), `access:` (`a`), `implementation:` (`m`) and `signature:` (`S`) on the tags FLD-7 to FLD-11 give them.
+  - Nothing for `C` (xref output only), `R`, `p` (no effect in tags output), `x` (it needs libxml2, which this build lacks), and `T` but on file-kind tags (`epoch:`, EX-6).
+  - Universal Ctags also writes `end:` (`e`) on definitions whose last line it knows, and `nth:` (`o`) on members, enumerators and macro parameters. Here `e` and `o` are accepted and write nothing (section 4).
+- **FLD-6 [S][V] `--output-format=e-ctags`** (`writer-ctags.c eCtagsWriter`), Exuberant Ctags' flavor of the format:
+  - The name, the file field, the scope name and the signature (FLD-8) are written as they are, not escaped (FLD-2), but the typeref, the base classes (FLD-9) and the parser's fields still are.
+  - On Windows the file field keeps the backslashes of the path as given (`sub\deep\z.c`, `.\sub/y.c` for `-R .\sub`), which Universal Ctags' own writer turns into `/` (DISC-5).
+  - A tag whose name or file holds a tab or a newline, or with `--format=2` its scope name (with `s`) or signature (with `S`), or an enabled parser field, is dropped: it could not be read back. Here a NUL drops it too (X4), since a reader ends the line there: `void f(char c = '\0') {}` with a real NUL byte in the quotes loses `f` while `S` is enabled. Universal Ctags has none in its values, since it drops the rest of a line after a NUL.
+  - The pseudo-tags say `e-ctags`, and on Windows `backslash` (PT-4).
+- **FLD-7 [S][V] `access:` of C and C++ tags** (`cxx_tag.c`, `cxx_scope.c`). A tag begun inside a scope takes the access its innermost scope has at that moment: `public`, `private` or `protected`.
+  - A class body begins `private`, a struct, union or enum body `public`, and an access label (`protected:`) changes it for the rest of that body. C is no different: its members and enumerators say `public`.
+  - Other scopes have none: namespaces, functions, prototypes, lambdas, typedefs, modules, and the scopes pushed for a qualified name (`A` in `int A::f() {` or `struct A::B {`). Nor has file level. A tag in one of them gets no field.
+  - So a member says what the label above it says, an enumerator says `public`, and a class nested in a class body says `private` unless a label precedes it. A friend function defined in a class body has the scope around the class (CXX-13), and that scope's access. Template parameters take the access of the class they belong to, and those of a variable template `public`.
+  - Macros and macro parameters never have one, nor has Fortran.
+  - The value is written as it is.
+- **FLD-8 [S][V] `signature:` of C and C++ functions** (`cxx_parser_function.c`, `cxx_parser_lambda.c`).
+  - A function or prototype gets its parameter list, parentheses included. The list is first spaced as a type name is (CXX-16), and its last token is not followed by a space. Then its tokens are joined, a space after each token marked so, a bracketed group joined the same way inside: `(int a,char * b)`, `(int (* fp)(int,char),unsigned long long x[3],...)`, `(T && t,std::vector<T> const & v)`, `(void)`, `()`. Default arguments stay: `(char c='x',int n=1)`.
+  - Then ` const` when the function is `const` (`() const`), but nothing else that follows the list: not `volatile`, `&`, `noexcept`, `override` or `= 0`.
+  - A K&R definition (CXX-4) gets its list of names, spaced as a type name: `(a,b)`.
+  - A lambda (CXX-10) with a parameter list gets that list as written, not respaced, so with the source's spaces, and a space after the `)` when one follows it: `(int a, int b) ` for `[](int a, int b) { ... }`, but `(int q)` for `[](int q){ ... }`. A lambda without one (`[]{}`) gets none.
+  - The value is escaped as a scope name is (FLD-2): `(const char * s="x\\\\y")` for `"x\\y"`. E-ctags writes it as it is, and drops a tag whose signature holds a tab or a newline (from a string literal in a default argument), or here a NUL (X4), while the field is enabled, as for a scope (FLD-6).
+- **FLD-9 [S][V] `inherits:` of C and C++ classes, structs and unions** (`cxx_parser.c`), with a base clause, between `:` and `{` (CXX-6). The keywords `public`, `protected`, `private` and `virtual` are dropped, and the rest is joined without spaces, but a bracketed group, `(...)` or `[...]`, keeps the spaces inside it and after its closing bracket. Angle brackets are not groups.
+  - `: public Base, protected virtual S2, private Tm<unsigned int>` gives `Base,S2,Tm<unsignedint>`; `: std::vector<std::pair<int, int> >` gives `std::vector<std::pair<int,int>>`; `: decltype(foo()) {` gives `decltype(foo()) ` with the space before `{`.
+  - The value is escaped as a scope name is, also by e-ctags, which keeps a tag whose base clause holds a tab.
+- **FLD-10 [S][V] `signature:` of macros** (`cpreprocessor.c`). A function-like macro (LEX-5) whose parameter list ends with `)` gets its parameters, joined by `,` in parentheses, whether or not the `D` kind is enabled.
+  - The list is read raw, without removing comments: a parameter is a run of ASCII letters, digits, `_`, `$` and `.`, any other byte ends one, and a backslash also skips the byte after it. So the list may go on over later lines, up to the first `)`.
+  - Each parameter is written in full, `args...` and `...` too, though their `D` tags are named `args` and none: `(a,b)` for `( a , b )`, `(fmt,...)`, `(x,args...)`, `()`.
+  - A list the end of the file cuts off gets none, as do object-like macros.
+- **FLD-11 [S][V] Fortran's fields** (`parsers/fortran.c`). It has no `access:`.
+  - `signature:` on subroutines and prototypes, never on functions or programs (FTN-19). When a `(` follows the name: the identifiers and keywords inside the parentheses, nested ones too, each `,` written `, `, and nothing for other tokens, in parentheses. So `(a, b)` whatever the spacing and lines, `(Alpha, BETA)` in the source's case, `()`, and `(a, b, , c)` for `(a, b, *, c)`. The end of the statement ends the list.
+  - `inherits:` on derived types, from an `extends(...)` attribute (FTN-14): the text of the last token inside its parentheses that is not a parenthesis, so `extends(shapes%circle)` gives `circle`, and none if that is empty (`extends(a,)`). On submodules, the parent as read (FTN-22), its identifiers and colons joined: `shapes:shapes_impl`.
+  - `implementation:` `abstract`, `deferred` or `non_overridable`, the last such attribute of the list: on a derived type from the attributes of its TYPE statement (`type, abstract :: shape`), and on the components and methods a statement in a derived type declares from that statement's (`procedure(iface), deferred :: area`), but not on GENERIC's. Attributes elsewhere are ignored.
 
 ### 1.8 Output format
 
@@ -513,6 +551,13 @@ depends on how far the walk had read when the label was seen. Our
   - If the name is not found, the full line is used.
   - Examples: `/^#define f(a) f(/`, `/^# define A(...)   [ __VA_AR/`, `/^  subroutine sub1(/`.
 - **OUT-5 [V]** Emacs TAGS layout (`-e`), LF line endings: one section per input file, `\f\n<path>,<size>\n`, where the size counts the bytes of the entries after that line; each entry is `<text>\x7f<name>\x01<line>,<offset>\n`, with the line's text and the name always explicit.
+- **OUT-6 [S][V] `--excmd`** chooses the address (`entry.c initTagEntryFull`, `writer-ctags.c`); `-n` is `number` and `-N` is `pattern` (OPT-7).
+  - `mixed`, the default: OUT-2.
+  - `number`: the line number for every tag (`12;"`).
+  - `pattern`: a pattern for every tag. A common block's is cut after its name, as other Fortran tags' are (OUT-4): `/^  common \/blk\//`.
+  - `combine`: the line number, `;`, then the pattern (`2;/^int x;$/;"`), but common blocks keep the bare number.
+- **OUT-7 [S][V] `--pattern-length-limit=N`** replaces OUT-3's 96 (step 5); 0 means no limit, so the whole line is written.
+- **OUT-8 [S][V] `--format=N`**: 2 by default. 1, the original format, and 0 write only the name, the file and the address, with no `;"` and no fields, nor `extras:pseudo` on the pseudo-tags (PT-4). The address still follows `--excmd`: `M\ta.c\t4;/^#define M /` under `combine`.
 
 ### 1.9 Sorting
 
@@ -618,6 +663,15 @@ depends on how far the walk had read when the label was seen. Our
     - `t,type` derived types and structures
     - `v,variable` program (global) and module variables
   - Lines are sorted by `strcmp`, so `!C→…` precedes `!C++→…`, and uppercase letters precede lowercase.
+- **PT-4 [S][V] The common values** follow the options (`ptag.c`, `writer.c`, `writer-ctags.c writeCtagsPtagEntry`):
+  - `FILE_FORMAT`: the `--format` number, described `original ctags format` for 1, `extended format; --format=1 will not append ;" to lines` for 2, and `unknown format` for 0.
+  - `FILE_SORTED`: 0 for `--sort=no`, 1 for yes, 2 for foldcase.
+  - `OUTPUT_EXCMD`: `mixed`, `number`, `pattern`, or `combineV2` for `combine`.
+  - `OUTPUT_FILESEP`: `backslash` for e-ctags on Windows (FLD-6), else `slash`.
+  - `OUTPUT_MODE`: `u-ctags`, or `e-ctags`.
+  - `PATTERN_LENGTH_LIMIT`: the limit, 0 for none (OUT-7).
+  - `PROC_CWD`: the working directory (here left out when it cannot be found, OPT-18), on Windows with each `\` made `/`, and ending in `/`, added unless it ends in a separator (`/`, and on Windows `\` or `:`). The u-ctags writer escapes it as a file field (FLD-2); e-ctags writes it as it is, and skips the line with WARNING `skip priting !_TAG_PROC_CWD pseudo tag; the input field of the pseudo tag includes a tab character: DIR` (or `newline`) if it holds one.
+  - With `E` and `--format=2`, every pseudo-tag line ends in `;"\textras:pseudo`.
 
 ### 1.11 Extras
 
@@ -662,7 +716,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -695,7 +749,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - Common fields, by letter: `N name`, `F input`, `P pattern` (fixed), `C compact`, `E extras`, `K` (no long name), `R` (none), `S signature`, `T epoch`, `Z scope`, `a access`, `e end`, `f file`, `i inherits`, `k` (none), `l language`, `m implementation`, `n line`, `o nth`, `p scopeKind`, `r roles`, `s` (none), `t typeref`, `x xpath`, `z kind`. On by default: `N F P T f k s t`, and here also `n` (P-1).
   - Parser fields, by name only: C has `alias macrodef properties section`, C++ those and `captures name specialization template`, with `name` on; Fortran has none.
   - Once all options are parsed (and before `--list-fields`), for the tags output: `z` without `k` or `K` warns `though z/kind field is enabled, neither k nor K field is not enabled` and `enable the K field to make the z/kind field printable`, and enables `K`; `Z` without `s` warns `though Z/scope field is enabled, s field is not enabled` and `enable the s field to make the Z/scope field printable`, and enables `s`; a disabled fixed field is enabled again with WARNING `Cannot disable fixed field: 'N'{name} in ctags output mode`, unless any `--fields` or `--fields-all` has disabled all fields, which silences these warnings for good.
-  - Here only the default fields are written for now: other common fields, or C++'s `name` off, are not yet supported (OPT-6). The other parser fields are accepted and do nothing.
+  - Here the fields are written as FLD-5 says. Of the parser fields only C++'s `name` is written; the others are accepted and do nothing.
 - **OPT-10 [S][V] `--kinds-all`** (and the obsolete `--all-kinds`, `--all-types`, which warn `"--all-kinds" option is obsolete; use "--kinds-all" instead`).
   - The value may hold only `*`, `F` and `{file}`, each `F` or `{file}` perhaps after one `+` or `-`. Else FATAL: `don't repeat + (nor -) in --OPTION option`, `don't use '*' after + (nor -) in --OPTION option`, `no kind specification after + (or -) in --OPTION option`, or `only '*', 'F', "{file}" or their combination is acceptable as kind letter for --OPTION`.
   - It then applies to every language: `*` enables every kind, an empty value or `F` disables every kind (and `F` enables the file kind), `+F` and `-F` change only the file kind.
@@ -770,7 +824,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **[V] Bugs** with doubled separators, each counted as a name (here not, D14): `x//../a.c` is `x/a.c`; under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x` (here `C:/x`, D15). A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x` (D16).
   - **Drive-relative paths.** On Windows, making absolute a path that is a letter, `:`, and then not a separator is FATAL `C:a.c: relative file names with drive letters not supported`: an input once it is to be tagged, with any value but `no` (one that is missing only warns, and one of no language is skipped), and the tags file's directory once the file is opened (`-f C:sub/tags`: `C:sub/: relative …`), whatever the value, leaving the file created and empty.
   - **The current directory** [S] is looked up by Universal Ctags at every start (`main.c`, `routines.c`), whatever the options, in a buffer of `PATH_MAX` bytes. When that fails, as when the directory has been removed on POSIX or its name does not fit, it stops with FATAL `failed in getcwd() : REASON` (CLI-7). The system names a root with its separator, `C:\` or `/`, and any other directory without one, so the `/` added before a relative path is never doubled.
-  - Here the current directory is looked up only with a value other than `no`, and of any length. When it cannot be, the run stops with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report. The platform test runs the program from the root of its drive or file system, which the unit tests' file system cannot model.
+  - Here the current directory is looked up, of any length, only where it is used: once before the walk with a value other than `no`, and once more as the tags file is written, for its `PROC_CWD` pseudo-tag (PT-4), whatever the value. When it cannot be, a run with a value other than `no` stops before the walk with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report; any other run goes on, and its tags file lacks the `PROC_CWD` line. The platform tests run the program from the root of its drive or file system, which the unit tests' file system cannot model.
   - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
 
 ---
@@ -877,9 +931,14 @@ Decided for this program, deliberately different from Universal Ctags.
   it, so that Vim starts its search at the tag's line instead of jumping
   to an earlier identical line (4.5% of tags in a llama.cpp sample).
 - **LF line endings**, also on Windows, where Universal Ctags writes CRLF.
-- **Minimal pseudo-tags**: `!_TAG_FILE_FORMAT`, `!_TAG_FILE_SORTED`,
-  `!_TAG_PROGRAM_NAME`, `!_TAG_PROGRAM_VERSION`, only in a tags file,
-  and not with `--extras=-p` (EX-5).
+- **Fewer pseudo-tags**: the nine whose values readers act on,
+  `!_TAG_FILE_FORMAT`, `!_TAG_FILE_SORTED`, `!_TAG_OUTPUT_EXCMD`,
+  `!_TAG_OUTPUT_FILESEP`, `!_TAG_OUTPUT_MODE`,
+  `!_TAG_PATTERN_LENGTH_LIMIT`, `!_TAG_PROC_CWD`, `!_TAG_PROGRAM_NAME`
+  (`ctags`) and `!_TAG_PROGRAM_VERSION`, with PT-4's values, only in a
+  tags file, and not with `--extras=-p` (EX-5). There are no
+  descriptions of kinds, fields, extras or roles, and no parser or
+  output versions. Nine lines are enough for LeaderF, which skips six.
 - **The tags file is replaced atomically** (written to `NAME.tmpN`, then
   renamed), so Vim never sees a partial file, and no temporary files leak.
 - **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). C++'s
@@ -905,6 +964,11 @@ Decided for this program, deliberately different from Universal Ctags.
   is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
   0, no tags), which is never what was meant. `-R` keeps one meaning of
   its own: with no files, it tags the current directory.
+- **D10** `;"` is written whenever any field is (FLD-4), also before a
+  parser's field written alone, as C++'s `name:` is with `--fields=`.
+  Universal Ctags writes `A\ta.cpp\t/^namespace A = N;$/\tname:N`,
+  which Vim and other readers take as an address ending in
+  `\tname:N`, so the tag is not found.
 - **D11** With `--exclude-exception` given, an excluded directory is
   still pruned, unless an exception matches the directory itself, and
   an excluded file is dropped before it is examined (DISC-3). Universal
@@ -954,12 +1018,14 @@ Decided for this program, deliberately different from Universal Ctags.
   grammar and messages (section 1.12). Those that act here are `-R`,
   `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
-  `--file-scope`, `--file-tags`), `--options`, `--exclude`,
+  `--file-scope`, `--file-tags`), `--fields` (FLD-5), `--excmd`, `-n`,
+  `-N` (OUT-6), `--pattern-length-limit` (OUT-7), `--format` (OUT-8),
+  `--output-format=e-ctags` (FLD-6), `--options`, `--exclude`,
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
-  `--tag-relative`, the listings (OPT-15), `--version`, `--help`, and this program's
-  `--jobs`. The others are
+  `--tag-relative`, the listings (OPT-15), `--version`, `--help`, and
+  this program's `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
   (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
@@ -979,9 +1045,16 @@ Decided for this program, deliberately different from Universal Ctags.
   file would be tagged (LANG-6); a tags file named on a drive but not
   from its root, `-f C:sub/tags`, is refused only with `--tag-relative`,
   and an input so named ends the run after the walk, not while tagging,
-  with no tags file written; and the current directory is needed, so
-  that failing to find it ends the run, only with `--tag-relative`, and
-  the message gives no reason (OPT-18).
+  with no tags file written; and the current directory is looked up
+  only with `--tag-relative` and for the `PROC_CWD` pseudo-tag, so that
+  failing to find it ends the run only with `--tag-relative`, and the
+  message gives no reason, and otherwise leaves that pseudo-tag out
+  (OPT-18).
+- **Fields accepted without output** (FLD-5): `e` (`end:`) and `o`
+  (`nth:`) are accepted and write nothing, since the parsers do not track
+  where definitions end or count members. A reader of either must treat
+  a missing field as unknown, as it would for a tag Universal Ctags has
+  none for.
 
 ### Lexing (built in from the start)
 
@@ -990,10 +1063,13 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X3** A `'` digit separator applies only inside numbers, so `u8'x'`
   is a character literal.
 - **X4** NUL is ordinary data, not the end of a line, and ends a pattern
-  without the `$` anchor. In a `-I` file it ends the line's token, and
-  the line still ends at its newline, where Universal Ctags drops the
-  rest of the line and joins the next one on (LEX-1): `A`, NUL, `junk`,
-  LF, `B` is its one token `AB`.
+  without the `$` anchor. Field values escape it as `\x00`, but e-ctags,
+  which writes a signature as it is, drops a tag whose signature holds
+  one (FLD-6), as it does for a tab, so it never writes a NUL byte. In a
+  `-I` file it ends the line's token, and the line still ends at its
+  newline, where Universal Ctags drops the rest of the line and joins
+  the next one on (LEX-1): `A`, NUL, `junk`, LF, `B` is its one token
+  `AB`.
 - **X5** Bytes 0x80 and above are identifier characters.
 - **X6** `_Pragma(...)` and MSVC's `__pragma(...)` are dropped like
   `__attribute__(...)`, so pragmas between a declaration's parts do not

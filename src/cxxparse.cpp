@@ -14,6 +14,7 @@ enum : u8 {
 };
 
 enum : u8 { A_UNKNOWN, A_PUBLIC, A_PRIVATE, A_PROTECTED };
+static Str accessnames[] = {{}, "public", "private", "protected"};
 
 // Keywords seen in the current statement
 enum : u32 {
@@ -113,6 +114,7 @@ struct Cxx {
     Word   scopename;
     b32    scopedirty;
     Word   qualname;   // for --extras=+q
+    Word   sig;        // for signature fields
     Token *module;     // the current C++20 module
     b32    dryrun;     // tags are not written
     b32    skipnums;   // numbers and commas may be skipped (skipnumbers)
@@ -323,8 +325,9 @@ static void scopesetaccess(Cxx *c, u8 access)
 
 // Tags
 
-// Begin a tag named by the token, in the current scope, or null if its
-// kind is not enabled. Fill in the rest, then commit.
+// Begin a tag named by the token, in the current scope, with the
+// scope's access (FLD-7), or null if its kind is not enabled. Fill in
+// the rest, then commit.
 static Tag *cxxtag(Cxx *c, i32 kind, Token *t)
 {
     if (!cxxkind(c, kind)) {
@@ -340,6 +343,7 @@ static Tag *cxxtag(Cxx *c, i32 kind, Token *t)
     if (!scopeisglobal(c)) {
         tag->scopekind = scopekindname(c);
         tag->scope     = scopefullname(c);
+        tag->access    = accessnames[c->scope->tail->scopeaccess];
     }
     return tag;
 }
@@ -381,7 +385,8 @@ static void cxxcommit(Cxx *c, Tag *tag)
     wordcat(&c->pool, w, tag->name);
 
     Tag q = *tag;
-    q.name = {w->data, w->len};
+    q.name      = {w->data, w->len};
+    q.qualified = 1;
     tagemit(c->f, &q);
 }
 
@@ -460,6 +465,21 @@ static Token *settype(Cxx *c, Tag *tag, Token *start, Token *end)
         tag->type     = wordstr(t);
     }
     return t;
+}
+
+// A signature field's value: the parameter list's tokens, each followed
+// by a space if marked so (unless nospace), then " const" for a const
+// member function (FLD-8). Valid until the next signature.
+static Str joinsig(Cxx *c, Chain *params, Token *sigconst, b32 nospace)
+{
+    Word *w = &c->sig;
+    w->len = 0;
+    joinchain(&c->pool, params, w, {}, nospace);
+    if (sigconst) {
+        wordput(&c->pool, w, ' ');
+        tokenappend(&c->pool, w, sigconst);
+    }
+    return {w->data, w->len};
 }
 
 // An identifier token for an unnamed entity, at the current position.

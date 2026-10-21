@@ -88,10 +88,23 @@ struct FtnTok {
 struct FtnName {
     Str text;
     i32 type;
-    i32 tag;      // kind, or -1: an enclosing unit without a tag
+    i32 tag;       // kind, or -1: an enclosing unit without a tag
     i32 line;
     iz  linepos;
-    b32 anon;     // made up for an unnamed entity
+    b32 anon;      // made up for an unnamed entity
+    i32 impl;      // FI_*
+    Str inherits;  // a parent type or module
+    Str sig;       // a subroutine's arguments
+};
+
+// Implementation attributes, for implementation fields (FLD-11)
+enum : i32 { FI_NONE, FI_ABSTRACT, FI_DEFERRED, FI_NON_OVERRIDABLE };
+static Str ftnimpls[] = {{}, "abstract", "deferred", "non_overridable"};
+
+// What a declaration's attributes give its tags
+struct FtnAttrs {
+    Str parent;  // extends(parent)
+    i32 impl;    // FI_*, the last given
 };
 
 // The state of reading, kept apart so that a look ahead can return.
@@ -225,7 +238,12 @@ static i32 ftnmargin(Ftn *p)
         }
     }
     if (nlabel) {
-        FtnName n = {{label, nlabel}, FT_NUMBER, -1, p->in.line, p->in.linepos, 0};
+        FtnName n = {};
+        n.text    = {label, nlabel};
+        n.type    = FT_NUMBER;
+        n.tag     = -1;
+        n.line    = p->in.line;
+        n.linepos = p->in.linepos;
         ftntag(p, &n, F_LABEL);
     }
     return type;
@@ -615,6 +633,13 @@ static void ftntag(Ftn *p, FtnName *n, i32 kind)
     t.truncate  = kind != F_LABEL;
     t.lineaddr  = kind == F_COMMON;
     t.anon      = n->anon;
+    t.impl      = ftnimpls[n->impl];
+    if (n->inherits.len) {
+        t.inherits = n->inherits;
+    }
+    if (n->sig.len) {
+        t.signature = n->sig;
+    }
     for (iz i = p->scopes.len-1; i >= 0; i--) {
         FtnName *s = &p->scopes[i];
         if (s->type==FT_IDENT && s->tag>=0) {
@@ -638,12 +663,20 @@ static FtnName ftnview(Ftn *p)
     return r;
 }
 
+// Tag the current token, with fields from its declaration's attributes.
+static void ftntagattrs(Ftn *p, i32 kind, FtnAttrs attrs)
+{
+    FtnName n = ftnview(p);
+    n.impl     = attrs.impl;
+    n.inherits = attrs.parent;
+    ftntag(p, &n, kind);
+    p->tok.tag = kind;
+}
+
 // Tag the current token.
 static void ftntagtok(Ftn *p, i32 kind)
 {
-    FtnName n = ftnview(p);
-    ftntag(p, &n, kind);
-    p->tok.tag = kind;
+    ftntagattrs(p, kind, {});
 }
 
 // The current token as a lasting name. It takes the token's secondary
@@ -831,6 +864,51 @@ static void ftnskipsquares(Ftn *p)
     ftnskipgroup(p, FT_LSQUARE, FT_RSQUARE);
 }
 
+// Skip parentheses as ftnskipparens does, returning the names in them,
+// with ", " for each comma, in parentheses: a signature (FLD-11).
+static Str ftnsignature(Ftn *p)
+{
+    Buf b(p->a, 32);
+    putbyte(&b, '(');
+    i32 depth = 0;
+    do {
+        if (ftnis(p, FT_EOS)) {
+            break;
+        }
+        switch (p->tok.type) {
+        case FT_LPAREN:  depth++; break;
+        case FT_RPAREN:  depth--; break;
+        case FT_IDENT:
+        case FT_KEYWORD: print(&b, finish(&p->tok.text)); break;
+        case FT_COMMA:   print(&b, ", "); break;
+        }
+        ftnnext(p);
+    } while (depth>0 && !ftnis(p, FT_EOF));
+    putbyte(&b, ')');
+    return finish(&b);
+}
+
+// Skip parentheses as ftnskipparens does, returning the text of the last
+// token in them other than a parenthesis, perhaps empty, or null if
+// there is none: a parent type (FLD-11).
+static Str ftnlastinparens(Ftn *p)
+{
+    Str r     = {};
+    i32 depth = 0;
+    do {
+        if (ftnis(p, FT_EOS)) {
+            break;
+        }
+        switch (p->tok.type) {
+        case FT_LPAREN: depth++; break;
+        case FT_RPAREN: depth--; break;
+        default:        r = clone(p->a, finish(&p->tok.text));
+        }
+        ftnnext(p);
+    } while (depth>0 && !ftnis(p, FT_EOF));
+    return r;
+}
+
 
 // Declarations
 
@@ -973,23 +1051,46 @@ static void ftntypespec(Ftn *p)
 }
 
 // Skip a list of attributes, from the comma before the first, through
-// the "::" after them. An unknown attribute ends the statement in
-// Universal Ctags, losing the entities. Instead, skip an unknown name
-// and a parenthesized list after it (F8).
-static void ftnattrs(Ftn *p)
+// the "::" after them, returning those tags may record. An unknown
+// attribute ends the statement in Universal Ctags, losing the entities.
+// Instead, skip an unknown name and a parenthesized list after it (F8).
+static FtnAttrs ftnattrs(Ftn *p)
 {
+    FtnAttrs r = {};
     do {
         ftnnext(p);
         switch (p->tok.word) {
-        case FW_ABSTRACT:  case FW_ALLOCATABLE: case FW_DEFERRED:
-        case FW_EXTERNAL:  case FW_INTRINSIC:   case FW_KIND:
-        case FW_LEN:       case FW_NON_OVERRIDABLE: case FW_NOPASS:
-        case FW_OPTIONAL:  case FW_PARAMETER:   case FW_POINTER:
-        case FW_PRIVATE:   case FW_PROTECTED:   case FW_PUBLIC:
-        case FW_SAVE:      case FW_TARGET:
+        case FW_ABSTRACT:
+            r.impl = FI_ABSTRACT;
             ftnnext(p);
             break;
-        case FW_BIND: case FW_DIMENSION: case FW_EXTENDS: case FW_INTENT:
+        case FW_DEFERRED:
+            r.impl = FI_DEFERRED;
+            ftnnext(p);
+            break;
+        case FW_NON_OVERRIDABLE:
+            r.impl = FI_NON_OVERRIDABLE;
+            ftnnext(p);
+            break;
+        case FW_ALLOCATABLE: case FW_EXTERNAL: case FW_INTRINSIC:
+        case FW_KIND:        case FW_LEN:      case FW_NOPASS:
+        case FW_OPTIONAL:    case FW_PARAMETER: case FW_POINTER:
+        case FW_PRIVATE:     case FW_PROTECTED: case FW_PUBLIC:
+        case FW_SAVE:        case FW_TARGET:
+            ftnnext(p);
+            break;
+        case FW_EXTENDS:
+            ftnnext(p);
+            if (wantfield(p->f, FIELD_INHERITS)) {
+                Str parent = ftnlastinparens(p);
+                if (parent.data) {
+                    r.parent = parent;
+                }
+            } else {
+                ftnskipparens(p);
+            }
+            break;
+        case FW_BIND: case FW_DIMENSION: case FW_INTENT:
             ftnnext(p);
             ftnskipparens(p);
             break;
@@ -1017,13 +1118,17 @@ static void ftnattrs(Ftn *p)
     if (!ftnis(p, FT_COLONS)) {
         ftnskipto(p, FT_EOS);
     }
+    return r;
 }
 
-// Tag one entity of a declaration and skip its array specs, length,
-// and initializer, to the comma or the end of the statement.
-static void ftnentity(Ftn *p, b32 method)
+// Tag one entity of a declaration, with an implementation from its
+// attributes, and skip its array specs, length, and initializer, to the
+// comma or the end of the statement.
+static void ftnentity(Ftn *p, b32 method, i32 impl)
 {
-    ftntagtok(p, ftnvarkind(p, method));
+    FtnAttrs attrs = {};
+    attrs.impl = impl;
+    ftntagattrs(p, ftnvarkind(p, method), attrs);
     ftnnext(p);
     if (ftnis(p, FT_LPAREN)) {
         ftnskipparens(p);
@@ -1057,8 +1162,9 @@ static void ftnentity(Ftn *p, b32 method)
 }
 
 // Tag a list of entities: identifiers, or keywords other than FUNCTION
-// and SUBROUTINE. A leading '%' (DEC %FILL) skips the statement.
-static void ftnentities(Ftn *p, b32 method)
+// and SUBROUTINE, each with the implementation given. A leading '%'
+// (DEC %FILL) skips the statement.
+static void ftnentities(Ftn *p, b32 method, i32 impl)
 {
     if (ftnis(p, FT_PERCENT)) {
         ftnskipstmt(p);
@@ -1071,7 +1177,7 @@ static void ftnentities(Ftn *p, b32 method)
         if (!name) {
             break;
         }
-        ftnentity(p, method);
+        ftnentity(p, method, impl);
         if (ftnis(p, FT_COMMA)) {
             ftnnext(p);
         } else if (ftnis(p, FT_EOS)) {
@@ -1092,7 +1198,7 @@ static void ftndecl(Ftn *p)
         if (ftnis(p, FT_COLONS)) {
             ftnnext(p);
         }
-        ftnentities(p, 0);
+        ftnentities(p, 0, FI_NONE);
     }
     if (ftnis(p, FT_EOS)) {
         ftnskipstmt(p);
@@ -1258,14 +1364,16 @@ static void ftngeneric(Ftn *p, i32 kind)
 }
 
 // A statement in a derived type definition that begins with a type
-// specifier. PROCEDURE, FINAL, and GENERIC declare methods.
+// specifier. PROCEDURE, FINAL, and GENERIC declare methods. All but
+// GENERIC's take the implementation of the attributes (FLD-11).
 static void ftncomponent(Ftn *p)
 {
     i32 word   = p->tok.word;
     b32 method = word==FW_PROCEDURE || word==FW_FINAL || word==FW_GENERIC;
     ftntypespec(p);
+    FtnAttrs attrs = {};
     if (ftnis(p, FT_COMMA)) {
-        ftnattrs(p);
+        attrs = ftnattrs(p);
     }
     if (ftnis(p, FT_COLONS)) {
         ftnnext(p);
@@ -1273,27 +1381,29 @@ static void ftncomponent(Ftn *p)
     if (word == FW_GENERIC) {
         ftngeneric(p, F_METHOD);
     } else {
-        ftnentities(p, method);
+        ftnentities(p, method, attrs.impl);
     }
 }
 
 // A derived type definition, after TYPE: "[, attrs] [::] name", then
-// its components, through its END, which stays the current token.
+// its components, through its END, which stays the current token. The
+// attributes give the type its parent and implementation (FLD-11).
 static void ftnderived(Ftn *p)
 {
     if (!ftnenter(p)) {
         ftnskipto(p, FT_EOS);
         return;
     }
+    FtnAttrs attrs = {};
     if (ftnis(p, FT_COMMA)) {
-        ftnattrs(p);
+        attrs = ftnattrs(p);
     }
     if (ftnis(p, FT_COLONS)) {
         ftnnext(p);
     }
     if (ftnis(p, FT_IDENT) || ftnis(p, FT_KEYWORD)) {
         p->tok.type = FT_IDENT;
-        ftntagtok(p, F_TYPE);
+        ftntagattrs(p, F_TYPE, attrs);
     }
     ftnpushtok(p);
     ftnskipstmt(p);
@@ -1596,29 +1706,37 @@ static void ftncontains(Ftn *p)
 }
 
 // A submodule's parent, "(ancestor[:parent])": identifiers and colons,
-// at least one. Returns 0 if malformed.
-static b32 ftnparent(Ftn *p)
+// at least one, joined. Null if malformed.
+static Str ftnparent(Ftn *p)
 {
     if (!ftnis(p, FT_LPAREN)) {
-        return 0;
+        return {};
     }
-    for (b32 any = 0;; any = 1) {
+    Buf b(p->a, 32);
+    for (;;) {
         ftnnext(p);
         if (ftnis(p, FT_RPAREN)) {
-            return any;
-        } else if (!ftnis(p, FT_IDENT) && !ftnis(p, FT_COLON)) {
-            return 0;
+            return b.len ? finish(&b) : Str{};
+        } else if (ftnis(p, FT_IDENT)) {
+            print(&b, finish(&p->tok.text));
+        } else if (ftnis(p, FT_COLON)) {
+            putbyte(&b, ':');
+        } else {
+            return {};
         }
     }
 }
 
 // MODULE name or SUBMODULE (parent) name, through the first END after
-// its specification part and module subprograms.
+// its specification part and module subprograms. A submodule inherits
+// from its parent (FLD-11).
 static void ftnmodule(Ftn *p, b32 sub)
 {
+    FtnAttrs attrs = {};
     if (sub) {
         ftnnext(p);
-        if (!ftnparent(p)) {
+        attrs.parent = ftnparent(p);
+        if (!attrs.parent.data) {
             ftnskipstmt(p);
             return;
         }
@@ -1626,7 +1744,7 @@ static void ftnmodule(Ftn *p, b32 sub)
     ftnnext(p);
     if (ftnis(p, FT_IDENT) || ftnis(p, FT_KEYWORD)) {
         p->tok.type = FT_IDENT;
-        ftntagtok(p, sub ? F_SUBMODULE : F_MODULE);
+        ftntagattrs(p, sub ? F_SUBMODULE : F_MODULE, attrs);
     }
     ftnpushtok(p);
     ftnskipstmt(p);
@@ -1690,7 +1808,7 @@ static b32 ftnexec(Ftn *p)
 
 // A main program, function, or subroutine, after its keyword, through
 // its END. A subroutine's or prototype's argument list is read before
-// it is tagged, a function's after.
+// it is tagged, for its signature (FLD-11), a function's after.
 static void ftnunit(Ftn *p, i32 kind)
 {
     if (!ftnenter(p)) {
@@ -1705,7 +1823,11 @@ static void ftnunit(Ftn *p, i32 kind)
         if (kind==F_SUBROUTINE || kind==F_PROTOTYPE) {
             ftnnext(p);
             if (ftnis(p, FT_LPAREN)) {
-                ftnskipparens(p);
+                if (wantfield(p->f, FIELD_SIGNATURE)) {
+                    name.sig = ftnsignature(p);
+                } else {
+                    ftnskipparens(p);
+                }
             }
         }
         ftntag(p, &name, kind);

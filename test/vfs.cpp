@@ -36,6 +36,7 @@ static Os *newos(Arena *a)
     os->a          = a;
     os->root.isdir = 1;
     os->root.tail  = &os->root.child;
+    os->cwd        = "/work";
     os->ncpu       = 1;
     os->out        = Buf(a, 1<<12);
     os->err        = Buf(a, 1<<12);

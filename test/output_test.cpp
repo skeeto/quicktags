@@ -1,11 +1,12 @@
 // Tag formatting: escapes, patterns, fields, anonymous names, merging
 
 // Format one tag found in a file of the given text.
-static Str fmttag(Arena *a, Str path, i32 lang, Str text, Tag tag)
+static Str fmttag(Arena *a, Str path, i32 lang, Str text, Tag tag,
+                  Format *fmt = 0)
 {
     Source src = {};
     src.path     = path;
-    src.outpath  = outpath(a, path, 1);
+    src.outpath  = fmt && fmt->ectags ? path : outpath(a, path, 1);
     src.text     = text;
     src.anonhash = anonhash(path);
     src.lang     = lang;
@@ -14,6 +15,7 @@ static Str fmttag(Arena *a, Str path, i32 lang, Str text, Tag tag)
     File  f = {};
     f.src    = &src;
     f.kinds  = &k;
+    f.fmt    = fmt;
     f.extras = defaultextras();
     f.out    = &b;
     tagemit(&f, &tag);
@@ -21,13 +23,14 @@ static Str fmttag(Arena *a, Str path, i32 lang, Str text, Tag tag)
 }
 
 // The address alone, for a tag on the first line of the text.
-static Str fmtpattern(Arena *a, Str text, Str name, b32 truncate)
+static Str fmtpattern(Arena *a, Str text, Str name, b32 truncate,
+                      iz max = PATTERNLIMIT)
 {
     Tag t = {};
     t.name     = name;
     t.truncate = truncate;
     Buf b(a, 256);
-    printpattern(&b, text, &t);
+    printpattern(&b, text, &t, max);
     return finish(&b);
 }
 
@@ -116,6 +119,14 @@ static void test_output(Test *t)
     expect(t, "limit dollar",  // u-ctags leaves the '$' bare
         fmtpattern(&a, repeat(&a, "", 'a', 95, "$b\n"), "a", 0),
         repeat(&a, "/^", 'a', 95, "\\$/"));
+    expect(t, "limit 4",
+        fmtpattern(&a, "int x;\n", "x", 0, 4), "/^int /");
+    expect(t, "limit 4 dollar",
+        fmtpattern(&a, "abc$d\n", "x", 0, 4), "/^abc\\$/");
+    expect(t, "no limit",
+        fmtpattern(&a, repeat(&a, "", 'a', 200, "$\n"), "a", 0,
+                   (iz)(~(uz)0>>1)),
+        repeat(&a, "/^", 'a', 200, "\\$$/"));
 
     // Whole lines, fields in Universal Ctags' order
     {
@@ -142,6 +153,184 @@ static void test_output(Test *t)
         tag.lineaddr = 1;
         expect(t, "line address", fmttag(&a, "x.f90", LANG_FORTRAN, "", tag),
                "cb\tx.f90\t63;\"\tc\tline:63\n");
+    }
+
+    // Other formats: every field written, in order (FLD-4, FLD-5)
+    {
+        Str text = "struct A {\n  int *f() {}\n};\n";
+        Tag tag = {};
+        tag.name      = "f";
+        tag.kind      = K_FUNCTION;
+        tag.line      = 2;
+        tag.linepos   = 11;
+        tag.scopekind = "struct";
+        tag.scope     = "A";
+        tag.typekind  = "typename";
+        tag.type      = "int *";
+        tag.filescope = 1;
+        tag.anon      = 1;
+        tag.qualified = 1;
+        tag.aliased   = "a\\b";
+        tag.inherits  = "B<\"\t\">";
+        tag.access    = "public";
+        tag.impl      = "deferred";
+        tag.signature = "(char c='\\\\')";
+        Format fmt = {};
+        fmt.patmax = PATTERNLIMIT;
+        fmt.fields = ~(u64)0;
+        expect(t, "all fields", fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/;\"\tkind:function\tline:2"
+               "\tlanguage:C++\tscope:struct:A\ttyperef:typename:int *\tfile:"
+               "\tinherits:B<\"\\t\">\taccess:public\timplementation:deferred"
+               "\tsignature:(char c='\\\\\\\\')"
+               "\troles:def\textras:fileScope,qualified,anonymous"
+               "\tname:a\\\\b\n");
+        tag.inherits  = {};
+        tag.access    = {};
+        tag.impl      = {};
+        tag.signature = {};
+
+        // Only a pattern, with the original format
+        fmt.nofields = 1;
+        expect(t, "format 1", fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/\n");
+
+        // Names, paths, and scopes as they are under e-ctags, but those
+        // with a tab or newline dropped (FLD-6)
+        tag.name      = "f\\";
+        tag.scope     = "A\\";
+        tag.type      = "B\\";
+        tag.aliased   = {};
+        fmt.nofields  = 0;
+        fmt.ectags    = 1;
+        fmt.fields    = (u64)1<<FIELD_KIND | (u64)1<<FIELD_SCOPE |
+                        (u64)1<<FIELD_TYPEREF;
+        expect(t, "e-ctags", fmttag(&a, "s\\x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\\\ts\\x.cpp\t/^  int *f() {}$/;\"\tf\tstruct:A\\"
+               "\ttyperef:typename:B\\\\\n");
+        tag.scope = "A\tB";
+        expect(t, "e-ctags scope tab",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");
+        fmt.nofields = 1;
+        expect(t, "e-ctags scope tab, format 1",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\\\tx.cpp\t/^  int *f() {}$/\n");
+        expect(t, "e-ctags file newline",
+               fmttag(&a, "x\n.cpp", LANG_CXX, text, tag, &fmt), "");
+
+        // Signatures as they are too, so one with a tab drops the tag
+        // while written, but base classes escaped (FLD-8, FLD-9)
+        tag.name      = "f";
+        tag.scope     = "A";
+        tag.inherits  = "B\\\t";
+        tag.signature = "(c='\\\\')";
+        fmt.nofields  = 0;
+        fmt.fields    = (u64)1<<FIELD_INHERITS | (u64)1<<FIELD_SIGNATURE;
+        expect(t, "e-ctags signature",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/;\"\tinherits:B\\\\\\t"
+               "\tsignature:(c='\\\\')\n");
+        tag.signature = "(c='\0')";  // literals keep embedded NULs
+        expect(t, "e-ctags signature NUL",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");
+        tag.signature = "(s=\"\t\")";
+        expect(t, "e-ctags signature tab",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");
+        fmt.fields = (u64)1<<FIELD_INHERITS;
+        expect(t, "e-ctags signature tab, not written",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/;\"\tinherits:B\\\\\\t\n");
+        fmt.fields   = (u64)1<<FIELD_SIGNATURE;
+        fmt.nofields = 1;
+        expect(t, "e-ctags signature tab, format 1",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+               "f\tx.cpp\t/^  int *f() {}$/\n");
+        tag.inherits  = {};
+        tag.signature = {};
+
+        // Addresses by excmd (OUT-6)
+        tag.name     = "f";
+        fmt.ectags   = 0;
+        fmt.nofields = 1;
+        struct { i32 excmd; b32 lineaddr; Str want; } addrs[] = {
+            {EXCMD_MIXED,   0, "/^  int *f() {}$/"},
+            {EXCMD_MIXED,   1, "2"},
+            {EXCMD_NUMBER,  0, "2"},
+            {EXCMD_NUMBER,  1, "2"},
+            {EXCMD_PATTERN, 0, "/^  int *f() {}$/"},
+            {EXCMD_PATTERN, 1, "/^  int *f() {}$/"},
+            {EXCMD_COMBINE, 0, "2;/^  int *f() {}$/"},
+            {EXCMD_COMBINE, 1, "2"},
+        };
+        for (iz i = 0; i < countof(addrs); i++) {
+            fmt.excmd    = addrs[i].excmd;
+            tag.lineaddr = addrs[i].lineaddr;
+            Str want = concat(&a, "f\tx.cpp\t", addrs[i].want);
+            expect(t, addrs[i].want,
+                   fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+                   concat(&a, want, "\n"));
+        }
+    }
+
+    // Escapes in other formats, as by default: given the default fields,
+    // tagline writes the same lines as tagemit
+    {
+        Str text = "struct A {\n  int *f() {}\n};\n";
+        Str head = "\tx.cpp\t/^  int *f() {}$/;\"\tf\tline:2\tstruct:";
+        struct { Str name, scope, type, aliased, want; } tags[] = {
+            {" x",   "A",    "int *", {},
+             "\\x20x|A\ttyperef:typename:int *\n"},
+            {"!x",   "A\\B", "int *", {},
+             "\\x21x|A\\\\B\ttyperef:typename:int *\n"},
+            {"a\\b", "A\tB", "B\\",   "c\x01",
+             "a\\\\b|A\\tB\ttyperef:typename:B\\\\\tname:c\\x01\n"},
+            {"x!",   "\x7f", "int",   " y",
+             "x!|\\x7F\ttyperef:typename:int\tname: y\n"},
+        };
+        Format fmt = {};
+        fmt.fields = defaultfields();
+        fmt.patmax = PATTERNLIMIT;
+        for (iz i = 0; i < countof(tags); i++) {
+            Tag tag = {};
+            tag.name      = tags[i].name;
+            tag.kind      = K_FUNCTION;
+            tag.line      = 2;
+            tag.linepos   = 11;
+            tag.scopekind = "struct";
+            tag.scope     = tags[i].scope;
+            tag.typekind  = "typename";
+            tag.type      = tags[i].type;
+            tag.aliased   = tags[i].aliased;
+            Cut parts = cut(tags[i].want, '|');
+            Str want  = concat(&a, concat(&a, parts.head, head), parts.tail);
+            expect(t, want, fmttag(&a, "x.cpp", LANG_CXX, text, tag), want);
+            expect(t, want, fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
+                   want);
+        }
+    }
+
+    // Whether a file's first bytes make it a tags file Universal Ctags
+    // replaces (CLI-3), each checked against it
+    struct { Str head; b32 want; } heads[] = {
+        {"a\tb\t/x/\n",        1}, {"a\tb\t?x?\n",       1},
+        {"a\tb\t12\n",         1}, {"a\tb\t12;\"\tv\n",   1},
+        {"a\tb\t12x\n",        0}, {"a\tb\t;12\n",        0},
+        {"a\tb\t\n",           0}, {"a\tb\t\r\n",         0},
+        {"a\tb\t\t/x/\n",      0}, {"a\t\tb\t/x/\n",      0},
+        {"a\tb;\t/x/\n",       0}, {"#a\tb\t/x/\n",       0},
+        {"\tb\t/x/\n",         0}, {"a\tb\n",             0},
+        {"hello\n",            0}, {"\f\nx,1\n",          1},
+        {"\f\rx",              1}, {"\fx",                0},
+        {"\f",                 0}, {"a\0\tb\t/x/\n",      0},
+        {"a\tb\t1\r2\n",       1}, {"a\tb\t12\r\n",       1},
+        {"int a;\t/* x */\n",  0}, {"#define X\t1\n",     0},
+        {"a\tb\t/\n",          1}, {"a b\tc d\t 1\n",     0},
+        {"a\tb\t1 2;x\n",      0},
+        {"!_TAG_FILE_FORMAT\t2\t/x/\n", 1},
+    };
+    for (iz i = 0; i < countof(heads); i++) {
+        expect(t, heads[i].head, num(&a, istagsline(heads[i].head)),
+               num(&a, heads[i].want));
     }
 
     struct { Str name, want; } names[] = {

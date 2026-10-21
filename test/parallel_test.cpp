@@ -90,6 +90,9 @@ static void test_parallel(Test *t)
         "",
         "--extras=+q",
         "--tag-relative=never",
+        "--fields=+iaSmlKzZEr --extras=+q",
+        "--excmd=combine --output-format=e-ctags",
+        "--tag-relative=never --fields=+iaSK -n",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;

@@ -880,6 +880,102 @@ static TagCase fortrancases[] = {
      "m\tf.f90\t/^module m$/;\"\tm\tline:1\n"
      "s\tf.f90\t/^  subroutine s(/;\"\ts\tline:4\tmodule:m\n",
      ""},
+
+    // Line formats
+    {SHARED, "OUT-6 a common block's pattern ends after its name", "cb.f90",
+     "--excmd=pattern --kinds-Fortran=+L",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t/^10 continue$/;\"\tl\tline:4\tprogram:p\tfile:\n"
+     "blk\tcb.f90\t/^  common \\/blk\\//;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t/^  common \\/blk\\/ n$/;\"\tL\tline:3\tprogram:p\tfile:\n"
+     "n\tcb.f90\t/^  integer :: n$/;\"\tv\tline:2\tprogram:p\n"
+     "p\tcb.f90\t/^program p$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "OUT-6 a combined address but for common blocks", "cb.f90",
+     "--excmd=combine --kinds-Fortran=+L --fields=+E",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t4;/^10 continue$/;\"\tl\tline:4\tprogram:p\tfile:\textras:fileScope\n"
+     "blk\tcb.f90\t3;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t2;/^  integer :: n$/;\"\tv\tline:2\tprogram:p\n"
+     "n\tcb.f90\t3;/^  common \\/blk\\/ n$/;\"\tL\tline:3\tprogram:p\tfile:\textras:fileScope\n"
+     "p\tcb.f90\t1;/^program p$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "OUT-6 line numbers by -n", "cb.f90", "-n --kinds-Fortran=+L",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t4;\"\tl\tline:4\tprogram:p\tfile:\n"
+     "blk\tcb.f90\t3;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t2;\"\tv\tline:2\tprogram:p\n"
+     "n\tcb.f90\t3;\"\tL\tline:3\tprogram:p\tfile:\n"
+     "p\tcb.f90\t1;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "FLD-11 signatures, parents, and implementations", "t.f90",
+     "--fields=+iSm --kinds-Fortran=+P",
+     "module shapes\n"
+     "  type, abstract :: shape\n"
+     "  contains\n"
+     "    procedure(area_if), deferred, pass :: area\n"
+     "    procedure, non_overridable :: name => shape_name\n"
+     "    generic, deferred :: gen => area\n"
+     "  end type shape\n"
+     "  type, extends(shape), public :: circle\n"
+     "    real :: r\n"
+     "  end type circle\n"
+     "  type, abstract, extends(shapes%circle) :: ring\n"
+     "  end type\n"
+     "  interface\n"
+     "    subroutine isub(x, y)\n"
+     "      real :: x, y\n"
+     "    end subroutine\n"
+     "    function ifun(a, b) result(c)\n"
+     "      real :: a, b, c\n"
+     "    end function\n"
+     "  end interface\n"
+     "contains\n"
+     "  subroutine s1(a, b, *, c)\n"
+     "  end subroutine\n"
+     "  subroutine s2\n"
+     "  end subroutine\n"
+     "  recursive subroutine s3(Alpha, &\n"
+     "                          BETA)\n"
+     "  end subroutine\n"
+     "  function f1(x) result(y)\n"
+     "    real :: x, y\n"
+     "  end function\n"
+     "end module shapes\n"
+     "submodule (shapes) impl\n"
+     "end submodule impl\n"
+     "submodule (shapes:impl) deeper\n"
+     "end submodule\n",
+     "__anon104d0d760105\tt.f90\t/^  interface$/;\"\ti\tline:13\tmodule:shapes\n"
+     "area\tt.f90\t/^    procedure(area_if), deferred, pass :: area$/;\"\tM\tline:4\ttype:shape\timplementation:deferred\n"
+     "circle\tt.f90\t/^  type, extends(shape), public :: circle$/;\"\tt\tline:8\tmodule:shapes\tinherits:shape\n"
+     "deeper\tt.f90\t/^submodule (shapes:impl) deeper$/;\"\tS\tline:35\tinherits:shapes:impl\n"
+     "f1\tt.f90\t/^  function f1(/;\"\tf\tline:29\tmodule:shapes\n"
+     "gen\tt.f90\t/^    generic, deferred :: gen /;\"\tM\tline:6\ttype:shape\n"
+     "ifun\tt.f90\t/^    function ifun(/;\"\tP\tline:17\tinterface:__anon104d0d760105\tsignature:(a, b)\n"
+     "impl\tt.f90\t/^submodule (shapes) impl$/;\"\tS\tline:33\tinherits:shapes\n"
+     "isub\tt.f90\t/^    subroutine isub(/;\"\tP\tline:14\tinterface:__anon104d0d760105\tsignature:(x, y)\n"
+     "name\tt.f90\t/^    procedure, non_overridable :: name => shape_name$/;\"\tM\tline:5\ttype:shape\timplementation:non_overridable\n"
+     "r\tt.f90\t/^    real :: r$/;\"\tk\tline:9\ttype:circle\n"
+     "ring\tt.f90\t/^  type, abstract, extends(shapes%circle) :: ring$/;\"\tt\tline:11\tmodule:shapes\tinherits:circle\timplementation:abstract\n"
+     "s1\tt.f90\t/^  subroutine s1(/;\"\ts\tline:22\tmodule:shapes\tsignature:(a, b, , c)\n"
+     "s2\tt.f90\t/^  subroutine s2$/;\"\ts\tline:24\tmodule:shapes\n"
+     "s3\tt.f90\t/^  recursive subroutine s3(/;\"\ts\tline:26\tmodule:shapes\tsignature:(Alpha, BETA)\n"
+     "shape\tt.f90\t/^  type, abstract :: shape$/;\"\tt\tline:2\tmodule:shapes\timplementation:abstract\n"
+     "shapes\tt.f90\t/^module shapes$/;\"\tm\tline:1\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

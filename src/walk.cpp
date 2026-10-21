@@ -582,10 +582,11 @@ static void visitfile(Worker *w, Item *it)
     assert(pad == r.data.data+r.data.len);
     __builtin_memset(pad, 0, 8);
 
+    b32    raw = c->opt->writer == WRITER_ECTAGS;  // paths as given, FLD-6
+    Str    tp  = tagpath(&tmp, c, it->path);
     Source src = {};
     src.path     = it->path;
-    src.outpath  = tagpath(&tmp, c, it->path);
-    src.outpath  = outpath(&tmp, src.outpath, c->opt->windows);
+    src.outpath  = raw ? tp : outpath(&tmp, tp, c->opt->windows);
     src.text     = r.data;
     src.anonhash = anonhash(it->path);
     src.lang     = it->lang;
@@ -597,6 +598,7 @@ static void visitfile(Worker *w, Item *it)
     File f = {};
     f.src    = &src;
     f.kinds  = &c->opt->kinds;
+    f.fmt    = c->opt->fmt;
     f.extras = c->opt->extras;
     f.macros = c->opt->macros.map ? &c->opt->macros : 0;
     f.out    = &w->tags;

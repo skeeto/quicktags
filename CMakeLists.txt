@@ -88,6 +88,12 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
     -DWINDOWS=${WIN32} -P ${PROJECT_SOURCE_DIR}/cmake/platform.cmake)
   set_tests_properties(platform PROPERTIES LABELS unit)
 
+  # The real platform layer's current directory
+  add_test(NAME platform/cwd COMMAND ${CMAKE_COMMAND}
+    -DCTAGS=$<TARGET_FILE:ctags> -DWORK=${PROJECT_BINARY_DIR}/work/cwd
+    -P ${PROJECT_SOURCE_DIR}/cmake/cwd_test.cmake)
+  set_tests_properties(platform/cwd PROPERTIES LABELS unit)
+
   if(WIN32)
     # The program imports exactly test/imports.txt from KERNEL32.dll
     find_program(CTAGS_OBJDUMP NAMES objdump)

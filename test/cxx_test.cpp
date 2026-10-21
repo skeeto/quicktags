@@ -338,6 +338,114 @@ static TagCase ccases[] = {
      "v\tg.c\t/^int M(a[1], {b], <c) v;$/;\"\tv\tline:1\ttyperef:typename:int\n"
      "y\tg.c\t/^int N(x) (y) u;$/;\"\tv\tline:2\ttyperef:typename:int ()\n",
      ""},
+
+    // Line formats
+    {SHARED, "FLD-5 fields by name, roles, and extras", "fld.c",
+     "--fields=+lKzZEr --extras=+q --kinds-C=+l",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n"
+     "static void helper(void) { int i; }\n"
+     "struct { int z; } anon;\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /;\"\tkind:macro\tline:1\tlanguage:C\tfile:\troles:def\textras:fileScope\n"
+     "__anon0f71ac2c0108\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:struct\tline:5\tlanguage:C\tfile:\troles:def\textras:fileScope,anonymous\n"
+     "__anon0f71ac2c0108::z\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:member\tline:5\tlanguage:C\tscope:struct:__anon0f71ac2c0108\ttyperef:typename:int\tfile:\troles:def\textras:fileScope,qualified\n"
+     "a\tfld.c\t/^struct pair { int a; };$/;\"\tkind:member\tline:3\tlanguage:C\tscope:struct:pair\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "anon\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:variable\tline:5\tlanguage:C\ttyperef:struct:__anon0f71ac2c0108\troles:def\n"
+     "count\tfld.c\t/^static int count;$/;\"\tkind:variable\tline:2\tlanguage:C\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "helper\tfld.c\t/^static void helper(void) { int i; }$/;\"\tkind:function\tline:4\tlanguage:C\ttyperef:typename:void\tfile:\troles:def\textras:fileScope\n"
+     "i\tfld.c\t/^static void helper(void) { int i; }$/;\"\tkind:local\tline:4\tlanguage:C\tscope:function:helper\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/;\"\tkind:struct\tline:3\tlanguage:C\tfile:\troles:def\textras:fileScope\n"
+     "pair::a\tfld.c\t/^struct pair { int a; };$/;\"\tkind:member\tline:3\tlanguage:C\tscope:struct:pair\ttyperef:typename:int\tfile:\troles:def\textras:fileScope,qualified\n"
+     "z\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:member\tline:5\tlanguage:C\tscope:struct:__anon0f71ac2c0108\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n",
+     ""},
+    {SHARED, "FLD-5 no fields, so no ;\"", "fld.c", "--fields=",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /\n"
+     "a\tfld.c\t/^struct pair { int a; };$/\n"
+     "count\tfld.c\t/^static int count;$/\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/\n",
+     ""},
+    {SHARED, "OUT-6 line numbers", "fld.c", "--excmd=number",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t1;\"\td\tline:1\tfile:\n"
+     "a\tfld.c\t3;\"\tm\tline:3\tstruct:pair\ttyperef:typename:int\tfile:\n"
+     "count\tfld.c\t2;\"\tv\tline:2\ttyperef:typename:int\tfile:\n"
+     "pair\tfld.c\t3;\"\ts\tline:3\tfile:\n",
+     ""},
+    {SHARED, "OUT-6 combined addresses", "fld.c", "--excmd=combine --fields=-n",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t1;/^#define LIMIT /;\"\td\tfile:\n"
+     "a\tfld.c\t3;/^struct pair { int a; };$/;\"\tm\tstruct:pair\ttyperef:typename:int\tfile:\n"
+     "count\tfld.c\t2;/^static int count;$/;\"\tv\ttyperef:typename:int\tfile:\n"
+     "pair\tfld.c\t3;/^struct pair { int a; };$/;\"\ts\tfile:\n",
+     ""},
+    {SHARED, "OUT-7 a pattern length limit", "lim.c", "--pattern-length-limit=12",
+     "int value_with_a_long_name = 1;\n"
+     "int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};\n",
+     "long_line\tlim.c\t/^int long_lin/;\"\tv\tline:2\ttyperef:typename:int[]\n"
+     "value_with_a_long_name\tlim.c\t/^int value_wi/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "OUT-7 no pattern length limit", "lim.c", "--pattern-length-limit=0",
+     "int value_with_a_long_name = 1;\n"
+     "int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};\n",
+     "long_line\tlim.c\t/^int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};$/;\"\tv\tline:2\ttyperef:typename:int[]\n"
+     "value_with_a_long_name\tlim.c\t/^int value_with_a_long_name = 1;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "OUT-8 the original format", "fld.c", "--format=1",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /\n"
+     "a\tfld.c\t/^struct pair { int a; };$/\n"
+     "count\tfld.c\t/^static int count;$/\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/\n",
+     ""},
+    {SHARED, "FLD-6 e-ctags", "z.c", "--fields=+zZ-n --output-format=e-ctags",
+     "struct s { int m; };\n",
+     "m\tz.c\t/^struct s { int m; };$/;\"\tkind:m\tscope:struct:s\ttyperef:typename:int\tfile:\n"
+     "s\tz.c\t/^struct s { int m; };$/;\"\tkind:s\tfile:\n",
+     ""},
+    {SHARED, "FLD-7 FLD-8 FLD-10 access and signatures in C", "s.c",
+     "--fields=+aS --kinds-C=+p",
+     "#define MAX(a, b) ((a) > (b) ? (a) : (b))\n"
+     "#define LOG(fmt, args...) printf(fmt, args)\n"
+     "#define TRACE(...) 0\n"
+     "#define NONE( ) 0\n"
+     "#define OBJ 1\n"
+     "struct point { int x, y; };\n"
+     "enum color { RED, GREEN };\n"
+     "int area(struct point *p, int scale);\n"
+     "static int knr(a, b) int a; char *b; { return a; }\n"
+     "int main(int argc, char **argv) { int n; return 0; }\n"
+     "#define CUT(a, b\n",
+     "CUT\ts.c\t/^#define CUT(/;\"\td\tline:11\tfile:\n"
+     "GREEN\ts.c\t/^enum color { RED, GREEN };$/;\"\te\tline:7\tenum:color\tfile:\taccess:public\n"
+     "LOG\ts.c\t/^#define LOG(/;\"\td\tline:2\tfile:\tsignature:(fmt,args...)\n"
+     "MAX\ts.c\t/^#define MAX(/;\"\td\tline:1\tfile:\tsignature:(a,b)\n"
+     "NONE\ts.c\t/^#define NONE(/;\"\td\tline:4\tfile:\tsignature:()\n"
+     "OBJ\ts.c\t/^#define OBJ /;\"\td\tline:5\tfile:\n"
+     "RED\ts.c\t/^enum color { RED, GREEN };$/;\"\te\tline:7\tenum:color\tfile:\taccess:public\n"
+     "TRACE\ts.c\t/^#define TRACE(/;\"\td\tline:3\tfile:\tsignature:(...)\n"
+     "area\ts.c\t/^int area(struct point *p, int scale);$/;\"\tp\tline:8\ttyperef:typename:int\tfile:\tsignature:(struct point * p,int scale)\n"
+     "color\ts.c\t/^enum color { RED, GREEN };$/;\"\tg\tline:7\tfile:\n"
+     "knr\ts.c\t/^static int knr(a, b) int a; char *b; { return a; }$/;\"\tf\tline:9\tfile:\tsignature:(a,b)\n"
+     "main\ts.c\t/^int main(int argc, char **argv) { int n; return 0; }$/;\"\tf\tline:10\ttyperef:typename:int\tsignature:(int argc,char ** argv)\n"
+     "point\ts.c\t/^struct point { int x, y; };$/;\"\ts\tline:6\tfile:\n"
+     "x\ts.c\t/^struct point { int x, y; };$/;\"\tm\tline:6\tstruct:point\ttyperef:typename:int\tfile:\taccess:public\n"
+     "y\ts.c\t/^struct point { int x, y; };$/;\"\tm\tline:6\tstruct:point\ttyperef:typename:int\tfile:\taccess:public\n",
+     ""},
+    {OURS, "FLD-5 end and nth write nothing here", "z.c", "--fields=+eo",
+     "struct s { int m; };\n",
+     "m\tz.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\ttyperef:typename:int\tfile:\n"
+     "s\tz.c\t/^struct s { int m; };$/;\"\ts\tline:1\tfile:\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -908,6 +1016,169 @@ static TagCase cxxcases[] = {
      "b y;\n",
      "y\tpi.cpp\t/^b y;$/;\"\tv\tline:2\ttyperef:typename:b\n",
      ""},
+
+    // Line formats
+    {SHARED, "FLD-8 FLD-9 fields around -I macros", "i.cpp",
+     "-I MAC,PACKED+,ARG+,MAC2+ --fields=+SiaKz --kinds-C++=+p",
+     "MAC int g(void);\n"
+     "int MAC h;\n"
+     "struct S PACKED(4) : B { int m; };\n"
+     "int f2(int a ARG(x), char *b) MAC2(1, 2) { return 0; }\n",
+     "S\ti.cpp\t/^struct S PACKED(4) : B { int m; };$/;\"\tkind:struct\tline:3\tfile:\tinherits:B\n"
+     "f2\ti.cpp\t/^int f2(int a ARG(x), char *b) MAC2(1, 2) { return 0; }$/;\"\tkind:function\tline:4\ttyperef:typename:int\tsignature:(int a,char * b)\n"
+     "g\ti.cpp\t/^MAC int g(void);$/;\"\tkind:prototype\tline:1\ttyperef:typename:int\tfile:\tsignature:(void)\n"
+     "h\ti.cpp\t/^int MAC h;$/;\"\tkind:variable\tline:2\ttyperef:typename:int\n"
+     "m\ti.cpp\t/^struct S PACKED(4) : B { int m; };$/;\"\tkind:member\tline:3\tstruct:S\ttyperef:typename:int\tfile:\taccess:public\n",
+     ""},
+    {SHARED, "FLD-5 long kinds, languages, scope keys", "k.cpp",
+     "--fields=K+Zsl --kinds-C++=+A",
+     "namespace geo {\n"
+     "class Shape { int sides; };\n"
+     "namespace g2 = geo;\n"
+     "}\n"
+     "static auto f = [](int x) { return x; };\n",
+     "Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tclass\tlanguage:C++\tscope:namespace:geo\n"
+     "__anon0faa2b810102\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tfunction\tlanguage:C++\n"
+     "f\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tvariable\tlanguage:C++\n"
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\talias\tlanguage:C++\tscope:namespace:geo\tname:geo\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tnamespace\tlanguage:C++\n"
+     "sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tmember\tlanguage:C++\tscope:class:geo::Shape\n",
+     ""},
+    {SHARED, "FLD-5 extras of qualified and anonymous tags", "k.cpp",
+     "--fields=+E --extras=+q --kinds-C++=+Az",
+     "namespace geo {\n"
+     "class Shape { int sides; };\n"
+     "namespace g2 = geo;\n"
+     "}\n"
+     "static auto f = [](int x) { return x; };\n",
+     "Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tc\tline:2\tnamespace:geo\tfile:\textras:fileScope\n"
+     "__anon0faa2b810102\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tf\tline:5\tfile:\textras:fileScope,anonymous\n"
+     "f\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tv\tline:5\ttyperef:typename:auto\n"
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:3\tnamespace:geo\tfile:\textras:fileScope\tname:geo\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\textras:fileScope\n"
+     "geo::Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tc\tline:2\tnamespace:geo\tfile:\textras:fileScope,qualified\n"
+     "geo::Shape::sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tm\tline:2\tclass:geo::Shape\ttyperef:typename:int\tfile:\textras:fileScope,qualified\n"
+     "geo::g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:3\tnamespace:geo\tfile:\textras:fileScope,qualified\tname:geo\n"
+     "sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tm\tline:2\tclass:geo::Shape\ttyperef:typename:int\tfile:\textras:fileScope\n"
+     "x\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tz\tline:5\tfunction:__anon0faa2b810102\ttyperef:typename:int\tfile:\textras:fileScope\n",
+     ""},
+    {IMPROVED, "D10 ;\" before a parser's field alone", "a.cpp",
+     "--fields= --kinds-C++=+A",
+     "namespace N { int x; }\n"
+     "namespace A = N;\n",
+     "A\ta.cpp\t/^namespace A = N;$/;\"\tname:N\n"
+     "N\ta.cpp\t/^namespace N { int x; }$/\n"
+     "x\ta.cpp\t/^namespace N { int x; }$/\n",
+     "A\ta.cpp\t/^namespace A = N;$/\tname:N\n"
+     "N\ta.cpp\t/^namespace N { int x; }$/\n"
+     "x\ta.cpp\t/^namespace N { int x; }$/\n"},
+    {SHARED, "FLD-5 the C++ name field off", "k.cpp",
+     "--fields-C++=-{name} --kinds-C++=+A",
+     "namespace geo {\n"
+     "namespace g2 = geo;\n"
+     "}\n",
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:2\tnamespace:geo\tfile:\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\n",
+     ""},
+    {SHARED, "OUT-8 no name field in the original format", "k.cpp",
+     "--format=1 --kinds-C++=+A",
+     "namespace geo {\n"
+     "namespace g2 = geo;\n"
+     "}\n",
+     "g2\tk.cpp\t/^namespace g2 = geo;$/\n"
+     "geo\tk.cpp\t/^namespace geo {$/\n",
+     ""},
+    {SHARED, "FLD-7 access by scope", "a.cpp", "--fields=+a --kinds-C++=+pZ",
+     "class Shape {\n"
+     "    int id;\n"
+     "    enum Kind { Round, Square };\n"
+     "public:\n"
+     "    virtual double area() const = 0;\n"
+     "protected:\n"
+     "    struct Cache { int hits; };\n"
+     "    friend void dump(Shape &s) {}\n"
+     "};\n"
+     "template<class T> class Box { T value; };\n"
+     "struct Point { int x; class In {} in; };\n"
+     "namespace geo { int count; }\n"
+     "double Shape::area() const { int local; return 0; }\n",
+     "Box\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tc\tline:10\tfile:\n"
+     "Cache\ta.cpp\t/^    struct Cache { int hits; };$/;\"\ts\tline:7\tclass:Shape\tfile:\taccess:protected\n"
+     "In\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tc\tline:11\tstruct:Point\tfile:\taccess:public\n"
+     "Kind\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\tg\tline:3\tclass:Shape\tfile:\taccess:private\n"
+     "Point\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\ts\tline:11\tfile:\n"
+     "Round\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\te\tline:3\tenum:Shape::Kind\tfile:\taccess:public\n"
+     "Shape\ta.cpp\t/^class Shape {$/;\"\tc\tline:1\tfile:\n"
+     "Square\ta.cpp\t/^    enum Kind { Round, Square };$/;\"\te\tline:3\tenum:Shape::Kind\tfile:\taccess:public\n"
+     "T\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tZ\tline:10\tclass:Box\ttyperef:meta:class\taccess:private\n"
+     "area\ta.cpp\t/^    virtual double area() const = 0;$/;\"\tp\tline:5\tclass:Shape\ttyperef:typename:double\tfile:\taccess:public\n"
+     "area\ta.cpp\t/^double Shape::area() const { int local; return 0; }$/;\"\tf\tline:13\tclass:Shape\ttyperef:typename:double\n"
+     "count\ta.cpp\t/^namespace geo { int count; }$/;\"\tv\tline:12\tnamespace:geo\ttyperef:typename:int\n"
+     "dump\ta.cpp\t/^    friend void dump(Shape &s) {}$/;\"\tf\tline:8\ttyperef:typename:void\tfile:\n"
+     "geo\ta.cpp\t/^namespace geo { int count; }$/;\"\tn\tline:12\tfile:\n"
+     "hits\ta.cpp\t/^    struct Cache { int hits; };$/;\"\tm\tline:7\tstruct:Shape::Cache\ttyperef:typename:int\tfile:\taccess:public\n"
+     "id\ta.cpp\t/^    int id;$/;\"\tm\tline:2\tclass:Shape\ttyperef:typename:int\tfile:\taccess:private\n"
+     "in\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tm\tline:11\tstruct:Point\ttyperef:class:Point::In\tfile:\taccess:public\n"
+     "value\ta.cpp\t/^template<class T> class Box { T value; };$/;\"\tm\tline:10\tclass:Box\ttyperef:typename:T\tfile:\taccess:private\n"
+     "x\ta.cpp\t/^struct Point { int x; class In {} in; };$/;\"\tm\tline:11\tstruct:Point\ttyperef:typename:int\tfile:\taccess:public\n",
+     ""},
+    {SHARED, "FLD-8 signatures of functions and lambdas", "s.cpp",
+     "--fields=+S --kinds-C++=+p",
+     "struct Vec {\n"
+     "    Vec(int x, int y);\n"
+     "    int dot(const Vec &o) const;\n"
+     "    int len() volatile noexcept;\n"
+     "    Vec &operator+=(const Vec &) &;\n"
+     "    virtual ~Vec() = default;\n"
+     "};\n"
+     "void apply(int (*fn)(int, char), unsigned long n = 3, ...) {}\n"
+     "template<typename T> T pick(T &&a, std::vector<T> const &v) { return a; }\n"
+     "auto add = [](int a, int b) { return a + b; };\n"
+     "auto none = []{ return 0; };\n"
+     "auto tight = [](int q){ return q; };\n",
+     "Vec\ts.cpp\t/^    Vec(int x, int y);$/;\"\tp\tline:2\tstruct:Vec\tfile:\tsignature:(int x,int y)\n"
+     "Vec\ts.cpp\t/^struct Vec {$/;\"\ts\tline:1\tfile:\n"
+     "__anon103aef890102\ts.cpp\t/^auto add = [](int a, int b) { return a + b; };$/;\"\tf\tline:10\tfile:\tsignature:(int a, int b) \n"
+     "__anon103aef890202\ts.cpp\t/^auto none = []{ return 0; };$/;\"\tf\tline:11\tfile:\n"
+     "__anon103aef890302\ts.cpp\t/^auto tight = [](int q){ return q; };$/;\"\tf\tline:12\tfile:\tsignature:(int q)\n"
+     "add\ts.cpp\t/^auto add = [](int a, int b) { return a + b; };$/;\"\tv\tline:10\ttyperef:typename:auto\n"
+     "apply\ts.cpp\t/^void apply(int (*fn)(int, char), unsigned long n = 3, ...) {}$/;\"\tf\tline:8\ttyperef:typename:void\tsignature:(int (* fn)(int,char),unsigned long n=3,...)\n"
+     "dot\ts.cpp\t/^    int dot(const Vec &o) const;$/;\"\tp\tline:3\tstruct:Vec\ttyperef:typename:int\tfile:\tsignature:(const Vec & o) const\n"
+     "len\ts.cpp\t/^    int len() volatile noexcept;$/;\"\tp\tline:4\tstruct:Vec\ttyperef:typename:int\tfile:\tsignature:()\n"
+     "none\ts.cpp\t/^auto none = []{ return 0; };$/;\"\tv\tline:11\ttyperef:typename:auto\n"
+     "operator +=\ts.cpp\t/^    Vec &operator+=(const Vec &) &;$/;\"\tp\tline:5\tstruct:Vec\ttyperef:typename:Vec &\tfile:\tsignature:(const Vec &)\n"
+     "pick\ts.cpp\t/^template<typename T> T pick(T &&a, std::vector<T> const &v) { return a; }$/;\"\tf\tline:9\ttyperef:typename:T\tsignature:(T && a,std::vector<T> const & v)\n"
+     "tight\ts.cpp\t/^auto tight = [](int q){ return q; };$/;\"\tv\tline:12\ttyperef:typename:auto\n"
+     "~Vec\ts.cpp\t/^    virtual ~Vec() = default;$/;\"\tp\tline:6\tstruct:Vec\tfile:\tsignature:()\n",
+     ""},
+    {SHARED, "FLD-9 base classes", "i.cpp", "--fields=+i",
+     "struct Base {};\n"
+     "class Derived : public Base, protected virtual Mixin, private Tmpl<unsigned int, 2> {};\n"
+     "struct Nested : ::ns::Outer<std::pair<int, int> > {};\n"
+     "class Odd : decltype(make()) {};\n"
+     "union U {};\n",
+     "Base\ti.cpp\t/^struct Base {};$/;\"\ts\tline:1\tfile:\n"
+     "Derived\ti.cpp\t/^class Derived : public Base, protected virtual Mixin, private Tmpl<unsigned int, 2> {};$/;\"\tc\tline:2\tfile:\tinherits:Base,Mixin,Tmpl<unsignedint,2>\n"
+     "Nested\ti.cpp\t/^struct Nested : ::ns::Outer<std::pair<int, int> > {};$/;\"\ts\tline:3\tfile:\tinherits:::ns::Outer<std::pair<int,int>>\n"
+     "Odd\ti.cpp\t/^class Odd : decltype(make()) {};$/;\"\tc\tline:4\tfile:\tinherits:decltype(make()) \n"
+     "U\ti.cpp\t/^union U {};$/;\"\tu\tline:5\tfile:\n",
+     ""},
+    {SHARED, "FLD-8 FLD-9 e-ctags signatures as they are", "e.cpp",
+     "--fields=+Si --output-format=e-ctags",
+     "void f(const char *s = \"x\\\\y\") {}\n"
+     "void g(const char *t = \"a\tb\") {}\n"
+     "class K : public X<\"a\\\\b\"> {};\n",
+     "K\te.cpp\t/^class K : public X<\"a\\\\\\\\b\"> {};$/;\"\tc\tline:3\tfile:\tinherits:X<\"a\\\\\\\\b\">\n"
+     "f\te.cpp\t/^void f(const char *s = \"x\\\\\\\\y\") {}$/;\"\tf\tline:1\ttyperef:typename:void\tsignature:(const char * s=\"x\\\\y\")\n",
+     ""},
+    {IMPROVED, "X4 FLD-6 e-ctags NUL in a signature", "n.cpp",
+     "--fields=+S --output-format=e-ctags",
+     "int a;\n"
+     "void f(char c = '\0', int d) {}\n"
+     "int b;\n",
+     "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "b\tn.cpp\t/^int b;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"},
 };
 
 // head, n spaces, then tail.

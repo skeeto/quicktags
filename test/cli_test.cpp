@@ -213,7 +213,6 @@ static void test_cli(Test *t)
         expect(t, xs[i].args, r.log, xs[i].log);
     }
 
-    Str notyet = "ctags: --fields: not yet supported\n";
     Str fixedN = "ctags: Warning: Cannot disable fixed field: 'N'{name} in "
                  "ctags output mode\n";
     struct { Str args; i32 status; Str fields, log; } fs[] = {
@@ -228,28 +227,31 @@ static void test_cli(Test *t)
          "ctags: Warning: Cannot disable fixed field: 'P'{pattern} in "
          "ctags output mode\n"},
         {"--fields=-N --fields=+N x.c", ARGS_OK, "NFPTfknst C++:name", ""},
-        {"--fields=k x.c",     ARGS_FATAL, "NFPk C++:name", notyet},
-        {"--fields=k --fields=-N x.c", ARGS_FATAL, "NFPk C++:name", notyet},
-        {"--fields=+z-k-K x.c", ARGS_FATAL, "NFPKTfnstz C++:name",
+        {"--fields=k x.c",     ARGS_OK, "NFPk C++:name", ""},
+        {"--fields=k --fields=-N x.c", ARGS_OK, "NFPk C++:name", ""},
+        {"--fields=+z-k-K x.c", ARGS_OK, "NFPKTfnstz C++:name",
          "ctags: Warning: though z/kind field is enabled, neither k nor K "
          "field is not enabled\n"
          "ctags: Warning: enable the K field to make the z/kind field "
-         "printable\n"
-         "ctags: --fields: not yet supported\n"},
-        {"--fields=+Z-s x.c",  ARGS_FATAL, "NFPTZfknst C++:name",
+         "printable\n"},
+        {"--fields=+Z-s x.c",  ARGS_OK, "NFPTZfknst C++:name",
          "ctags: Warning: though Z/scope field is enabled, s field is not "
          "enabled\n"
          "ctags: Warning: enable the s field to make the Z/scope field "
-         "printable\n"
-         "ctags: --fields: not yet supported\n"},
+         "printable\n"},
+        {"--fields=+a x.c",    ARGS_OK, "NFPTafknst C++:name", ""},
+        {"--fields=+{inherits}m x.c", ARGS_OK, "NFPTfikmnst C++:name", ""},
+        {"--fields=+{implementation}{signature} x.c", ARGS_OK,
+         "NFPSTfkmnst C++:name", ""},
+        {"--fields=*-Saim x.c", ARGS_OK, "NFPCEKRTZefklnoprstxz C++:name", ""},
         {"--fields=+Q x.c",    ARGS_OK, "NFPTfknst C++:name",
          "ctags: Warning: Unsupported parameter 'Q' for \"fields\" option\n"},
         {"--fields=+{name x.c", ARGS_OK, "NFPTfknst C++:name", ""},
         {"--fields=-{line}+{line} x.c", ARGS_OK, "NFPTfknst C++:name", ""},
-        {"--fields=+{line}{kind}{scope} x.c", ARGS_FATAL,
-         "NFPTZfknstz C++:name", notyet},
-        {"--fields=* x.c",     ARGS_FATAL,
-         "NFPCEKRSTZaefiklmnoprstxz C++:name", notyet},
+        {"--fields=+{line}{kind}{scope} x.c", ARGS_OK,
+         "NFPTZfknstz C++:name", ""},
+        {"--fields=* x.c",     ARGS_OK,
+         "NFPCEKRSTZaefiklmnoprstxz C++:name", ""},
         {"--fields=+{bogus} x.c", ARGS_FATAL, "NFPTfknst C++:name",
          "ctags: no such field: 'bogus'\n"},
         {"--fields=+{K} x.c",  ARGS_FATAL, "NFPTfknst C++:name",
@@ -360,8 +362,8 @@ static void test_cli(Test *t)
         {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
                                  "tags to stdout\n"},
         {"-e a",          FATAL, "ctags: -e: not yet supported\n"},
-        {"-n a",          FATAL, "ctags: --excmd: not yet supported\n"},
-        {"-N a",          FATAL, "ctags: --excmd: not yet supported\n"},
+        {"-n a",          OK,    ""},
+        {"-N a",          OK,    ""},
         {"-u a",          FATAL, "ctags: --sort: not yet supported\n"},
         {"-L x",          FATAL, "ctags: cannot open list file \"x\" : No "
                                  "such file or directory\n"},
@@ -392,8 +394,8 @@ static void test_cli(Test *t)
         // Values
         {"--excmd=mixed a",     OK,    ""},
         {"--excmd=m a",         OK,    ""},
-        {"--excmd=numberwang a", FATAL, "ctags: --excmd: not yet supported\n"},
-        {"--excmd=combine a",   FATAL, "ctags: --excmd: not yet supported\n"},
+        {"--excmd=numberwang a", OK,   ""},
+        {"--excmd=combine a",   OK,    ""},
         {"--excmd=x a",         FATAL, "ctags: Invalid value for \"excmd\" "
                                        "option: x\n"},
         {"--excmd= a",          FATAL, "ctags: Invalid value for \"excmd\" "
@@ -410,9 +412,9 @@ static void test_cli(Test *t)
                                        "option\n"},
         {"--format=2 a",        OK,    ""},
         {"--format=+2 a",       OK,    ""},
-        {"--format=1 a",        FATAL, "ctags: --format: not yet supported\n"},
-        {"--format=1x a",       FATAL, "ctags: --format: not yet supported\n"},
-        {"--format=0 a",        FATAL, "ctags: --format: not yet supported\n"},
+        {"--format=1 a",        OK,    ""},
+        {"--format=1x a",       OK,    ""},
+        {"--format=0 a",        OK,    ""},
         {"--format=3 a",        FATAL, "ctags: Unsupported value for "
                                        "\"format\" option\n"},
         {"--format=-1 a",       FATAL, "ctags: Unsupported value for "
@@ -427,10 +429,8 @@ static void test_cli(Test *t)
         {"--pattern-length-limit=0x60 a", OK, ""},
         {"--pattern-length-limit=0140 a", OK, ""},
         {"--pattern-length-limit=+96 a",  OK, ""},
-        {"--pattern-length-limit=0 a",    FATAL,
-         "ctags: --pattern-length-limit: not yet supported\n"},
-        {"--pattern-length-limit=-1 a",   FATAL,
-         "ctags: --pattern-length-limit: not yet supported\n"},
+        {"--pattern-length-limit=0 a",    OK, ""},
+        {"--pattern-length-limit=-1 a",   OK, ""},
         {"--pattern-length-limit= a",     FATAL,
          "ctags: A parameter is needed after \"pattern-length-limit\" "
          "option\n"},
@@ -445,10 +445,8 @@ static void test_cli(Test *t)
         {"--output-format=u-ctags a", OK, ""},
         {"-e --output-format=u-ctags a", FATAL,
          "ctags: -e: not yet supported\n"},
-        {"--output-format=e-ctags --output-format=u-ctags a", FATAL,
-         "ctags: --output-format=e-ctags: not yet supported\n"},
-        {"--output-format=e-ctags a", FATAL,
-         "ctags: --output-format=e-ctags: not yet supported\n"},
+        {"--output-format=e-ctags --output-format=u-ctags a", OK, ""},
+        {"--output-format=e-ctags a", OK, ""},
         {"--output-format=etags a",   FATAL, "ctags: -e: not yet supported\n"},
         {"--output-format=xref a",    FATAL,
          "ctags: --output-format=xref: not supported\n"},
@@ -816,10 +814,8 @@ static void test_cli(Test *t)
         {"--fields-C++=+{template} --fields-C=* --fields-all=+{line} a",
          OK, ""},
         {"--fields-python=+{x} a", OK, ""},
-        {"--fields-C++=-{name} a", FATAL, "ctags: --fields: not yet "
-                                          "supported\n"},
-        {"--fields-C++= a",        FATAL, "ctags: --fields: not yet "
-                                          "supported\n"},
+        {"--fields-C++=-{name} a", OK,    ""},
+        {"--fields-C++= a",        OK,    ""},
         {"--fields-C++=+{bogus} a", FATAL, "ctags: no such field: 'bogus'\n"},
         {"--fields-C++=+n a",      FATAL, "ctags: only long name can be used "
                                           "in per language field spec: "
@@ -838,8 +834,8 @@ static void test_cli(Test *t)
                                           "cpp (ignoring \"--fields-cpp\")\n"},
         {"--fields- a",            FATAL, "ctags: No language given in "
                                           "\"fields-\" option\n"},
-        {"--fields-all= a",        FATAL, "ctags: --fields: not yet "
-                                          "supported\n"},
+        {"--fields-all= a",        OK,    ""},
+        {"--fields-all=* a",       OK,    ""},
     };
     for (iz i = 0; i < countof(gs); i++) {
         Arena  tmp = a;
