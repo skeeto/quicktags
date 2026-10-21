@@ -706,7 +706,42 @@ Decided for this program, deliberately different from Universal Ctags.
 
 ### Parsing (after parity)
 
-See the plan; each lands as its own commit with a pinned test.
+Each landed as its own commit with an IMPROVED tag case and ledger
+entries for its corpus differences.
+
+C and C++:
+
+- **P1** Macro calls without a `;` (`INITIALIZE_PASS_BEGIN(...)` and
+  `...END(...)`, `LLVM_PREFERRED_TYPE(bool)`) no longer join the
+  declaration on the lines after them. When the signature found lies
+  in a leading run of `NAME(...)` pairs, and the next token begins a
+  later line, the rest is tried alone: as a signature (without
+  parameters, so no anonymous names), or at `;` as variables (a dry
+  run, writing nothing). If it declares something, the run is dropped
+  and the statement analyzed again; otherwise nothing changes.
+- **P2** The search for a declarator nested in parentheses
+  (`int (*f)(void)`) skips parentheses with a top-level comma or a
+  leading literal, which are a call's arguments:
+  `cl::opt<bool> X("x", cl::init(false));` declares `X`, not `init`.
+- **P3** `MACRO(x) *name(...)`, with `*`, `&` or `&&` between, names the
+  function `name`, as `MACRO(x) name(...)` already did.
+- **P4** A statement of only `NAME :` is cleared after the label check,
+  so a macro used as an access specifier keeps the next member.
+- **P5** `enum` after `<` or `,` is not a definition, and an enum head
+  ending at `=` declares variables: `enum T x[] = {a, b};` is a variable
+  `x`, not an enum `x` with enumerators `a` and `b`.
+- **P6** `template class X<int>;` (an explicit instantiation, perhaps
+  after `extern`) declares nothing, and nor does a class head ending at
+  `;` after a template prefix (`template<class T> class API X;`).
+- **P7** `struct MACRO(x) Name {` is `struct Name {`: a parenthesized
+  list right after the first name following the keyword is dropped with
+  that name, when a name or `{` follows and it does not begin with `*`
+  or `&` (`struct S (*f)(...)`), and not after `operator`.
+- **P8** Typeref spacing is decided against the next token kept, not a
+  dropped keyword: `int * restrict p` is `int *`, not `int * `.
+- **P9** `} static x;` after a struct body makes `x` file-scoped.
+- **P10** Functions, variables, and static members in an anonymous
+  namespace are file-scoped outside headers, as static ones are.
 
 Fortran (section 1.6 marks where each departs):
 
