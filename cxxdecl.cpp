@@ -296,6 +296,8 @@ static b32 parseclassinternal(Cxx *c, i32 kw, i32 kind, u8 type)
     Token *last  = c->chain->tail;
 
     // The name, perhaps after attributes, before a base clause
+    b32 macro      = 0;
+    b32 conversion = last->prev && iskeyword(last->prev, KW_operator);
     c->finalon = 1;
     u32 terms = T_EOF|T_COLON|T_SEMICOLON|T_LBRACE|T_LT|T_PARENS;
     if (iscxx(c)) {
@@ -319,6 +321,22 @@ static b32 parseclassinternal(Cxx *c, i32 kw, i32 kind, u8 type)
 
         if (c->tok->type == T_PARENS) {
             Token *prev = c->tok->prev;
+            Token *inner = chainat(c->tok->chain, 1);
+            if (!macro && !conversion && prev && prev->type==T_IDENT &&
+                    prev->prev==last && !(inner->type&(T_STAR|T_AND|T_ANDS))) {
+                // Departure P7: struct MACRO(x) Name {, as struct Name {,
+                // but not struct S (*f)(...) or struct S (f)(...)
+                cxxnext(c);
+                b32 named = !!(c->tok->type & (T_IDENT|T_LBRACE));
+                cxxunget(c);
+                if (named) {
+                    macro = 1;
+                    destroylast(p, c->chain);
+                    destroylast(p, c->chain);
+                    c->tok = c->chain->tail;
+                    continue;
+                }
+            }
             if ((prev && iskeyword(prev, KW_alignas)) ||
                     !looksparams(c, c->tok->chain, 0)) {
                 continue;  // struct alignas(n) S, or a macro call

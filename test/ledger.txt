@@ -1912,3 +1912,48 @@
 
 @ corpus/llvm/openmp: P5, enum T in a declarator's type is not an enum definition
 = 8 openmp/runtime/src/kmp_global.cpp
+
+@ corpus/llvm/clang: P7, struct MACRO(x) Name is struct Name
+= 20 clang/test/Analysis/Checkers/WebKit/objc-mock-types.h
+= 10 clang/test/CodeGen/align-local.c
+= 318 clang/test/CodeGen/flexible-array-init.c
+= 15 clang/test/CodeGenCXX/ptrauth-explicit-vtable-pointer-control.cpp
+= 2 clang/test/PCH/objc_boxable_record_attr.h
+= 6 clang/test/Sema/align-x86.c
+= 6 clang/test/SemaCXX/align-x86.cpp
+= 1 clang/test/SemaCXX/attr-unavailable.cpp
+= 3 clang/test/SemaCXX/vtable_pointer_authentication_attribute.cpp
+= 89 clang/test/SemaCXX/warn-consumed-analysis.cpp
+= 5 clang/test/SemaCXX/warn-consumed-parsing.cpp
+= 20 clang/test/SemaCXX/warn-thread-safety-parsing.cpp
+
+@ corpus/llvm/clang-tools-extra: P7, struct MACRO(x) Name is struct Name
+= 2 clang-tools-extra/test/clang-tidy/checkers/modernize/use-using.cpp
+
+@ corpus/llvm/compiler-rt: P7, struct MACRO(x) Name is struct Name
+= 9 compiler-rt/lib/profile/InstrProfiling.h
+= 6 compiler-rt/test/dfsan/libatomic.c
+= 6 compiler-rt/test/msan/libatomic.c
+= 6 compiler-rt/test/msan/libatomic_load_exceptions.cpp
+
+@ corpus/llvm/libcxx: P7, struct MACRO(x) Name is struct Name
+= 7 libcxx/include/__cxx03/__memory/shared_ptr.h
+= 2 libcxx/include/__cxx03/__type_traits/aligned_storage.h
+= 2 libcxx/include/__format/format_context.h
+= 5 libcxx/include/__type_traits/aligned_storage.h
+= 7 libcxx/test/libcxx-03/depr/depr.default.allocator/allocator.members/allocate.cxx20.pass.cpp
+= 7 libcxx/test/libcxx/depr/depr.default.allocator/allocator.members/allocate.cxx20.pass.cpp
+= 8 libcxx/test/std/thread/futures/futures.task/destruction_order.pass.cpp
+= 7 libcxx/test/std/utilities/memory/default.allocator/allocator.members/allocate.pass.cpp
+
+@ corpus/llvm/llvm: P7, struct MACRO(x) Name is struct Name
+= 1 llvm/include/llvm/WindowsDriver/MSVCSetupApi.h
+
+@ corpus/llvm/openmp: P7, struct MACRO(x) Name is struct Name
+= 72 openmp/runtime/src/kmp.h
+= 10 openmp/runtime/src/kmp_dispatch.h
+
+@ corpus/llvm/polly: P7, struct MACRO(x) Name is struct Name
+= 6 polly/lib/External/isl/include/isl/maybe_templ.h
+= 7 polly/lib/External/isl/isl_list_templ.h
+= 12 polly/lib/External/isl/isl_multi_templ.h

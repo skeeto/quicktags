@@ -374,6 +374,26 @@ static TagCase cxxcases[] = {
      "Box\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\ts\tline:1\tfile:\n"
      "Later\tp6.cpp\t/^template<typename T> class EXPORT Later;$/;\"\tv\tline:4\ttyperef:class:EXPORT\n"
      "v\tp6.cpp\t/^template<typename T> struct Box { T v; };$/;\"\tm\tline:1\tstruct:Box\ttyperef:typename:T\tfile:\n"},
+    {IMPROVED, "P7 macro after struct", "p7.cpp", "",
+     "struct ALIGNAS(16) Vec { float v[4]; };\n"
+     "class CONSUMABLE(unconsumed) Handle { int fd; };\n"
+     "struct PACKED(1) { char c; } loose;\n"
+     "typedef struct Vec (*maker)(int);\n",
+     "Handle\tp7.cpp\t/^class CONSUMABLE(unconsumed) Handle { int fd; };$/;\"\tc\tline:2\tfile:\n"
+     "Vec\tp7.cpp\t/^struct ALIGNAS(16) Vec { float v[4]; };$/;\"\ts\tline:1\tfile:\n"
+     "__anon111efc5d0108\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\ts\tline:3\tfile:\n"
+     "c\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\tm\tline:3\tstruct:__anon111efc5d0108\ttyperef:typename:char\tfile:\n"
+     "fd\tp7.cpp\t/^class CONSUMABLE(unconsumed) Handle { int fd; };$/;\"\tm\tline:2\tclass:Handle\ttyperef:typename:int\tfile:\n"
+     "loose\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\tv\tline:3\ttyperef:struct:__anon111efc5d0108\n"
+     "maker\tp7.cpp\t/^typedef struct Vec (*maker)(int);$/;\"\tt\tline:4\ttyperef:struct:Vec (*)(int)\tfile:\n"
+     "v\tp7.cpp\t/^struct ALIGNAS(16) Vec { float v[4]; };$/;\"\tm\tline:1\tstruct:Vec\ttyperef:typename:float[4]\tfile:\n",
+     "CONSUMABLE\tp7.cpp\t/^class CONSUMABLE(unconsumed) Handle { int fd; };$/;\"\tf\tline:2\ttyperef:meta:class\n"
+     "PACKED\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\ts\tline:3\tfile:\n"
+     "Vec\tp7.cpp\t/^struct ALIGNAS(16) Vec { float v[4]; };$/;\"\ts\tline:1\tfile:\n"
+     "c\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\tm\tline:3\tstruct:PACKED\ttyperef:typename:char\tfile:\n"
+     "loose\tp7.cpp\t/^struct PACKED(1) { char c; } loose;$/;\"\tv\tline:3\ttyperef:struct:PACKED\n"
+     "maker\tp7.cpp\t/^typedef struct Vec (*maker)(int);$/;\"\tt\tline:4\ttyperef:struct:Vec (*)(int)\tfile:\n"
+     "v\tp7.cpp\t/^struct ALIGNAS(16) Vec { float v[4]; };$/;\"\tm\tline:1\tstruct:Vec\ttyperef:typename:float[4]\tfile:\n"},
 };
 
 static void test_c(Test *t)
