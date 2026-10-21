@@ -60,7 +60,8 @@ endforeach()
 foreach(opt IN ITEMS
     "--kinds-c++=+p" "--kinds-Fortran=+L" "--map-C=+.x"
     "--language-force=C++" "--languages=C" "--fields=+K" "--sort=no"
-    "--extras=+q" "-n")
+    "--extras=+q" "-n" "-I X+" "--param-CPreProcessor.ignore=X"
+    "--param-cpreprocessor:ignore=X")
   ctags_stripped(got "${opt}")
   expect("keep ${opt}" "${got}" OFF)
 endforeach()
@@ -69,10 +70,11 @@ endforeach()
 set(lines
   "--kinds-C++=+p" "  --extras=+qr" "--extras=+r" "--fields=+K{inherits}"
   "--sort=no" "# a comment" "--KINDS-c=+l" "--C++-kinds=+z"
-  "--kinds-CPreProcessor=+d" "--fields-C++=+{template}" "")
+  "--kinds-CPreProcessor=+d" "--fields-C++=+{template}" "-I X=int"
+  "--param-CPreProcessor.ignore=Y" "--param-CPreProcessor.if0=no" "")
 ctags_caseopts("${lines}")
 expect("args" "${ctags_args}"
-  "--kinds-C++=+p;--extras=+q;--KINDS-c=+l;--C++-kinds=+z")
+  "--kinds-C++=+p;--extras=+q;--KINDS-c=+l;--C++-kinds=+z;-I X=int;--param-CPreProcessor.ignore=Y")
 expect("fmt" "${ctags_fmt}" "")
 
 set(ctags_fmt_keep "^--fields=" "^--sort=")
