@@ -266,7 +266,7 @@ static void test_cli(Test *t)
          "ctags: Invalid value for \"recurse\" option\n"},
         {"--jobs=x a",       ARGS_FATAL, "", "",
          "ctags: Invalid value for \"jobs\" option\n"},
-        {"-x a",             ARGS_FATAL, "", "", "ctags: Unknown option: -x\n"},
+        {"-q a",             ARGS_FATAL, "", "", "ctags: Unknown option: -q\n"},
         {"--bogus a",        ARGS_FATAL, "", "",
          "ctags: Unknown option: --bogus\n"},
         {"-f -x a",          ARGS_FATAL, "", "",
@@ -307,5 +307,462 @@ static void test_cli(Test *t)
             expect(t, opts[i].args, r.opt.output, opts[i].output);
             expect(t, opts[i].args, finish(&files), opts[i].files);
         }
+    }
+
+    // Every option's grammar, with the messages of Universal Ctags 6.2.1,
+    // ours for what it accepts and this program refuses, and "not yet
+    // supported" for what this program will do
+    i32 OK    = ARGS_OK;
+    i32 FATAL = ARGS_FATAL;
+    struct { Str args; i32 status; Str log; } gs[] = {
+        // Short options
+        {"-x a",          FATAL, "ctags: -x: not supported\n"},
+        {"-B a",          FATAL, "ctags: -B: not supported\n"},
+        {"-D X=1 a",      FATAL, "ctags: -D: not supported\n"},
+        {"a -D",          FATAL, "ctags: Missing parameter for \"D\" option\n"},
+        {"-i x a",        FATAL, "ctags: Unknown option: -i\n"},
+        {"-ix a",         FATAL, "ctags: Unknown option: -i\n"},
+        {"-p x a",        FATAL, "ctags: Unknown option: -p\n"},
+        {"-d 1 a",        FATAL, "ctags: Unknown option: -d\n"},
+        {"-b 1 a",        FATAL, "ctags: Unknown option: -b\n"},
+        {"-V -F -VF a",   OK,    ""},
+        {"-RV",           OK,    ""},
+        {"-a a",          FATAL, "ctags: --append: not yet supported\n"},
+        {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
+                                 "tags to stdout\n"},
+        {"-e a",          FATAL, "ctags: -e: not yet supported\n"},
+        {"-n a",          FATAL, "ctags: --excmd: not yet supported\n"},
+        {"-N a",          FATAL, "ctags: --excmd: not yet supported\n"},
+        {"-u a",          FATAL, "ctags: --sort: not yet supported\n"},
+        {"-L x",          FATAL, "ctags: -L: not yet supported\n"},
+        {"-L x -L y",     FATAL, "ctags: Warning: -L option specified more "
+                                 "than once, last value used\n"
+                                 "ctags: -L: not yet supported\n"},
+        {"-I X a",        FATAL, "ctags: -I: not yet supported\n"},
+        {"-h default a",  OK,    ""},
+        {"-h .x a",       FATAL, "ctags: -h: not yet supported\n"},
+
+        // Values
+        {"--excmd=mixed a",     OK,    ""},
+        {"--excmd=m a",         OK,    ""},
+        {"--excmd=numberwang a", FATAL, "ctags: --excmd: not yet supported\n"},
+        {"--excmd=combine a",   FATAL, "ctags: --excmd: not yet supported\n"},
+        {"--excmd=x a",         FATAL, "ctags: Invalid value for \"excmd\" "
+                                       "option: x\n"},
+        {"--excmd= a",          FATAL, "ctags: Invalid value for \"excmd\" "
+                                       "option: \n"},
+        {"--excmd=combinex a",  FATAL, "ctags: Invalid value for \"excmd\" "
+                                       "option: combinex\n"},
+        {"--sort=yes a",        OK,    ""},
+        {"--sort=1 a",          OK,    ""},
+        {"--sort=no a",         FATAL, "ctags: --sort: not yet supported\n"},
+        {"--sort=FOLD a",       FATAL, "ctags: --sort: not yet supported\n"},
+        {"--sort a",            FATAL, "ctags: Invalid value for \"sort\" "
+                                       "option\n"},
+        {"--sort=x a",          FATAL, "ctags: Invalid value for \"sort\" "
+                                       "option\n"},
+        {"--format=2 a",        OK,    ""},
+        {"--format=+2 a",       OK,    ""},
+        {"--format=1 a",        FATAL, "ctags: --format: not yet supported\n"},
+        {"--format=1x a",       FATAL, "ctags: --format: not yet supported\n"},
+        {"--format=0 a",        FATAL, "ctags: --format: not yet supported\n"},
+        {"--format=3 a",        FATAL, "ctags: Unsupported value for "
+                                       "\"format\" option\n"},
+        {"--format=-1 a",       FATAL, "ctags: Unsupported value for "
+                                       "\"format\" option\n"},
+        {"--format=99999999999 a", FATAL, "ctags: Unsupported value for "
+                                          "\"format\" option\n"},
+        {"--format=x a",        FATAL, "ctags: Invalid value for \"format\" "
+                                       "option\n"},
+        {"--format= a",         FATAL, "ctags: Invalid value for \"format\" "
+                                       "option\n"},
+        {"--pattern-length-limit=96 a",   OK, ""},
+        {"--pattern-length-limit=0x60 a", OK, ""},
+        {"--pattern-length-limit=0140 a", OK, ""},
+        {"--pattern-length-limit=+96 a",  OK, ""},
+        {"--pattern-length-limit=0 a",    FATAL,
+         "ctags: --pattern-length-limit: not yet supported\n"},
+        {"--pattern-length-limit=-1 a",   FATAL,
+         "ctags: --pattern-length-limit: not yet supported\n"},
+        {"--pattern-length-limit= a",     FATAL,
+         "ctags: A parameter is needed after \"pattern-length-limit\" "
+         "option\n"},
+        {"--pattern-length-limit=x a",    FATAL,
+         "ctags: -pattern-length-limit: Invalid pattern length limit\n"},
+        {"--pattern-length-limit=10x a",  FATAL,
+         "ctags: -pattern-length-limit: Invalid pattern length limit\n"},
+        {"--pattern-length-limit=08 a",   FATAL,
+         "ctags: -pattern-length-limit: Invalid pattern length limit\n"},
+        {"--pattern-length-limit=99999999999 a", FATAL,
+         "ctags: -pattern-length-limit: Invalid pattern length limit\n"},
+        {"--output-format=u-ctags a", OK, ""},
+        {"--output-format=e-ctags a", FATAL,
+         "ctags: --output-format=e-ctags: not yet supported\n"},
+        {"--output-format=etags a",   FATAL, "ctags: -e: not yet supported\n"},
+        {"--output-format=xref a",    FATAL,
+         "ctags: --output-format=xref: not supported\n"},
+        {"--output-format=json a",    FATAL,
+         "ctags: the output format \"json\" is not available on this "
+         "platform\n"},
+        {"--output-format= a",        FATAL,
+         "ctags: no output format name supplied for \"output-format\"\n"},
+        {"--output-format=bogus a",   FATAL,
+         "ctags: unknown output format name supplied for "
+         "\"output-format=bogus\"\n"},
+        {"--tag-relative=no a",     OK,    ""},
+        {"--tag-relative=NEVER a",  FATAL,
+         "ctags: --tag-relative: not yet supported\n"},
+        {"--tag-relative a",        FATAL,
+         "ctags: --tag-relative: not yet supported\n"},
+        {"--tag-relative=x a",      FATAL,
+         "ctags: Invalid value for \"tag-relative\" option\n"},
+        {"--totals --totals=extra --totals=no a", OK, ""},
+        {"--totals=x a",       FATAL, "ctags: Invalid value for \"totals\" "
+                                      "option\n"},
+        {"--quiet --verbose=no --recurse=no a", OK, ""},
+        {"--quiet=x a",        FATAL, "ctags: Invalid value for \"quiet\" "
+                                      "option\n"},
+        {"--append=no a",      OK,    ""},
+        {"--append a",         FATAL, "ctags: --append: not yet supported\n"},
+        {"--append=x a",       FATAL, "ctags: Invalid value for \"append\" "
+                                      "option\n"},
+        {"--links a",          OK,    ""},
+        {"--links=no a",       FATAL, "ctags: --links: not yet supported\n"},
+        {"--if0=no a",         OK,    ""},
+        {"--if0 a",            FATAL, "ctags: --if0: not supported\n"},
+        {"--if0=x a",          FATAL, "ctags: Invalid value for \"if0\" "
+                                      "option\n"},
+        {"--line-directives=no a", OK, ""},
+        {"--line-directives a", FATAL, "ctags: --line-directives: not "
+                                       "supported\n"},
+        {"--exclude=x a",      FATAL, "ctags: --exclude: not yet supported\n"},
+        {"--exclude= a",       FATAL, "ctags: --exclude: not yet supported\n"},
+        {"--exclude-exception=x a", FATAL,
+         "ctags: --exclude-exception: not yet supported\n"},
+        {"--file-tags a",      OK,    "ctags: Warning: \"--file-tags\" option "
+                                      "is obsolete; use \"--extras=+f\" "
+                                      "instead\n"},
+        {"--__anything=x a",   OK,    ""},
+
+        // Languages
+        {"--languages=C,C++,Fortran a",        OK, ""},
+        {"--languages=all a",                  OK, ""},
+        {"--languages=C,C++,Fortran,Python a", OK, ""},
+        {"--languages=python,+C,C++,fortran a", OK, ""},
+        {"--languages=-Python a",              OK, ""},
+        {"--languages=C,-C++ a",  FATAL, "ctags: --languages: not yet "
+                                         "supported\n"},
+        {"--languages= a",        FATAL, "ctags: --languages: not yet "
+                                         "supported\n"},
+        {"--languages=cpp a",     FATAL, "ctags: Warning: Unknown language "
+                                         "\"cpp\" in \"languages\" option\n"
+                                         "ctags: --languages: not yet "
+                                         "supported\n"},
+        {"--languages=ALL a",     FATAL, "ctags: Warning: Unknown language "
+                                         "\"ALL\" in \"languages\" option\n"
+                                         "ctags: --languages: not yet "
+                                         "supported\n"},
+        {"--language-force=auto --language-force=AUTO a", OK, ""},
+        {"--language-force=C a",  FATAL, "ctags: --language-force: not yet "
+                                         "supported\n"},
+        {"--language-force=python a", FATAL, "ctags: --language-force: not "
+                                             "yet supported\n"},
+        {"--language-force=cpp a", FATAL, "ctags: Unknown language \"cpp\" "
+                                          "in \"language-force\" option\n"},
+        {"--language-force= a",   FATAL, "ctags: Unknown language \"\" in "
+                                         "\"language-force\" option\n"},
+        {"--language=auto a",     OK,    "ctags: Warning: \"--language\" "
+                                         "option is obsolete; use "
+                                         "\"--language-force\" instead\n"},
+        {"--lang=cpp a",          FATAL, "ctags: Warning: \"--lang\" option "
+                                         "is obsolete; use "
+                                         "\"--language-force\" instead\n"
+                                         "ctags: Unknown language \"cpp\" in "
+                                         "\"lang\" option\n"},
+        {"--langdef=foo --kinds-foo=+x --regex-FOO=/x/y/ a", OK, ""},
+        {"--langdef=a{x} --map-A=+.c a", FATAL, "ctags: --langmap: not yet "
+                                                "supported\n"},
+        {"--langdef=a#+ --langdef=All a", OK, ""},
+        {"--langdef=foo --langdef=FOO a", FATAL, "ctags: Language \"FOO\" "
+                                                 "already defined\n"},
+        {"--langdef=c a",   FATAL, "ctags: Language \"c\" already defined\n"},
+        {"--langdef=Vim a", FATAL, "ctags: Language \"Vim\" already defined\n"},
+        {"--langdef= a",    FATAL, "ctags: No language specified for "
+                                   "\"langdef\" option\n"},
+        {"--langdef=all a", FATAL, "ctags: \"all\" is reserved; don't use "
+                                   "it as the name for defining a new "
+                                   "language\n"},
+        {"--langdef=NONE a", FATAL, "ctags: \"NONE\" is reserved; don't use "
+                                    "it as the name for defining a new "
+                                    "language\n"},
+        {"--langdef=a_b a", FATAL, "ctags: don't use `_' in a language name "
+                                   "(a_b)\n"},
+        {"--langdef=a'b a", FATAL, "ctags: don't use \"'\" in a language "
+                                   "name (a'b)\n"},
+        {"--langmap=default a",           OK, ""},
+        {"--langmap= a",                  OK, ""},
+        {"--langmap=python:.py a",        OK, ""},
+        {"--langmap=python:+.pyx.pyi,ruby:.rb a", OK, ""},
+        {"--langmap=python:+(*.py3) a", FATAL, "ctags: --langmap: not yet "
+                                               "supported\n"},
+        {"--langmap=c:default,C++:DEFAULT a", OK, ""},
+        {"--langmap=python:.C a", FATAL, "ctags: --langmap: not yet "
+                                         "supported\n"},
+        {"--langmap=make:(Makefile) a", FATAL, "ctags: --langmap: not yet "
+                                               "supported\n"},
+        {"--langmap=c:.c a",      FATAL, "ctags: --langmap: not yet "
+                                         "supported\n"},
+        {"--langmap=fortran: a",  FATAL, "ctags: --langmap: not yet "
+                                         "supported\n"},
+        {"--langmap=c:.c --langmap=default a", OK, ""},
+        {"--langmap=cpp:.x a",    OK,    "ctags: Warning: Unknown language "
+                                         "\"cpp:.x\" in \"langmap\" option\n"},
+        {"--langmap=python:.py,cpp:.x a", OK, "ctags: Warning: Unknown "
+                                              "language \"python:.py,cpp:.x\" "
+                                              "in \"langmap\" option\n"},
+        {"--langmap=c a",         OK,    "ctags: Warning: Unknown language "
+                                         "\"c\" in \"langmap\" option\n"},
+        {"--langmap=c:x a",       FATAL, "ctags: Badly formed language map "
+                                         "for C language\n"},
+        {"--langmap=c:(x a",      FATAL, "ctags: Unterminated file name "
+                                         "pattern for C language\n"},
+        {"--langmap=python:x a",  FATAL, "ctags: Badly formed language map "
+                                         "for Python language\n"},
+        {"--map-python=+.pyx --map-PYTHON=-.c --map-python=-(x\\)y) a", OK, ""},
+        {"--map-python=(x\\)y) a", FATAL, "ctags: --langmap: not yet "
+                                          "supported\n"},
+        {"--map-python=+.c a",    FATAL, "ctags: --langmap: not yet "
+                                         "supported\n"},
+        {"--map-C=+.x a",         FATAL, "ctags: --langmap: not yet "
+                                         "supported\n"},
+        {"--map-C= a",            FATAL, "ctags: no parameter is given for "
+                                         "map-C\n"},
+        {"--map-cpp=+.x a",       FATAL, "ctags: Unknown language \"cpp\" in "
+                                         "\"map-cpp\" option\n"},
+        {"--map- a",              FATAL, "ctags: Unknown option: --map-\n"},
+        {"--map-C=x a",           FATAL, "ctags: Badly formed language map "
+                                         "for C language\n"},
+        {"--map-c=+(x a",         FATAL, "ctags: Unterminated file name "
+                                         "pattern for C language\n"},
+        {"--map-Python:x=+.y a",  OK,    "ctags: Warning: using `:' as a "
+                                         "separator is obsolete; use `.' "
+                                         "instead: --map-Python:x\n"},
+
+        // Kinds of other languages, and every language
+        {"--kinds-python=+x --Python-kinds=x --vim-types=* a", OK, ""},
+        {"--kinds-foo=+x a",  OK, "ctags: Warning: Unknown language \"foo\" "
+                                  "in \"kinds-foo\" option\n"},
+        {"--kinds- a",        OK, "ctags: Warning: No language given in "
+                                  "\"kinds-\" option\n"},
+        {"--kinds-all=p a",   FATAL, "ctags: only '*', 'F', \"{file}\" or "
+                                     "their combination is acceptable as kind "
+                                     "letter for --kinds-all\n"},
+        {"--kinds-all={x} a", FATAL, "ctags: only '*', 'F', \"{file}\" or "
+                                     "their combination is acceptable as kind "
+                                     "letter for --kinds-all\n"},
+        {"--kinds-all=++ a",  FATAL, "ctags: don't repeat + (nor -) in "
+                                     "--kinds-all option\n"},
+        {"--kinds-all=+* a",  FATAL, "ctags: don't use '*' after + (nor -) "
+                                     "in --kinds-all option\n"},
+        {"--kinds-all=*+ a",  FATAL, "ctags: no kind specification after + "
+                                     "(or -) in --kinds-all option\n"},
+        {"--all-kinds=p a",   FATAL, "ctags: Warning: \"--all-kinds\" option "
+                                     "is obsolete; use \"--kinds-all\" "
+                                     "instead\n"
+                                     "ctags: only '*', 'F', \"{file}\" or "
+                                     "their combination is acceptable as kind "
+                                     "letter for --all-kinds\n"},
+        {"--kinddef-C=x,xx,desc a", FATAL, "ctags: --kinddef-C: not "
+                                           "supported\n"},
+        {"--kinddef-python=x,xx,desc a", OK, ""},
+        {"--kinddef-foo=x a",  FATAL, "ctags: Unknown language \"foo\" in "
+                                      "\"kinddef-foo\" option\n"},
+        {"--kinddef-=x a",     FATAL, "ctags: Unknown option: --kinddef-\n"},
+        {"--regex-c++=/x/y/ a", FATAL, "ctags: --regex-c++: not supported\n"},
+        {"--mline-regex-Fortran=/x/y/ a", FATAL, "ctags: "
+                                                 "--mline-regex-Fortran: not "
+                                                 "supported\n"},
+        {"--regex-python=/x/y/ a", OK, ""},
+        {"--regex-foo=/x/y/ a", FATAL, "ctags: Unknown language \"foo\" in "
+                                       "\"regex-foo\" option\n"},
+
+        // Parameters
+        {"--param-C.x=1 a",    FATAL, "ctags: no such parameter in C: x\n"},
+        {"--param-c++.x=1 a",  FATAL, "ctags: no such parameter in C++: x\n"},
+        {"--param-C:x=1 a",    FATAL, "ctags: Warning: using `:' as a "
+                                      "separator is obsolete; use `.' "
+                                      "instead: --param-C:x\n"
+                                      "ctags: no such parameter in C: x\n"},
+        {"--param-C=1 a",      FATAL, "ctags: no separator(.) is given for "
+                                      "param-C=1\n"},
+        {"--param-foo.x=1 a",  FATAL, "ctags: Unknown language \"foo\" in "
+                                      "\"param-foo.x\" option\n"},
+        {"--param-python.x=1 a", OK, ""},
+        {"--param-CPreProcessor._expand=no --param-cpreprocessor.if0=0 a",
+         OK, ""},
+        {"--param-CPreProcessor._expand=1 a", FATAL,
+         "ctags: --param-CPreProcessor._expand: not supported\n"},
+        {"--param-cpreprocessor.if0=yes a", FATAL,
+         "ctags: --param-cpreprocessor.if0: not supported\n"},
+        {"--param-CPreProcessor.if0=x a", FATAL,
+         "ctags: Invalid value for \"if0\" parameter\n"},
+        {"--param-CPreProcessor.if0= a", FATAL,
+         "ctags: no value is given for param-CPreProcessor.if0\n"},
+        {"--param-CPreProcessor.define=X a", FATAL,
+         "ctags: --param-CPreProcessor.define: not supported\n"},
+        {"--param-CPreProcessor.ignore=X a", FATAL,
+         "ctags: -I: not yet supported\n"},
+        {"--param-CPreProcessor.bogus=1 a", FATAL,
+         "ctags: no such parameter in CPreProcessor: bogus\n"},
+
+        // Roles, which only reference tags have
+        {"--roles-C.d=+{undef} --roles-C++.M=-{partOwner} a", OK, ""},
+        {"--roles-C= --roles-C=* --roles-C.* --roles-all.*=* a", OK, ""},
+        {"--roles-C.{macro}=*+{undef}-{condition} --roles-foo.d=x a", OK,
+         "ctags: Warning: unknown language \"foo\" in --roles-foo.d "
+         "option\n"},
+        {"--roles-C.Q=+{undef} a", OK, "ctags: Warning: no such kind letter "
+                                       "as specified in --roles-C.Q "
+                                       "option\n"},
+        {"--roles-C.M=+{undef} a", OK, "ctags: Warning: no such kind letter "
+                                       "as specified in --roles-C.M "
+                                       "option\n"},
+        {"--roles-C.{bogus}x=+{undef} a", OK, "ctags: Warning: no such kind "
+                                              "name as specified in "
+                                              "--roles-C.{bogus}x option\n"},
+        {"--roles-C.d=+{bogus} a", OK, "ctags: Warning: no such role: "
+                                       "\"bogus\" in kind 'd' in language "
+                                       "\"C\"\n"},
+        {"--roles-C.F=+{x} a",    OK, "ctags: Warning: don't enable/disable "
+                                      "a role in F/file kind; it has no "
+                                      "role: --roles-C.F\n"},
+        {"--roles- a",            OK, "ctags: Warning: no language given in "
+                                      "\"roles-\" option\n"},
+        {"--roles-C=x a",         FATAL, "ctags: only '*' or '' (empty "
+                                         "string) is acceptable as an "
+                                         "argument for --roles-C: x\n"},
+        {"--roles-C.d=x a",       FATAL, "ctags: unexpected character x in "
+                                         "--roles-C.d=x option\n"},
+        {"--roles-C.d={x a",      FATAL, "ctags: no '}' representing the end "
+                                         "of role name in --roles-C.d "
+                                         "option: x\n"},
+        {"--roles-C.d={} a",      FATAL, "ctags: empty role for the kind "
+                                         "letter: d\n"},
+        {"--roles-C.{macro}x=+{undef} a", FATAL, "ctags: garbage after the "
+                                                 "kind specification {macro} "
+                                                 "in --roles-C.{macro}x "
+                                                 "option\n"},
+        {"--roles-C.dx=+{undef} a", FATAL, "ctags: garbage after the kind "
+                                           "specification 'd' in "
+                                           "--roles-C.dx option\n"},
+        {"--roles-C.1=+{undef} a", FATAL, "ctags: '1', unexpected character "
+                                          "in --roles-C.1\n"},
+        {"--roles-C.{macro=+{undef} a", FATAL, "ctags: no '}' representing "
+                                               "the end of kind name in "
+                                               "--roles-C.{macro option: "
+                                               "{macro\n"},
+        {"--roles-all.d= a",     FATAL, "ctags: only '*' or '' (empty "
+                                        "string) is acceptable as a kind "
+                                        "spec for --roles-all: "
+                                        "--roles-all.d\n"},
+        {"--roles-all=x a",      FATAL, "ctags: only '*' or '' (empty "
+                                        "string) is acceptable as an "
+                                        "argument for --roles-all: x\n"},
+
+        // Per-language extras and fields
+        {"--extras-C= --extras-C++=* --extras-Fortran=-{linkName} a", OK, ""},
+        {"--extras-python=+{x} a", OK, ""},
+        {"--extras-C=+{bogus} a",  FATAL, "ctags: no such extra: 'bogus'\n"},
+        {"--extras-C=q a",         FATAL, "ctags: Warning: Wrong per language "
+                                          "extra specification: q\n"
+                                          "ctags: only long name can be used "
+                                          "in per language extra spec: 'q'\n"},
+        {"--extras-foo= a",        OK,    "ctags: Warning: Unknown language: "
+                                          "foo (ignoring \"--extras-foo\")\n"},
+        {"--extras- a",            FATAL, "ctags: No language given in "
+                                          "\"extras-\" option\n"},
+        {"--extras-Fortran=+{linkName} a", FATAL,
+         "ctags: --extras-Fortran=+{linkName}: not supported\n"},
+        {"--extras-all=* a",       FATAL,
+         "ctags: --extras-Fortran=+{linkName}: not supported\n"},
+        {"--fields-C++=+{template} --fields-C=* --fields-all=+{line} a",
+         OK, ""},
+        {"--fields-python=+{x} a", OK, ""},
+        {"--fields-C++=-{name} a", FATAL, "ctags: --fields: not yet "
+                                          "supported\n"},
+        {"--fields-C++= a",        FATAL, "ctags: --fields: not yet "
+                                          "supported\n"},
+        {"--fields-C++=+{bogus} a", FATAL, "ctags: no such field: 'bogus'\n"},
+        {"--fields-C++=+n a",      FATAL, "ctags: only long name can be used "
+                                          "in per language field spec: "
+                                          "'n'\n"},
+        {"--fields-C++=n a",       FATAL, "ctags: Warning: Wrong per language "
+                                          "field specification: n\n"
+                                          "ctags: only long name can be used "
+                                          "in per language field spec: "
+                                          "'n'\n"},
+        {"--fields-C++=+} a",      FATAL, "ctags: unexpected character in "
+                                          "field specification: '}'\n"},
+        {"--fields-C=+{name} a",   FATAL, "ctags: no such field: 'name'\n"},
+        {"--fields-Fortran=+{alias} a", FATAL, "ctags: no such field: "
+                                               "'alias'\n"},
+        {"--fields-cpp=+{name} a", OK,    "ctags: Warning: Unknown language: "
+                                          "cpp (ignoring \"--fields-cpp\")\n"},
+        {"--fields- a",            FATAL, "ctags: No language given in "
+                                          "\"fields-\" option\n"},
+        {"--fields-all= a",        FATAL, "ctags: --fields: not yet "
+                                          "supported\n"},
+    };
+    for (iz i = 0; i < countof(gs); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, gs[i].args);
+        expect(t, gs[i].args, num(&tmp, r.status), num(&tmp, gs[i].status));
+        expect(t, gs[i].args, r.log, gs[i].log);
+    }
+
+    // The state options leave
+    struct { Str args, kinds, extras, fields; } st[] = {
+        {"--kinds-all=* a",
+         "C:defghlmpstuvxzLD C++:defghlmpstuvxzLDcnANUZMP "
+         "F:bceEfiklLmMnNpPstvS", "{anonymous}Fps", "NFPTfknst C++:name"},
+        {"--kinds-all= a", "C: C++: F:", "{anonymous}Fps",
+         "NFPTfknst C++:name"},
+        {"--kinds-all=F a", "C: C++: F:", "{anonymous}Fps",
+         "NFPTfknst C++:name"},
+        {"--kinds-all=+F-{file} a",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
+         "{anonymous}Fps", "NFPTfknst C++:name"},
+        {"--all-types=* a",
+         "C:defghlmpstuvxzLD C++:defghlmpstuvxzLDcnANUZMP "
+         "F:bceEfiklLmMnNpPstvS", "{anonymous}Fps", "NFPTfknst C++:name"},
+        {"--extras-all={qualified} a",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS", "q",
+         "NFPTfknst C++:name"},
+        {"--fields-all={name} a",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
+         "{anonymous}Fps", "NFP C++:name"},
+        {"--fields-all={alias} a",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
+         "{anonymous}Fps", "NFP C:alias C++:alias"},
+        {"--fields-C++={template} a",
+         "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS",
+         "{anonymous}Fps", "NFPTfknst C++:template"},
+    };
+    for (iz i = 0; i < countof(st); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, st[i].args);
+        expect(t, st[i].args, showkinds(&tmp, &r.opt.kinds), st[i].kinds);
+        expect(t, st[i].args, showextras(&tmp, r.opt.extras), st[i].extras);
+        expect(t, st[i].args, showfields(&tmp, r.opt.fields), st[i].fields);
+    }
+    {
+        Arena tmp = a;
+        Os   *os  = newos(&tmp);
+        vfsfile(os, "x.h", "");
+        vfsdir(os, "dir");
+        Parsed r = parseos(&tmp, os, "-h x.h x.c");
+        expect(t, "-h FILE", r.log, "ctags: -h: Invalid list\n");
+        r = parseos(&tmp, os, "-h dir x.c");
+        expect(t, "-h DIR", r.log, "ctags: -h: Invalid list\n");
     }
 }

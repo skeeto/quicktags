@@ -2,6 +2,13 @@
 // and from option files
 // This is free and unencumbered software released into the public domain.
 
+enum : i32 { EXCMD_MIXED, EXCMD_NUMBER, EXCMD_PATTERN, EXCMD_COMBINE };
+enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
+enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
+enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
+
+// Every option is parsed into its value here. Some are not acted on yet,
+// and parsefinish refuses them.
 struct Options {
     Str        output;       // "-" is standard output
     Slice<Str> files;
@@ -9,8 +16,24 @@ struct Options {
     u32        extras;       // EXTRA_*
     u64        fields;       // one bit per FIELD_*
     i32        jobs;         // 0: one per processor
+    i32        excmd;        // EXCMD_*
+    i32        sort;         // SORT_*
+    i32        format;       // tags file format, 2 by default
+    u32        patmax;       // pattern length limit, 0 for none
+    i32        writer;       // WRITER_*
+    i32        tagrelative;  // TREL_*
+    i32        force;        // forced language, LANG_NONE for none
+    u32        langs;        // enabled languages, one bit per LANG_*
+    Slice<Str> excludes;     // --exclude values, as given
+    Slice<Str> exceptions;   // --exclude-exception values, as given
+    Slice<Str> ignores;      // -I lists, as given
+    Str        listfile;     // -L, null for none
     Str        print;        // for ARGS_EXIT: what to print
+    b32        append;
     b32        recurse;
+    b32        nolinks;      // --links=no
+    b32        mapped;       // --langmap or --map-LANG changed our maps
+    b32        headers;      // -h changed the header extensions
     b32        fieldsreset;  // --fields reset them: no fixed-field warnings
     b32        stats;
     b32        nofast;
@@ -39,11 +62,12 @@ enum : i32 {
 
 // The state of parsing, shared by the arguments and the option files.
 struct Parse {
-    Options *opt;
-    Os      *os;
-    Arena   *perm;
-    Buf     *log;
-    b32      seenf;  // -f or -o given
+    Options   *opt;
+    Os        *os;
+    Arena     *perm;
+    Buf       *log;
+    Slice<Str> langdefs;  // languages defined by --langdef
+    b32        seenf;     // -f or -o given
 };
 
 
@@ -73,6 +97,18 @@ static void warning(Parse *p, Str a, Str b = {}, Str c = {}, Str d = {},
                     Str e = {}, Str f = {}, Str g = {})
 {
     message(p->log, "Warning: ", a, b, c, d, e, f, g);
+}
+
+static i32 badvalue(Parse *p, Str option)
+{
+    return fatal(p, "Invalid value for \"", option, "\" option");
+}
+
+// An option Universal Ctags has that this program never will, because
+// it would change which tags exist or write another kind of output.
+static i32 unsupported(Parse *p, Str a, Str b = {})
+{
+    return fatal(p, a, b, ": not supported");
 }
 
 
@@ -119,9 +155,50 @@ static i32 parsenum(Str s, i32 max)  // -1 if invalid
     return r;
 }
 
-static i32 badvalue(Parse *p, Str option)
+struct Ulong {
+    u32 value;
+    b32 digits;    // any were read
+    b32 overflow;
+    b32 whole;     // the number ran to the end
+};
+
+// Parse a number as the Windows C runtime's strtoul() and scanf("%u")
+// do, with 32-bit longs: leading whitespace, a sign, and for base 0 a
+// "0x" or "0" prefix. A negative number wraps around.
+static Ulong parseulong(Str s, i32 base)
 {
-    return fatal(p, "Invalid value for \"", option, "\" option");
+    Ulong r = {};
+    iz    i = 0;
+    for (; i<s.len && whitespace(s[i]); i++) {}
+    b32 neg = i<s.len && s[i]=='-';
+    i += i<s.len && (s[i]=='-' || s[i]=='+');
+    if (!base) {
+        base = i<s.len && s[i]=='0' ? 8 : 10;
+        if (base==8 && i+2<s.len && (s[i+1]=='x' || s[i+1]=='X')) {
+            u8 c = lowercase(s[i+2]);
+            if (digit(c) || (c>='a' && c<='f')) {
+                base = 16;
+                i += 2;
+            }
+        }
+    }
+    u64 v = 0;
+    for (; i < s.len; i++) {
+        u8  c = lowercase(s[i]);
+        i32 d = digit(c) ? c-'0' : c>='a' && c<='z' ? c-'a'+10 : 99;
+        if (d >= base) {
+            break;
+        }
+        r.digits = 1;
+        v = v*(u64)base + (u64)d;
+        if (v > 0xffffffff) {
+            r.overflow = 1;
+            v = 0xffffffff;
+        }
+    }
+    r.value = neg ? 0 - (u32)v : (u32)v;
+    r.whole = i == s.len;
+    return r;
 }
 
 enum : u32 {
@@ -157,39 +234,430 @@ static Slice<Str> splitlines(Arena *a, Str s, u32 flags)
 
 // Languages
 
-// Name the language of a --kinds-LANG option, or LANG_NONE.
-static i32 langnamed(Str name)
+// The languages Universal Ctags 6.2.1 has besides ours: those it lists,
+// and two it hides. Options naming them are accepted and do nothing.
+static Str foreignlangs[] = {
+    "Abaqus", "Abc", "Ada", "Ant", "Asciidoc", "Asm", "Asp", "Autoconf",
+    "AutoIt", "Automake", "Awk", "Basic", "Bats", "BETA", "BibLaTeX",
+    "BibTeX", "C#", "Cargo", "Clojure", "CMake", "Cobol", "CobolFree",
+    "CobolVariable", "CPreProcessor", "CSS", "Ctags", "CUDA", "D", "Diff",
+    "DosBatch", "DTD", "DTS", "Eiffel", "Elixir", "Elm", "EmacsLisp",
+    "Erlang", "Falcon", "Flex", "Forth", "FrontMatter",
+    "FunctionParameters", "Fypp", "Gdbinit", "GDScript", "GemSpec", "Go",
+    "GPerf", "Haskell", "Haxe", "HTML", "Iniconf", "Inko", "IPythonCell",
+    "ITcl", "Java", "JavaProperties", "JavaScript", "JNI", "JSON", "Julia",
+    "Kconfig", "Kotlin", "LdScript", "LEX", "Lisp", "LiterateHaskell",
+    "Lua", "M4", "Make", "Man", "Markdown", "MatLab", "Meson",
+    "MesonOptions", "Moose", "Myrddin", "NSIS", "ObjectiveC", "OCaml",
+    "Org", "Pascal", "Passwd", "Perl", "Perl6", "PHP", "PkgConfig", "Pod",
+    "PowerShell", "Protobuf", "PuppetManifest", "Python",
+    "PythonEntryPoints", "PythonLoggingConfig", "QemuHX", "QML", "QtMoc",
+    "Quarto", "R", "R6Class", "Rake", "Raku", "ReStructuredText", "REXX",
+    "RMarkdown", "Robot", "RpmMacros", "RpmSpec", "RSpec", "Ruby", "Rust",
+    "S4Class", "Scdoc", "Scheme", "SCSS", "SELinuxInterface",
+    "SELinuxTypeEnforcement", "Sh", "SLang", "SML", "SQL", "SystemdUnit",
+    "SystemTap", "SystemVerilog", "Tcl", "TclOO", "Terraform",
+    "TerraformVariables", "Tex", "TeXBeamer", "Thrift", "TOML", "TTCN",
+    "Txt2tags", "TypeScript", "TypeSpec", "Unknown", "V", "Varlink",
+    "Vera", "Verilog", "VHDL", "Vim", "WindRes", "YACC", "YumRepo",
+    "Zephir", "Zsh", "UniversalCtags", "CTagsSelfTest",
+};
+
+struct Named {
+    i32 lang;  // LANG_*
+    Str name;  // as Universal Ctags spells it, or as given if unknown
+};
+
+// Find a language by name, ignoring case: ours, one we don't parse
+// (including those defined by --langdef), or LANG_NONE.
+static Named langnamed(Parse *p, Str name)
 {
-    if (equalsfold(name, "c")) {
-        return LANG_C;
-    } else if (equalsfold(name, "c++")) {
-        return LANG_CXX;
-    } else if (equalsfold(name, "fortran")) {
-        return LANG_FORTRAN;
+    Named r = {};
+    r.name = name;
+    for (i32 i = LANG_C; i <= LANG_FORTRAN; i++) {
+        if (equalsfold(name, langnames[i])) {
+            r.lang = i;
+            r.name = langnames[i];
+            return r;
+        }
     }
-    return LANG_NONE;
+    for (iz i = 0; i < countof(foreignlangs); i++) {
+        if (equalsfold(name, foreignlangs[i])) {
+            r.lang = LANG_FOREIGN;
+            r.name = foreignlangs[i];
+            return r;
+        }
+    }
+    for (iz i = 0; i < p->langdefs.len; i++) {
+        if (equalsfold(name, p->langdefs[i])) {
+            r.lang = LANG_FOREIGN;
+            r.name = p->langdefs[i];
+            return r;
+        }
+    }
+    return r;
+}
+
+// The language named after an option's prefix, up to a '.' or ':', as in
+// --regex-LANG and --param-LANG.NAME.
+static Named langpart(Parse *p, Str option, iz prefix)
+{
+    Str rest = cuthead(option, prefix);
+    iz  end  = 0;
+    for (; end<rest.len && rest[end]!='.' && rest[end]!=':'; end++) {}
+    if (end<rest.len && rest[end]==':') {
+        warning(p, "using `:' as a separator is obsolete; use `.' instead: --",
+                option);
+    }
+    return langnamed(p, end ? takehead(rest, end) : rest);
+}
+
+static i32 unknownlang(Parse *p, Str lang, Str option)
+{
+    return fatal(p, "Unknown language \"", lang, "\" in \"", option,
+                 "\" option");
+}
+
+// Whether an extension, ignoring case, is one of our languages', which
+// a map for another language would take (an approximation until the
+// maps are ours to edit).
+static b32 ourext(Str ext)
+{
+    static Str exts[] = {
+        "c", "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp",
+        "hxx", "inl", "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08",
+        "f15", "in",
+    };
+    for (iz i = 0; i < countof(exts); i++) {
+        if (equalsfold(ext, exts[i])) return 1;
+    }
+    return 0;
+}
+
+enum : i32 { MAP_OK, MAP_BADLY, MAP_UNTERMINATED };
+
+struct MapItem {
+    Str item;  // an extension, or a pattern
+    Str tail;  // after it
+    i32 err;   // MAP_*
+    b32 pattern;
+};
+
+// Parse the first item of a language map: ".ext", ending at '.', '(',
+// ',' or the end, or "(pattern)", in which "\)" does not end it.
+static MapItem mapitem(Str s)
+{
+    MapItem r = {};
+    if (startswith(s, ".")) {
+        iz end = 1;
+        for (; end<s.len && s[end]!='.' && s[end]!='(' && s[end]!=','; end++) {}
+        r.item = span(s.data+1, s.data+end);
+        r.tail = cuthead(s, end);
+    } else if (startswith(s, "(")) {
+        iz end = 1;
+        for (; end<s.len && s[end]!=')'; end++) {
+            end += s[end]=='\\' && end+1<s.len && s[end+1]==')';
+        }
+        if (end == s.len) {
+            r.err = MAP_UNTERMINATED;
+            return r;
+        }
+        r.item    = span(s.data+1, s.data+end);
+        r.tail    = cuthead(s, end+1);
+        r.pattern = 1;
+    } else {
+        r.err = MAP_BADLY;
+    }
+    return r;
+}
+
+static i32 badmap(Parse *p, i32 err, Named lang)
+{
+    Str msg = err==MAP_UNTERMINATED ? Str("Unterminated file name pattern for ")
+                                    : Str("Badly formed language map for ");
+    return fatal(p, msg, lang.name, " language");
+}
+
+// Note whether mapping an item to a language would change ours.
+static void mapchange(Parse *p, Named lang, MapItem m)
+{
+    p->opt->mapped |= lang.lang!=LANG_FOREIGN || m.pattern || ourext(m.item);
+}
+
+// --langmap=LANG:[+]MAPS[,LANG:...], each item taken from every other
+// language, or default for all or for one language.
+static i32 langmapopt(Parse *p, Str name, Str value)
+{
+    if (value == "default") {
+        p->opt->mapped = 0;
+        return ARGS_OK;
+    }
+    for (Str maps = value; maps.len;) {
+        Cut   c    = cut(maps, ':');
+        Named lang = c.ok ? langnamed(p, c.head) : Named{};
+        if (!lang.lang) {
+            warning(p, "Unknown language \"", value, "\" in \"", name,
+                    "\" option");
+            return ARGS_OK;
+        }
+        Str list = c.tail;
+        b32 add  = startswith(list, "+");
+        list = cuthead(list, add);
+        Str first = cut(list, ',').head;
+        if (equalsfold(first, "default")) {
+            list = cuthead(list, first.len);
+        } else {
+            p->opt->mapped |= lang.lang!=LANG_FOREIGN && !add;
+            while (list.len && list[0]!=',') {
+                MapItem m = mapitem(list);
+                if (m.err) {
+                    return badmap(p, m.err, lang);
+                }
+                mapchange(p, lang, m);
+                list = m.tail;
+            }
+        }
+        maps = cuthead(list, startswith(list, ","));
+    }
+    return ARGS_OK;
+}
+
+// --map-LANG=[+|-]MAP: one item added, removed, or made the whole map.
+static i32 mapopt(Parse *p, Str name, Str value)
+{
+    Named lang = langpart(p, name, 4);
+    if (!lang.lang) {
+        return unknownlang(p, lang.name, name);
+    } else if (!value.len) {
+        return fatal(p, "no parameter is given for ", name);
+    }
+    b32     remove = value[0] == '-';
+    MapItem m      = mapitem(cuthead(value, remove || value[0]=='+'));
+    if (m.err) {
+        return badmap(p, m.err, lang);
+    }
+    if (!remove) {
+        mapchange(p, lang, m);
+    }
+    p->opt->mapped |= lang.lang != LANG_FOREIGN;
+    return ARGS_OK;
+}
+
+// --languages=[+|-]LIST: replace, add to, or remove from the enabled
+// languages, the mode carrying on through the list.
+static i32 languagesopt(Parse *p, Str name, Str value)
+{
+    u32 *langs = &p->opt->langs;
+    u8   mode  = 0;  // 0 to replace
+    Cut  c     = {};
+    c.tail = value;
+    do {
+        c = cut(c.tail, ',');
+        Str lang = c.head;
+        if (startswith(lang, "+") || startswith(lang, "-")) {
+            mode = lang[0];
+            lang = cuthead(lang, 1);
+        }
+        if (!mode) {
+            *langs = 0;
+        }
+        if (!lang.len) {
+            continue;
+        }
+        if (lang == "all") {
+            *langs = mode=='-' ? 0u : (u32)LANGS_ALL;
+        } else {
+            Named l = langnamed(p, lang);
+            if (!l.lang) {
+                warning(p, "Unknown language \"", lang, "\" in \"", name,
+                        "\" option");
+            } else if (l.lang != LANG_FOREIGN) {
+                *langs &= ~(1u << l.lang);
+                *langs |= (u32)(mode!='-') << l.lang;
+            }
+        }
+        mode = mode ? mode : '+';
+    } while (c.ok);
+    return ARGS_OK;
+}
+
+// --language-force=LANG|auto, and the old --lang and --language.
+static i32 forceopt(Parse *p, Str name, Str value)
+{
+    if (name != "language-force") {
+        warning(p, "\"--", name, "\" option is obsolete; use "
+                "\"--language-force\" instead");
+    }
+    if (equalsfold(value, "auto")) {
+        p->opt->force = LANG_NONE;
+        return ARGS_OK;
+    }
+    Named lang = langnamed(p, value);
+    if (!lang.lang) {
+        return unknownlang(p, value, name);
+    }
+    p->opt->force = lang.lang;
+    return ARGS_OK;
+}
+
+// --langdef=NAME[{flags}] defines a language, which this program does
+// not parse, so that options may name it.
+static i32 langdefopt(Parse *p, Str name, Str value)
+{
+    Str lang = cut(value, '{').head;
+    if (!lang.len) {
+        return fatal(p, "No language specified for \"", name, "\" option");
+    } else if (langnamed(p, lang).lang) {
+        return fatal(p, "Language \"", lang, "\" already defined");
+    } else if (lang=="all" || lang=="NONE") {
+        return fatal(p, "\"", lang, "\" is reserved; don't use it as the "
+                     "name for defining a new language");
+    }
+    for (iz i = 0; i < lang.len; i++) {
+        u8 c = lang[i];
+        if (!alnum(c) && c!='+' && c!='#') {
+            if (c=='`' || c=='\'') {
+                return fatal(p, "don't use \"", {&c, 1},
+                             "\" in a language name (", lang, ")");
+            }
+            return fatal(p, "don't use `", {&c, 1}, "' in a language name (",
+                         lang, ")");
+        }
+    }
+    p->langdefs = push(p->perm, p->langdefs, lang);
+    return ARGS_OK;
 }
 
 
-// Long options
+// Kinds, extras, and fields
+
+static i32 kindspec(Parse *p, i32 lang, Str spec, Str option)
+{
+    KindTable t    = kindtable(&p->opt->kinds, lang);
+    u64       bits = *t.bits;
+    Spec      s    = flagspec(&bits, t.kinds, t.len, spec, SPEC_KINDS, option,
+                              p->log);
+    *t.bits = (u32)bits;
+    return s.ok ? ARGS_OK : ARGS_FATAL;
+}
+
+// --kinds-all, which takes only "*", "F", "{file}" (the file kind), and
+// a "+" or "-" before either of the last two, for every language.
+static i32 kindsall(Parse *p, Str name, Str value)
+{
+    b32 afterop = 0;
+    for (iz i = 0; i < value.len;) {
+        u8 c = value[i];
+        if (c=='+' || c=='-') {
+            if (afterop) {
+                return fatal(p, "don't repeat + (nor -) in --", name,
+                             " option");
+            }
+            afterop = 1;
+            i++;
+        } else if (c == '*') {
+            if (afterop) {
+                return fatal(p, "don't use '*' after + (nor -) in --", name,
+                             " option");
+            }
+            i++;
+        } else if (c=='F' || startswith(cuthead(value, i), "{file}")) {
+            afterop = 0;
+            i += c=='F' ? 1 : 6;
+        } else {
+            return fatal(p, "only '*', 'F', \"{file}\" or their combination "
+                         "is acceptable as kind letter for --", name);
+        }
+    }
+    if (afterop) {
+        return fatal(p, "no kind specification after + (or -) in --", name,
+                     " option");
+    }
+    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+        if (kindspec(p, lang, value, name)) {
+            return ARGS_FATAL;
+        }
+    }
+    return ARGS_OK;
+}
 
 // --kinds-LANG, or the old --LANG-kinds and --LANG-types where the
 // language runs up to the first '-'.
 static i32 kindsopt(Parse *p, Str name, Str value)
 {
     Cut dash  = cut(name, '-');
-    Str lname = dash.tail=="kinds" || dash.tail=="types" ? dash.head
-                                                          : cuthead(name, 6);
-    i32 lang  = langnamed(lname);
-    if (lang == LANG_NONE) {
-        warning(p, "Unknown language \"", lname, "\" in \"", name, "\" option");
+    b32 old   = dash.tail=="kinds" || dash.tail=="types";
+    Str lname = old ? dash.head : cuthead(name, 6);
+    if (lname == "all") {
+        if (old) {
+            warning(p, "\"--", name, "\" option is obsolete; use "
+                    "\"--kinds-all\" instead");
+        }
+        return kindsall(p, name, value);
+    } else if (!lname.len && !old) {
+        warning(p, "No language given in \"", name, "\" option");
         return ARGS_OK;
     }
-    KindTable t    = kindtable(&p->opt->kinds, lang);
-    u64       bits = *t.bits;
-    Spec      s    = flagspec(&bits, t.kinds, t.len, value, SPEC_KINDS, name,
-                              p->log);
-    *t.bits = (u32)bits;
+    Named lang = langnamed(p, lname);
+    if (!lang.lang) {
+        warning(p, "Unknown language \"", lname, "\" in \"", name, "\" option");
+        return ARGS_OK;
+    } else if (lang.lang == LANG_FOREIGN) {
+        return ARGS_OK;
+    }
+    return kindspec(p, lang.lang, value, name);
+}
+
+// --fields-LANG and --extras-LANG, by name only, where LANG may be "all"
+// for every common and per-language entry.
+static i32 langspec(Parse *p, Str name, Str value, b32 isfields)
+{
+    Options *opt   = p->opt;
+    Str      lname = cuthead(name, 7);
+    if (!lname.len) {
+        return fatal(p, "No language given in \"", name, "\" option");
+    }
+
+    // The language's own entries: C and C++ have fields, Fortran an extra
+    i32 beg = 0;
+    i32 end = 0;
+    if (isfields) {
+        end = NFIELDS;
+    } else {
+        end = NEXTRAS;
+    }
+    if (lname != "all") {
+        Named lang = langnamed(p, lname);
+        if (!lang.lang) {
+            warning(p, "Unknown language: ", lname, " (ignoring \"--", name,
+                    "\")");
+            return ARGS_OK;
+        } else if (lang.lang == LANG_FOREIGN) {
+            return ARGS_OK;
+        } else if (!isfields) {
+            beg = lang.lang==LANG_FORTRAN ? NCOMMONEXTRAS : NEXTRAS;
+        } else if (lang.lang == LANG_C) {
+            beg = FIELD_C;
+            end = FIELD_CXX;
+        } else {
+            beg = lang.lang==LANG_CXX ? FIELD_CXX : NFIELDS;
+        }
+    }
+
+    Kind *table = isfields ? fields : extras;
+    u64   bits  = isfields ? opt->fields : opt->extras;
+    u64   mask  = (((u64)1 << (end - beg)) - 1) << beg;
+    u64   part  = bits >> beg;
+    i32   kind  = isfields ? SPEC_LANGFIELDS : SPEC_LANGEXTRAS;
+    Spec  s     = flagspec(&part, table+beg, end-beg, value, kind, name,
+                           p->log);
+    bits = (bits & ~mask) | (part<<beg & mask);
+    if (isfields) {
+        opt->fields = bits;
+        opt->fieldsreset |= s.reset && lname=="all";
+    } else {
+        opt->extras = (u32)bits;
+    }
     return s.ok ? ARGS_OK : ARGS_FATAL;
 }
 
@@ -222,49 +690,297 @@ static void fixfields(Parse *p)
     }
 }
 
+// --roles-LANG[.KIND]=[+|-]{role}...: roles only mark reference tags,
+// which are not written, so this checks its arguments, then does nothing.
+static i32 rolesopt(Parse *p, Str name, Str value)
+{
+    Str lname = cuthead(name, 6);
+    b32 any   = !value.len || value=="*";
+    if (!lname.len) {
+        warning(p, "no language given in \"", name, "\" option");
+        return ARGS_OK;
+    } else if (startswith(lname, "all")) {
+        Str rest = cuthead(lname, 3);
+        if (!rest.len || rest==".*") {
+            return any ? ARGS_OK
+                       : fatal(p, "only '*' or '' (empty string) is "
+                               "acceptable as an argument for --", name, ": ",
+                               value);
+        } else if (rest[0] == '.') {
+            return fatal(p, "only '*' or '' (empty string) is acceptable as "
+                         "a kind spec for --roles-all: --", name);
+        }
+    }
+
+    Cut   dot  = cut(lname, '.');
+    Named lang = langnamed(p, dot.head);
+    if (!lang.lang) {
+        warning(p, "unknown language \"", dot.head, "\" in --", name,
+                " option");
+        return ARGS_OK;
+    } else if (!dot.ok || dot.tail=="*") {
+        return any ? ARGS_OK
+                   : fatal(p, "only '*' or '' (empty string) is acceptable "
+                           "as an argument for --", name, ": ", value);
+    } else if (lang.lang == LANG_FOREIGN) {
+        return ARGS_OK;
+    }
+
+    KindTable t    = kindtable(&p->opt->kinds, lang.lang);
+    Str       spec = dot.tail;
+    Kind     *kind = 0;
+    if (!spec.len || (spec[0]!='{' && !letter(spec[0]))) {
+        Str c = spec.len ? takehead(spec, 1) : Str("");
+        return fatal(p, "'", c, "', unexpected character in --", name);
+    }
+    Cut kname = cut(cuthead(spec, 1), '}');
+    if (spec[0]=='{' && !kname.ok) {
+        return fatal(p, "no '}' representing the end of kind name in --",
+                     name, " option: ", spec);
+    } else if (spec[0]=='F' || (spec[0]=='{' && kname.head=="file")) {
+        warning(p, "don't enable/disable a role in F/file kind; it has no "
+                "role: --", name);
+        return ARGS_OK;
+    }
+    for (i32 i = 0; i<t.len && !kind; i++) {
+        Kind *k     = t.kinds + i;
+        b32   match = spec[0]=='{' ? k->name==kname.head : k->letter==spec[0];
+        kind = match ? k : 0;
+    }
+    if (!kind) {
+        warning(p, "no such kind ", spec[0]=='{' ? Str("name") : Str("letter"),
+                " as specified in --", name, " option");
+        return ARGS_OK;
+    } else if (spec[0]=='{' && kname.tail.len) {
+        return fatal(p, "garbage after the kind specification {", kname.head,
+                     "} in --", name, " option");
+    } else if (spec[0]!='{' && spec.len>1) {
+        return fatal(p, "garbage after the kind specification '",
+                     takehead(spec, 1), "' in --", name, " option");
+    }
+
+    Str kl = {&kind->letter, 1};
+    for (iz i = 0; i < value.len;) {
+        u8 c = value[i];
+        if (c=='+' || c=='-' || c=='*') {
+            i++;
+            continue;
+        } else if (c != '{') {
+            return fatal(p, "unexpected character ", {&value[i], 1}, " in --",
+                         name, "=", value, " option");
+        }
+        Cut role = cut(cuthead(value, i+1), '}');
+        if (!role.ok) {
+            return fatal(p, "no '}' representing the end of role name in --",
+                         name, " option: ", cuthead(value, i+1));
+        } else if (!role.head.len) {
+            return fatal(p, "empty role for the kind letter: ", kl);
+        } else if (!countroles(lang.lang, kind->letter, role.head)) {
+            warning(p, "no such role: \"", role.head, "\" in kind '", kl,
+                    "' in language \"", lang.name, "\"");
+        }
+        i = value.len - role.tail.len;
+    }
+    return ARGS_OK;
+}
+
+// --param-LANG.NAME=VALUE: our languages have no parameters, and of the
+// C preprocessor's, ignore is -I, and the others would change which
+// tags exist, but for _expand and if0 off, the defaults.
+static i32 paramopt(Parse *p, Str name, Str value)
+{
+    Named lang = langpart(p, name, 6);
+    if (!lang.lang) {
+        return unknownlang(p, lang.name, name);
+    }
+    Str rest = cuthead(name, 6+lang.name.len);
+    if (!rest.len || (rest[0]!='.' && rest[0]!=':')) {
+        return fatal(p, "no separator(.) is given for ", name, "=", value);
+    } else if (!value.len) {
+        return fatal(p, "no value is given for ", name);
+    }
+    Str param = cuthead(rest, 1);
+    if (lang.lang!=LANG_FOREIGN) {
+        return fatal(p, "no such parameter in ", lang.name, ": ", param);
+    } else if (lang.name != "CPreProcessor") {
+        return ARGS_OK;
+    }
+    if (param == "ignore") {
+        p->opt->ignores = push(p->perm, p->opt->ignores, value);
+        return ARGS_OK;
+    } else if (param=="_expand" || param=="if0") {
+        i32 b = parsebool(value);
+        if (b < 0) {
+            return fatal(p, "Invalid value for \"", param, "\" parameter");
+        }
+        return b ? unsupported(p, "--", name) : ARGS_OK;
+    } else if (param == "define") {
+        return unsupported(p, "--", name);
+    }
+    return fatal(p, "no such parameter in ", lang.name, ": ", param);
+}
+
+
+// Long options
+
+static void etagsmode(Options *opt)
+{
+    opt->writer      = WRITER_ETAGS;
+    opt->sort        = SORT_NO;
+    opt->tagrelative = TREL_YES;
+}
+
 enum : i32 {
-    OPT_EXTRAS, OPT_FIELDS, OPT_FILESCOPE, OPT_HELP, OPT_JOBS, OPT_RECURSE,
+    OPT_APPEND, OPT_EXCLUDE, OPT_EXCEPTION, OPT_EXCMD, OPT_EXTRAS,
+    OPT_FIELDS, OPT_FILESCOPE, OPT_FILETAGS, OPT_FORMAT, OPT_HELP, OPT_IF0,
+    OPT_JOBS, OPT_FORCE, OPT_LANGUAGES, OPT_LANGDEF, OPT_LANGMAP,
+    OPT_LINEDIRS, OPT_LINKS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
+    OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
     OPT_VERSION, OPT_STATS, OPT_NOFAST,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
-    {"extra",      OPT_EXTRAS},
-    {"extras",     OPT_EXTRAS},
-    {"fields",     OPT_FIELDS},
-    {"file-scope", OPT_FILESCOPE},
-    {"help",       OPT_HELP},
-    {"jobs",       OPT_JOBS},
-    {"recurse",    OPT_RECURSE},
-    {"version",    OPT_VERSION},
-    {"_nofast",    OPT_NOFAST},
-    {"_stats",     OPT_STATS},
+    {"append",               OPT_APPEND},
+    {"exclude",              OPT_EXCLUDE},
+    {"exclude-exception",    OPT_EXCEPTION},
+    {"excmd",                OPT_EXCMD},
+    {"extra",                OPT_EXTRAS},
+    {"extras",               OPT_EXTRAS},
+    {"fields",               OPT_FIELDS},
+    {"file-scope",           OPT_FILESCOPE},
+    {"file-tags",            OPT_FILETAGS},
+    {"format",               OPT_FORMAT},
+    {"help",                 OPT_HELP},
+    {"if0",                  OPT_IF0},
+    {"jobs",                 OPT_JOBS},
+    {"lang",                 OPT_FORCE},
+    {"language",             OPT_FORCE},
+    {"language-force",       OPT_FORCE},
+    {"languages",            OPT_LANGUAGES},
+    {"langdef",              OPT_LANGDEF},
+    {"langmap",              OPT_LANGMAP},
+    {"line-directives",      OPT_LINEDIRS},
+    {"links",                OPT_LINKS},
+    {"output-format",        OPT_OUTFORMAT},
+    {"pattern-length-limit", OPT_PATLIMIT},
+    {"quiet",                OPT_QUIET},
+    {"recurse",              OPT_RECURSE},
+    {"sort",                 OPT_SORT},
+    {"tag-relative",         OPT_TAGRELATIVE},
+    {"totals",               OPT_TOTALS},
+    {"verbose",              OPT_VERBOSE},
+    {"version",              OPT_VERSION},
+    {"_nofast",              OPT_NOFAST},
+    {"_stats",               OPT_STATS},
 };
 
-// Families of options that name a language, by prefix.
-enum : i32 { LOPT_KINDS };
+// Families of options that name a language, by prefix, in the order
+// Universal Ctags tries them: the first two before its exact names, the
+// rest after.
+enum : i32 {
+    LOPT_FIELDS, LOPT_EXTRAS, LOPT_DEFINE, LOPT_KINDS, LOPT_MAP, LOPT_PARAM,
+    LOPT_ROLES,
+};
 
 static struct { Str prefix; i32 id; } langopts[] = {
-    {"kinds-", LOPT_KINDS},
+    {"fields-",      LOPT_FIELDS},
+    {"extras-",      LOPT_EXTRAS},
+    {"kinddef-",     LOPT_DEFINE},
+    {"kinds-",       LOPT_KINDS},   // also the old --LANG-kinds
+    {"regex-",       LOPT_DEFINE},
+    {"mline-regex-", LOPT_DEFINE},
+    {"map-",         LOPT_MAP},
+    {"param-",       LOPT_PARAM},
+    {"roles-",       LOPT_ROLES},
 };
 
-static i32 longopt(Parse *p, Str name, Str value)
+// The family of an option, an index into langopts, or -1. Some families
+// do not take an option without a language, which is then unknown.
+static i32 langfamily(Str name)
+{
+    for (i32 i = 0; i < countof(langopts); i++) {
+        Str prefix = langopts[i].prefix;
+        i32 id     = langopts[i].id;
+        Cut dash   = cut(name, '-');
+        if (id==LOPT_KINDS && (dash.tail=="kinds" || dash.tail=="types")) {
+            return i;
+        } else if (startswith(name, prefix) &&
+                   (name.len>prefix.len || id==LOPT_FIELDS ||
+                    id==LOPT_EXTRAS || id==LOPT_KINDS || id==LOPT_ROLES)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+static i32 langopt(Parse *p, i32 family, Str name, Str value)
+{
+    switch (langopts[family].id) {
+    case LOPT_FIELDS: return langspec(p, name, value, 1);
+    case LOPT_EXTRAS: return langspec(p, name, value, 0);
+    case LOPT_KINDS:  return kindsopt(p, name, value);
+    case LOPT_MAP:    return mapopt(p, name, value);
+    case LOPT_PARAM:  return paramopt(p, name, value);
+    case LOPT_ROLES:  return rolesopt(p, name, value);
+    case LOPT_DEFINE: {
+        // --regex-LANG, --mline-regex-LANG, and --kinddef-LANG, which
+        // would change which tags exist
+        Named lang = langpart(p, name, langopts[family].prefix.len);
+        if (!lang.lang) {
+            return unknownlang(p, lang.name, name);
+        }
+        return lang.lang==LANG_FOREIGN ? ARGS_OK : unsupported(p, "--", name);
+    }
+    }
+    return ARGS_OK;
+}
+
+static i32 exactopt(Parse *p, i32 id, Str name, Str value)
 {
     Options *opt = p->opt;
 
-    i32 id = -1;
-    for (iz i = 0; i<countof(longopts) && id<0; i++) {
-        if (longopts[i].name == name) {
-            id = longopts[i].id;
+    i32 b = 0;
+    switch (id) {
+    case OPT_APPEND: case OPT_FILESCOPE: case OPT_FILETAGS: case OPT_IF0:
+    case OPT_LINEDIRS: case OPT_LINKS: case OPT_QUIET: case OPT_RECURSE:
+    case OPT_VERBOSE:
+        b = parsebool(value);
+        if (b < 0) {
+            return badvalue(p, name);
         }
     }
 
     switch (id) {
+    case OPT_APPEND:
+        opt->append = b;
+        return ARGS_OK;
+
+    case OPT_EXCLUDE:
+        opt->excludes = push(p->perm, opt->excludes, value);
+        return ARGS_OK;
+
+    case OPT_EXCEPTION:
+        opt->exceptions = push(p->perm, opt->exceptions, value);
+        return ARGS_OK;
+
+    case OPT_EXCMD:
+        switch (value.len ? value[0] : 0) {
+        case 'm': opt->excmd = EXCMD_MIXED;   return ARGS_OK;
+        case 'n': opt->excmd = EXCMD_NUMBER;  return ARGS_OK;
+        case 'p': opt->excmd = EXCMD_PATTERN; return ARGS_OK;
+        }
+        if (value != "combine") {
+            return fatal(p, "Invalid value for \"", name, "\" option: ", value);
+        }
+        opt->excmd = EXCMD_COMBINE;
+        return ARGS_OK;
+
     case OPT_EXTRAS: {
         if (name == "extra") {
             warning(p, "--extra option is obsolete; use --extras instead");
         }
         u64  bits = opt->extras;
-        Spec s    = flagspec(&bits, extras, countof(extras), value,
+        Spec s    = flagspec(&bits, extras, NCOMMONEXTRAS, value,
                              SPEC_EXTRAS, name, p->log);
         opt->extras = (u32)bits;
         return s.ok ? ARGS_OK : ARGS_FATAL;
@@ -277,15 +993,27 @@ static i32 longopt(Parse *p, Str name, Str value)
         return s.ok ? ARGS_OK : ARGS_FATAL;
     }
 
-    case OPT_FILESCOPE: {
-        i32 b = parsebool(value);
-        if (b < 0) {
+    case OPT_FILESCOPE:
+    case OPT_FILETAGS: {
+        u8  sign  = b ? '+' : '-';
+        u8  x     = id==OPT_FILESCOPE ? 'F' : 'f';
+        u32 extra = id==OPT_FILESCOPE ? EXTRA_FILESCOPE : EXTRA_INPUTFILE;
+        warning(p, "\"--", name, "\" option is obsolete; use \"--extras=",
+                {&sign, 1}, {&x, 1}, "\" instead");
+        opt->extras &= ~extra;
+        opt->extras |= b ? extra : 0u;
+        return ARGS_OK;
+    }
+
+    case OPT_FORMAT: {
+        // As scanf("%u") reads it
+        Ulong n = parseulong(value, 10);
+        if (!n.digits) {
             return badvalue(p, name);
+        } else if (n.overflow || n.value>2) {
+            return fatal(p, "Unsupported value for \"", name, "\" option");
         }
-        warning(p, "\"--file-scope\" option is obsolete; use \"--extras=",
-                b ? Str("+F") : "-F", "\" instead");
-        opt->extras &= ~EXTRA_FILESCOPE;
-        opt->extras |= b ? EXTRA_FILESCOPE : 0u;
+        opt->format = (i32)n.value;
         return ARGS_OK;
     }
 
@@ -297,13 +1025,98 @@ static i32 longopt(Parse *p, Str name, Str value)
         return ARGS_EXIT;
     }
 
+    case OPT_IF0:
+    case OPT_LINEDIRS:
+        return b ? unsupported(p, "--", name) : ARGS_OK;
+
     case OPT_JOBS:
         opt->jobs = parsenum(value, 1024);
         return opt->jobs<0 ? badvalue(p, name) : ARGS_OK;
 
+    case OPT_FORCE:     return forceopt(p, name, value);
+    case OPT_LANGUAGES: return languagesopt(p, name, value);
+    case OPT_LANGDEF:   return langdefopt(p, name, value);
+    case OPT_LANGMAP:   return langmapopt(p, name, value);
+
+    case OPT_LINKS:
+        opt->nolinks = !b;
+        return ARGS_OK;
+
+    case OPT_OUTFORMAT:
+        if (!value.len) {
+            return fatal(p, "no output format name supplied for \"", name,
+                         "\"");
+        } else if (value == "u-ctags") {
+            opt->writer = WRITER_UCTAGS;
+        } else if (value == "e-ctags") {
+            opt->writer = WRITER_ECTAGS;
+        } else if (value == "etags") {
+            etagsmode(opt);
+        } else if (value == "xref") {
+            return unsupported(p, "--output-format=xref");
+        } else if (value == "json") {
+            return fatal(p, "the output format \"", value, "\" is not "
+                         "available on this platform");
+        } else {
+            return fatal(p, "unknown output format name supplied for \"", name,
+                         "=", value, "\"");
+        }
+        return ARGS_OK;
+
+    case OPT_PATLIMIT: {
+        // As strtoul() reads it, in any base
+        Ulong n = parseulong(value, 0);
+        if (!value.len) {
+            return fatal(p, "A parameter is needed after \"", name,
+                         "\" option");
+        } else if (!n.digits || n.overflow || !n.whole) {
+            return fatal(p, "-", name, ": Invalid pattern length limit");
+        }
+        opt->patmax = n.value;
+        return ARGS_OK;
+    }
+
+    case OPT_QUIET:
+    case OPT_VERBOSE:
+        return ARGS_OK;
+
     case OPT_RECURSE:
-        opt->recurse = parsebool(value);
-        return opt->recurse<0 ? badvalue(p, name) : ARGS_OK;
+        opt->recurse = b;
+        return ARGS_OK;
+
+    case OPT_SORT:
+        if (isfalse(value)) {
+            opt->sort = SORT_NO;
+        } else if (istrue(value)) {
+            opt->sort = SORT_YES;
+        } else if (equalsfold(value, "f") || equalsfold(value, "fold") ||
+                   equalsfold(value, "foldcase")) {
+            opt->sort = SORT_FOLD;
+        } else {
+            return badvalue(p, name);
+        }
+        return ARGS_OK;
+
+    case OPT_TAGRELATIVE:
+        if (isfalse(value)) {
+            opt->tagrelative = TREL_NO;
+        } else if (!value.len || istrue(value)) {
+            opt->tagrelative = TREL_YES;
+        } else if (equalsfold(value, "always")) {
+            opt->tagrelative = TREL_ALWAYS;
+        } else if (equalsfold(value, "never")) {
+            opt->tagrelative = TREL_NEVER;
+        } else {
+            return badvalue(p, name);
+        }
+        return ARGS_OK;
+
+    case OPT_TOTALS:
+        if (value.len && !istrue(value) && !isfalse(value) &&
+            !equalsfold(value, "extra")) {
+            return badvalue(p, name);
+        }
+        return ARGS_OK;
 
     case OPT_VERSION: {
         Buf b(p->perm, 32);
@@ -322,19 +1135,24 @@ static i32 longopt(Parse *p, Str name, Str value)
         opt->nofast = 1;
         return ARGS_OK;
     }
+    return ARGS_OK;
+}
 
-    // Universal Ctags tries the old --LANG-kinds form after its table of
-    // exact names, which include --list-kinds
-    Cut dash = cut(name, '-');
-    if (dash.tail=="kinds" || dash.tail=="types") {
-        return kindsopt(p, name, value);
+static i32 longopt(Parse *p, Str name, Str value)
+{
+    i32 family = langfamily(name);
+    if (family>=0 && langopts[family].id<=LOPT_EXTRAS) {
+        return langopt(p, family, name, value);
     }
-    for (iz i = 0; i < countof(langopts); i++) {
-        if (startswith(name, langopts[i].prefix)) {
-            switch (langopts[i].id) {
-            case LOPT_KINDS: return kindsopt(p, name, value);
-            }
+    for (iz i = 0; i < countof(longopts); i++) {
+        if (longopts[i].name == name) {
+            return exactopt(p, longopts[i].id, name, value);
         }
+    }
+    if (family >= 0) {
+        return langopt(p, family, name, value);
+    } else if (startswith(name, "__")) {
+        return ARGS_OK;  // ignored, as Universal Ctags does
     }
     return fatal(p, "Unknown option: --", name);
 }
@@ -369,13 +1187,44 @@ static i32 setoutput(Parse *p, u8 letter, Str name)
 
 static i32 shortopt(Parse *p, u8 c, Str param)
 {
+    Options *opt = p->opt;
     switch (c) {
-    case 'R':
-        p->opt->recurse = 1;
-        return ARGS_OK;
+    case 'a': opt->append  = 1;             return ARGS_OK;
+    case 'e': etagsmode(opt);               return ARGS_OK;
+    case 'n': opt->excmd   = EXCMD_NUMBER;  return ARGS_OK;
+    case 'N': opt->excmd   = EXCMD_PATTERN; return ARGS_OK;
+    case 'R': opt->recurse = 1;             return ARGS_OK;
+    case 'u': opt->sort    = SORT_NO;       return ARGS_OK;
+    case 'F': return ARGS_OK;  // forward patterns, the only kind
+    case 'V': return ARGS_OK;  // verbose
+
+    case 'B':  // backward patterns
+    case 'D':  // macro definitions
+    case 'x':  // a cross reference
+        return unsupported(p, "-", {&c, 1});
+
     case 'f':
     case 'o':
         return setoutput(p, c, param);
+
+    case 'h':
+        // A list that names a file is likely a mistake, "-h *.h"
+        if (os_stat(p->os, *p->perm, param).type != STAT_NONE) {
+            return fatal(p, "-h: Invalid list");
+        }
+        opt->headers = param != "default";
+        return ARGS_OK;
+
+    case 'I':
+        opt->ignores = push(p->perm, opt->ignores, param);
+        return ARGS_OK;
+
+    case 'L':
+        if (opt->listfile.data) {
+            warning(p, "-L option specified more than once, last value used");
+        }
+        opt->listfile = param;
+        return ARGS_OK;
     }
     return fatal(p, "Unknown option: -", {&c, 1});
 }
@@ -392,6 +1241,10 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     opt->kinds  = defaultkinds();
     opt->extras = defaultextras();
     opt->fields = defaultfields();
+    opt->sort   = SORT_YES;
+    opt->format = 2;
+    opt->patmax = 96;  // as Universal Ctags
+    opt->langs  = LANGS_ALL;
 }
 
 // Parse arguments: options, and files to tag.
@@ -420,7 +1273,9 @@ static i32 parseloop(Parse *p, Str *args, iz nargs)
                     if (!param.len && i+1<nargs) {
                         param = args[++i];
                     }
-                    for (; param.len && param[0]==' '; param = cuthead(param, 1)) {}
+                    iz blanks = 0;
+                    for (; blanks<param.len && param[blanks]==' '; blanks++) {}
+                    param = cuthead(param, blanks);
                     if (!param.len) {
                         return fatal(p, "Missing parameter for \"", {&c, 1},
                                      "\" option");
@@ -443,24 +1298,58 @@ static i32 notyet(Parse *p, Str option)
     return fatal(p, option, ": not yet supported");
 }
 
+// Whether fields differ from the defaults where it matters: the parsers'
+// fields but C++'s name are accepted and do nothing.
+static b32 fieldschanged(u64 bits)
+{
+    u64 mask = ((u64)1<<NCOMMONFIELDS) - 1;
+    mask |= (u64)1 << FIELD_CXXNAME;
+    return ((bits ^ defaultfields()) & mask) != 0;
+}
+
 // Check and complete the options once all are parsed.
 static i32 parsefinish(Parse *p)
 {
     Options *opt = p->opt;
-    fixfields(p);
-    if (!opt->output.data) {
-        opt->output = "tags";
+    if (opt->append && opt->output=="-") {
+        return fatal(p, "append mode is not compatible with tags to stdout");
     }
-    if (!opt->files.len) {
+    if (opt->writer != WRITER_ETAGS) {
+        fixfields(p);
+    }
+    if (!opt->output.data) {
+        opt->output = opt->writer==WRITER_ETAGS ? Str("TAGS") : Str("tags");
+    }
+    if (!opt->files.len && !opt->listfile.data) {
         if (!opt->recurse) {
             return fatal(p, "No files specified. Try \"ctags --help\".");
         }
         opt->files = push(p->perm, opt->files, Str("."));
     }
+    if (opt->extras & EXTRA_LINKNAME) {
+        return unsupported(p, "--extras-Fortran=+{linkName}");
+    }
 
     // Parsed, but not yet implemented: each check goes when its
     // milestone lands
-    if (opt->fields != defaultfields()) return notyet(p, "--fields");  // M3a
+    if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
+    if (opt->writer == WRITER_ECTAGS) return notyet(p, "--output-format=e-ctags"); // M3a
+    if (fieldschanged(opt->fields))   return notyet(p, "--fields");                // M3a
+    if (opt->excmd != EXCMD_MIXED)    return notyet(p, "--excmd");                 // M3a
+    if (opt->format != 2)             return notyet(p, "--format");                // M3a
+    if (opt->patmax != 96)            return notyet(p, "--pattern-length-limit");  // M3a
+    if (opt->tagrelative != TREL_NO)  return notyet(p, "--tag-relative");          // M3b
+    if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
+    if (opt->append)                  return notyet(p, "--append");                // M5
+    if (opt->excludes.len)            return notyet(p, "--exclude");               // M2a
+    if (opt->exceptions.len)          return notyet(p, "--exclude-exception");     // M2a
+    if (opt->listfile.data)           return notyet(p, "-L");                      // M2a
+    if (opt->nolinks)                 return notyet(p, "--links");                 // M2a
+    if (opt->langs != LANGS_ALL)      return notyet(p, "--languages");             // M2b
+    if (opt->force)                   return notyet(p, "--language-force");        // M2b
+    if (opt->mapped)                  return notyet(p, "--langmap");               // M2b
+    if (opt->headers)                 return notyet(p, "-h");                      // M2b
+    if (opt->ignores.len)             return notyet(p, "-I");                      // M9
     return ARGS_OK;
 }
 
