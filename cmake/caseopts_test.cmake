@@ -15,29 +15,33 @@ endfunction()
 # --fields specs: stripped letters and names, merged signs, absolute
 # specs kept absolute, and "*" as the fields it keeps
 foreach(pair IN ITEMS
-    "+K{inherits}=--fields=+K"
+    "+K{nth}=--fields=+K"
     "+K=--fields=+K"
     "+e="
-    "+iaS="
+    "+eo{end}="
+    "+iaSm{inherits}=--fields=+iaSm{inherits}"
     "e=--fields="
     "=--fields="
     "+K-e+n=--fields=+Kn"
     "Ke+n=--fields=Kn"
-    "-S+n=--fields=+n"
+    "-o+n=--fields=+n"
+    "-S+n=--fields=-S+n"
     "-k=--fields=-k"
     "+e-n=--fields=-n"
     "+{end}{scope}=--fields=+{scope}"
-    "+{signature}-{nth}="
-    "S+n=--fields=n"
+    "+{end}-{nth}="
+    "o+n=--fields=n"
     "e+n=--fields=n"
     "{end}+K=--fields=K"
-    "Se-k=--fields="
+    "oe-k=--fields="
     "e-n=--fields="
-    "S-n+k=--fields=k"
-    "Sn-n=--fields=n-n"
-    "*=--fields=NFPCEKRTZfklnprstxz"
-    "*-S=--fields=NFPCEKRTZfklnprstxz"
-    "*-n=--fields=NFPCEKRTZfklnprstxz-n")
+    "o-n+k=--fields=k"
+    "on-n=--fields=n-n"
+    "Sn-n=--fields=Sn-n"
+    "*=--fields=NFPCEKRSTZafiklmnprstxz"
+    "*-o=--fields=NFPCEKRSTZafiklmnprstxz"
+    "*-S=--fields=NFPCEKRSTZafiklmnprstxz-S"
+    "*-n=--fields=NFPCEKRSTZafiklmnprstxz-n")
   string(FIND "${pair}" "=" eq)
   string(SUBSTRING "${pair}" 0 ${eq} spec)
   math(EXPR rest "${eq} + 1")
@@ -67,7 +71,7 @@ endforeach()
 
 # What each mode keeps
 set(lines
-  "--kinds-C++=+p" "  --extras=+qr" "--extras=+r" "--fields=+K{inherits}"
+  "--kinds-C++=+p" "  --extras=+qr" "--extras=+r" "--fields=+K{nth}"
   "--sort=no" "# a comment" "--KINDS-c=+l" "--C++-kinds=+z"
   "--kinds-CPreProcessor=+d" "--fields-C++=+{template}" "")
 ctags_caseopts("${lines}")

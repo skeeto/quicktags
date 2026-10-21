@@ -44,9 +44,8 @@ set(ctags_fmt_keep "^--fields=" "^--excmd=" "^-[nN]$" "^--format="
   "^--pattern-length-limit=" "^--output-format=e-ctags$")
 
 # Letters and {names} filtered out of --fields: e and o never print in
-# tags output here, and the rest until their fields are ported
-set(ctags_fields_strip e o {end} {nth}
-  m {implementation} S a i {signature} {access} {inherits})
+# tags output here
+set(ctags_fields_strip e o {end} {nth})
 # Every field letter, which a leading * enables (u-ctags --list-fields)
 set(ctags_fields_all N F P C E K R S T Z a e f i k l m n o p r s t x z)
 
