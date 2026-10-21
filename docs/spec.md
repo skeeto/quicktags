@@ -110,6 +110,7 @@ apply.
 - **DISC-5 [V]** The printed file name is the argument or constructed path **verbatim**, with only `\`→`/` at output time. `//`, `./` and `..` are kept, and so is case. Absolute `C:\…` prints as `C:/…`.
 - **DISC-6 [S][V] `-L FILE`** (`main.c createTagsFromListFile`, `args.c`) names a list of inputs, read from standard input for `-`.
   - Its entries come after the command line's files. A FILE that cannot be opened is FATAL `cannot open list file "FILE" : REASON`, once the command line's files are tagged.
+  - **[V] Bug:** a `-L` that follows a file name is parsed (`--verbose` shows it), but its list is never read, nor opened: `ctags a.c -L list` tags `a.c` alone, and exits 0 when `list` does not exist. `main.c` tests for a list again after the files, but declares `Option` const, so this build apparently keeps the value it read before them. Here such a list is read as any other (D13).
   - The list is read as an option file is (OPT-14): one argument per line at LF, CR or CRLF, trimmed of whitespace, blank lines and those whose first non-blank is `#` skipped. A line of only blanks is an empty name, which warns `cannot open input file ""`.
   - A line starting with `-` is an option, applying to the entries after it, with the ordering rule of CLI-6: an initOnly option after an entry, in the list or on the command line, is FATAL `-f option may not follow a file name`. Any other line is an entry, which goes through DISC-1, so a directory is ignored without `-R`, and `-R` in the list does not make it recurse.
   - `-L` in the list warns `-L option specified more than once, last value used`, and is ignored, as the list being read is the only one read.
@@ -880,6 +881,11 @@ Decided for this program, deliberately different from Universal Ctags.
   Universal Ctags leaves them, so there they quote the next character:
   `sub\deep` in a list matches only `subdeep`, and Windows `wildignore`
   entries written with backslashes match nothing.
+- **D13** A `-L` list given after a file name is read, as one given
+  before is (DISC-6): `ctags a.c -L list` tags `a.c` and the files the
+  list names, and a list that cannot be opened is FATAL. Universal Ctags
+  parses such an option but never reads its list, so it tags `a.c`
+  alone, and exits 0 though the list does not exist.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.

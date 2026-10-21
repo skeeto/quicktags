@@ -722,6 +722,34 @@ static void test_walk(Test *t)
         }
         Run r = run(os, a, "-L list4");
         expect(t, "-L list4", r.out, "ctags 0.1\n");
+
+        // D13: a -L after a file name is read as any other. Universal
+        // Ctags parses it but never reads the list, so it tags x.h alone,
+        // and a list that cannot be opened is no error.
+        Str nosuch = "ctags: cannot open list file \"nosuch\" : No such "
+                     "file or directory\n";
+        struct {
+            Str args;
+            i32 status;
+            Str names, err;
+            i32 ustatus;
+            Str unames, uerr;
+        } d13[] = {
+            {"x.h -L list",   0, "a b h pa s", "",     0, "h", ""},
+            {"x.h -L -",      0, "a h",        "",     0, "h", ""},
+            {"x.h -L nosuch", 1, "",           nosuch, 0, "h", ""},
+        };
+        for (iz i = 0; i < countof(d13); i++) {
+            Str args = concat(&a, "-f - ", d13[i].args);
+            r = run(os, a, args);
+            Str names = tagnames(&a, r.out);
+            expect(t, args, num(&a, r.status), num(&a, d13[i].status));
+            expect(t, args, names, d13[i].names);
+            expect(t, args, r.err, d13[i].err);
+            b32 same = r.status==d13[i].ustatus && names==d13[i].unames &&
+                       r.err==d13[i].uerr;
+            expect(t, args, num(&a, same), "0");
+        }
     }
 
     {
