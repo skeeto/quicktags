@@ -686,6 +686,17 @@ static TagCase cxxcases[] = {
      "int v;\n",
      "v\tk.x\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n",
      ""},
+    {SHARED, "a tie with Fortran decided by the template", "k.c.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "class Thing { int v; };\n",
+     "v\tk.c.in\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "a tie with Fortran left to the first by name", "k.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "class Thing { int v; };\n",
+     "Thing\tk.in\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "v\tk.in\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
     {IMPROVED, "D1 C++'s own C without C's", "k.C", "--map-C=-.c",
      "class Thing { int v; };\n",
      "Thing\tk.C\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"

@@ -145,31 +145,51 @@ static b32 inlist(Slice<Str> list, Str s)
     return 0;
 }
 
-// The first enabled language in name order whose map takes a base name:
-// by a pattern, else by its extension, ignoring case, but for C++'s own
-// "C", which takes only ".C", and first (LANG-2, D1).
-static i32 matchlang(Options *opt, Str name)
+// A language chosen for a name, or, of several that took it with none
+// chosen, a fallback (LANG-2).
+struct Pick {
+    i32 lang;
+    i32 fallback;
+};
+
+// Which of the enabled languages take a base name: those with a pattern
+// that matches it, else those with its extension, ignoring case, but for
+// C++'s own "C", which takes only ".C", and first (D1). Of several, C
+// and C++ choose the first by name, as their shared selector does, and
+// with Fortran among them none is chosen: the first is a fallback.
+static Pick matchlang(Options *opt, Str name)
 {
-    LangMap *m = &opt->map;
+    Pick     r     = {};
+    LangMap *m     = &opt->map;
+    u32      taken = 0;
     for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
-        if (opt->langs>>lang & 1) {
-            for (iz i = 0; i < m->globs[lang].len; i++) {
-                if (globmatch(m->globs[lang][i], name, opt->windows)) {
-                    return lang;
-                }
+        for (iz i = 0; opt->langs>>lang&1 && i<m->globs[lang].len; i++) {
+            if (globmatch(m->globs[lang][i], name, opt->windows)) {
+                taken |= 1u << lang;
+                break;
             }
         }
     }
-    Str ext = extension(name);
-    if (ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
-        return LANG_CXX;
-    }
-    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
-        if (opt->langs>>lang&1 && inlist(m->exts[lang], ext)) {
-            return lang;
+    if (!taken) {
+        Str ext = extension(name);
+        if (ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
+            r.lang = LANG_CXX;
+            return r;
+        }
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            if (opt->langs>>lang&1 && inlist(m->exts[lang], ext)) {
+                taken |= 1u << lang;
+            }
         }
     }
-    return LANG_NONE;
+    i32 first = taken ? __builtin_ctz(taken) : LANG_NONE;
+    b32 tie   = taken&(taken-1) && taken>>LANG_FORTRAN&1;
+    if (tie) {
+        r.fallback = first;
+    } else {
+        r.lang = first;
+    }
+    return r;
 }
 
 // Choose a file's language by its base name, then without a final
@@ -184,8 +204,13 @@ static Lang detectlang(Options *opt, Str path)
     if (opt->force) {
         r.lang = opt->force==LANG_FOREIGN ? LANG_NONE : opt->force;
     } else {
-        r.lang = matchlang(opt, base);
-        r.lang = !r.lang && in ? matchlang(opt, bare) : r.lang;
+        Pick p = matchlang(opt, base);
+        if (!p.lang && in) {
+            Pick t = matchlang(opt, bare);
+            p.lang     = t.lang;
+            p.fallback = p.fallback ? p.fallback : t.fallback;
+        }
+        r.lang = p.lang ? p.lang : p.fallback;
     }
     r.header = r.lang && inlist(opt->headers, extension(bare));
     return r;

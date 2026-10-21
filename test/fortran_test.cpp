@@ -863,6 +863,12 @@ static TagCase fortrancases[] = {
      "      end\n",
      "main\tf.c\t/^      program main$/;\"\tp\tline:1\n",
      ""},
+    {SHARED, "a tie with C++ decided by the template", "f.f90.in",
+     "--map-Fortran=+.in --map-C++=+.in",
+     "program main\n"
+     "end program\n",
+     "main\tf.f90.in\t/^program main$/;\"\tp\tline:1\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.
