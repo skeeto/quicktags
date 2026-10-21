@@ -59,32 +59,46 @@ function(checkrel dir out want)
   endif()
 endfunction()
 
-# WORK made absolute by the program: from the system, which on POSIX
-# resolves links, and on Windows with its drive letter uppercased
-set(abs ${WORK})
+# WORK as the program has it from the system: on POSIX with its links
+# resolved, and on Windows with its drive letter uppercased
+set(real ${WORK})
 if(WINDOWS)
   string(SUBSTRING ${WORK} 0 1 drive)
   string(SUBSTRING ${WORK} 1 -1 tail)
   string(TOUPPER ${drive} drive)
-  set(abs ${drive}${tail})
+  set(real ${drive}${tail})
 else()
-  file(REAL_PATH ${WORK} abs)
+  file(REAL_PATH ${WORK} real)
 endif()
 checkrel(${WORK} sub/tags "../u.c" --tag-relative u.c)
-checkrel(${WORK} - "u.c" --tag-relative=always ${WORK}/u.c)
-checkrel(${WORK} - "${abs}/u.c" --tag-relative=never ./sub/../u.c)
+checkrel(${WORK} - "u.c" --tag-relative=always ${real}/u.c)
+checkrel(${WORK} - "${real}/u.c" --tag-relative=never ./sub/../u.c)
 
 # From the root of WORK's drive or file system, which Windows names with
 # its separator, "C:\", unlike any other directory
 string(REGEX MATCH "^([A-Za-z]:)?/" root ${WORK})
 string(LENGTH "${root}" len)
 string(SUBSTRING ${WORK} ${len} -1 rel)  # WORK from there
-string(SUBSTRING ${abs} 0 ${len} absroot)
-set(abs ${absroot}${rel})
+string(SUBSTRING ${real} 0 ${len} abs)
+set(abs ${abs}${rel})
 checkrel(${root} - "${abs}/u.c" --tag-relative=never ${rel}/u.c)
 checkrel(${root} - "${rel}/u.c" --tag-relative ./${rel}/u.c)
 checkrel(${root} - "${rel}/u.c" --tag-relative=always ${WORK}/u.c)
 checkrel(${root} ${rel}/sub/tags "../u.c" --tag-relative=always ${WORK}/u.c)
+
+# On POSIX, from a directory whose name outgrows the platform layer's
+# first buffer, 256 bytes, longer than Windows allows a current one
+if(NOT WINDOWS)
+  set(deep ${WORK}/sub)
+  foreach(i RANGE 1 5)
+    string(APPEND deep /abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz)
+  endforeach()
+  file(MAKE_DIRECTORY ${deep})
+  file(WRITE ${deep}/u.c "int u;\n")
+  file(REAL_PATH ${deep} realdeep)
+  checkrel(${deep} - "${realdeep}/u.c" --tag-relative=never u.c)
+  checkrel(${deep} - "../../../../../../u.c" --tag-relative=always ${real}/u.c)
+endif()
 
 if(failed)
   message(FATAL_ERROR "the program read files or made paths unlike Universal Ctags")
