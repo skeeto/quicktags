@@ -450,7 +450,7 @@ depends on how far the walk had read when the label was seen. Our
   - `line:`, `language:`, the scope (`KIND:NAME`, or `scope:KIND:NAME` with `Z`), `typeref:`, `file:`;
   - `inherits:`, `access:`, `implementation:`, `signature:`, `roles:`, `extras:`, `end:`, `epoch:`, `nth:`;
   - then the parser's own fields.
-  - `;"` comes before the first built-in field written (any of the above but the parser's own). The parser's fields are appended without it, so a line with only those has none: `--fields= --fields-C++=+{properties}` writes `st\ta.cpp\t/^static int st;$/\tproperties:static`. That is malformed; the planned departure D10 writes `;"` before whichever field comes first.
+  - `;"` comes before the first built-in field written (any of the above but the parser's own). The parser's fields are appended without it, so a line with only those has none: `--fields= --fields-C++=+{properties}` writes `st\ta.cpp\t/^static int st;$/\tproperties:static`. That is malformed: a reader takes `\tproperties:static` as part of the address. Here D10 writes `;"` before whichever field comes first.
   - `extras:` lists a tag's extras by commas in their table's order: `fileScope`, `inputFile`, `pseudo`, `qualified`, `reference`, `guest`, `subparser`, `anonymous`.
   - A tags file has a `!_TAG_FIELD_DESCRIPTION` pseudo-tag for each enabled field that has a long name (in `--list-fields`), so none for `k`, `s`, `K` or `R`: `file` goes with `--fields=-f`, `line` comes with `+n`, and `extras` with `+E`. A parser's own enabled fields get `!_TAG_FIELD_DESCRIPTION!LANG` lines, such as C++'s `name`.
 - **FLD-5 [S][V] Field values** (`writer-ctags.c addExtensionFields`, `field.c`), each written only while its field is enabled (`--fields`, OPT-9):
@@ -856,6 +856,11 @@ Decided for this program, deliberately different from Universal Ctags.
   is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
   0, no tags), which is never what was meant. `-R` keeps one meaning of
   its own: with no files, it tags the current directory.
+- **D10** `;"` is written whenever any field is (FLD-4), also before a
+  parser's field written alone, as C++'s `name:` is with `--fields=`.
+  Universal Ctags writes `A\ta.cpp\t/^namespace A = N;$/\tname:N`,
+  which Vim and other readers take as an address ending in
+  `\tname:N`, so the tag is not found.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.

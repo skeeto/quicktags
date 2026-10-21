@@ -711,6 +711,16 @@ static TagCase cxxcases[] = {
      "sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tm\tline:2\tclass:geo::Shape\ttyperef:typename:int\tfile:\textras:fileScope\n"
      "x\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tz\tline:5\tfunction:__anon0faa2b810102\ttyperef:typename:int\tfile:\textras:fileScope\n",
      ""},
+    {IMPROVED, "D10 ;\" before a parser's field alone", "a.cpp",
+     "--fields= --kinds-C++=+A",
+     "namespace N { int x; }\n"
+     "namespace A = N;\n",
+     "A\ta.cpp\t/^namespace A = N;$/;\"\tname:N\n"
+     "N\ta.cpp\t/^namespace N { int x; }$/\n"
+     "x\ta.cpp\t/^namespace N { int x; }$/\n",
+     "A\ta.cpp\t/^namespace A = N;$/\tname:N\n"
+     "N\ta.cpp\t/^namespace N { int x; }$/\n"
+     "x\ta.cpp\t/^namespace N { int x; }$/\n"},
     {SHARED, "OUT-8 no name field in the original format", "k.cpp",
      "--format=1 --kinds-C++=+A",
      "namespace geo {\n"

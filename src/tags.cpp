@@ -257,8 +257,9 @@ static void beginfield(Buf *b, b32 *any, Str key)
 
 // Append a tag as the format asks (OUT-6, FLD-5): the address by excmd,
 // then the enabled fields in Universal Ctags' order (FLD-4), the first
-// after ;". E-ctags writes names, paths, and scopes as they are, so it
-// drops tags it could not write that way (FLD-6).
+// after ;", which unlike Universal Ctags includes the parser's (D10).
+// E-ctags writes names, paths, and scopes as they are, so it drops tags
+// it could not write that way (FLD-6).
 static void tagline(File *f, Tag *t)
 {
     Source *src = f->src;
@@ -337,7 +338,7 @@ static void tagline(File *f, Tag *t)
             print(b, "def");  // only reference tags have others
         }
         if (fieldon(on, FIELD_EXTRAS) && (t->filescope || t->qualified ||
-                                           t->anon)) {
+                                          t->anon)) {
             Str extras[] = {
                 t->filescope ? Str("fileScope") : Str{},
                 t->qualified ? Str("qualified") : Str{},
@@ -353,12 +354,12 @@ static void tagline(File *f, Tag *t)
                 }
             }
         }
-    }
 
-    // The parser's fields, which Universal Ctags appends without ;"
-    if (!fmt->nofields && fieldon(on, FIELD_CXXNAME) && t->aliased.data) {
-        print(b, "\tname:");
-        printescaped(b, t->aliased, 0);
+        // The parser's fields, after ;" even when alone (D10)
+        if (fieldon(on, FIELD_CXXNAME) && t->aliased.data) {
+            beginfield(b, &any, "name");
+            printescaped(b, t->aliased, 0);
+        }
     }
     putbyte(b, '\n');
     f->ntags++;
