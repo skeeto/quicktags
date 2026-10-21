@@ -207,6 +207,85 @@ static TagCase ccases[] = {
      "api\tf.c\t/^int api(void) { return 0; }$/;\"\tf\tline:6\ttyperef:typename:int\n"
      "total\tf.c\t/^int total;$/;\"\tv\tline:3\ttyperef:typename:int\n",
      ""},
+
+    // Line formats
+    {SHARED, "FLD-5 fields by name, roles, and extras", "fld.c",
+     "--fields=+lKzZEr --extras=+q --kinds-C=+l",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n"
+     "static void helper(void) { int i; }\n"
+     "struct { int z; } anon;\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /;\"\tkind:macro\tline:1\tlanguage:C\tfile:\troles:def\textras:fileScope\n"
+     "__anon0f71ac2c0108\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:struct\tline:5\tlanguage:C\tfile:\troles:def\textras:fileScope,anonymous\n"
+     "__anon0f71ac2c0108::z\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:member\tline:5\tlanguage:C\tscope:struct:__anon0f71ac2c0108\ttyperef:typename:int\tfile:\troles:def\textras:fileScope,qualified\n"
+     "a\tfld.c\t/^struct pair { int a; };$/;\"\tkind:member\tline:3\tlanguage:C\tscope:struct:pair\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "anon\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:variable\tline:5\tlanguage:C\ttyperef:struct:__anon0f71ac2c0108\troles:def\n"
+     "count\tfld.c\t/^static int count;$/;\"\tkind:variable\tline:2\tlanguage:C\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "helper\tfld.c\t/^static void helper(void) { int i; }$/;\"\tkind:function\tline:4\tlanguage:C\ttyperef:typename:void\tfile:\troles:def\textras:fileScope\n"
+     "i\tfld.c\t/^static void helper(void) { int i; }$/;\"\tkind:local\tline:4\tlanguage:C\tscope:function:helper\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/;\"\tkind:struct\tline:3\tlanguage:C\tfile:\troles:def\textras:fileScope\n"
+     "pair::a\tfld.c\t/^struct pair { int a; };$/;\"\tkind:member\tline:3\tlanguage:C\tscope:struct:pair\ttyperef:typename:int\tfile:\troles:def\textras:fileScope,qualified\n"
+     "z\tfld.c\t/^struct { int z; } anon;$/;\"\tkind:member\tline:5\tlanguage:C\tscope:struct:__anon0f71ac2c0108\ttyperef:typename:int\tfile:\troles:def\textras:fileScope\n",
+     ""},
+    {SHARED, "FLD-5 no fields, so no ;\"", "fld.c", "--fields=",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /\n"
+     "a\tfld.c\t/^struct pair { int a; };$/\n"
+     "count\tfld.c\t/^static int count;$/\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/\n",
+     ""},
+    {SHARED, "OUT-6 line numbers", "fld.c", "--excmd=number",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t1;\"\td\tline:1\tfile:\n"
+     "a\tfld.c\t3;\"\tm\tline:3\tstruct:pair\ttyperef:typename:int\tfile:\n"
+     "count\tfld.c\t2;\"\tv\tline:2\ttyperef:typename:int\tfile:\n"
+     "pair\tfld.c\t3;\"\ts\tline:3\tfile:\n",
+     ""},
+    {SHARED, "OUT-6 combined addresses", "fld.c", "--excmd=combine --fields=-n",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t1;/^#define LIMIT /;\"\td\tfile:\n"
+     "a\tfld.c\t3;/^struct pair { int a; };$/;\"\tm\tstruct:pair\ttyperef:typename:int\tfile:\n"
+     "count\tfld.c\t2;/^static int count;$/;\"\tv\ttyperef:typename:int\tfile:\n"
+     "pair\tfld.c\t3;/^struct pair { int a; };$/;\"\ts\tfile:\n",
+     ""},
+    {SHARED, "OUT-7 a pattern length limit", "lim.c", "--pattern-length-limit=12",
+     "int value_with_a_long_name = 1;\n"
+     "int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};\n",
+     "long_line\tlim.c\t/^int long_lin/;\"\tv\tline:2\ttyperef:typename:int[]\n"
+     "value_with_a_long_name\tlim.c\t/^int value_wi/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "OUT-7 no pattern length limit", "lim.c", "--pattern-length-limit=0",
+     "int value_with_a_long_name = 1;\n"
+     "int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};\n",
+     "long_line\tlim.c\t/^int long_line[] = {0000000000, 1111111111, 2222222222, 3333333333, 4444444444, 5555555555, 6666666666, 7777777777};$/;\"\tv\tline:2\ttyperef:typename:int[]\n"
+     "value_with_a_long_name\tlim.c\t/^int value_with_a_long_name = 1;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "OUT-8 the original format", "fld.c", "--format=1",
+     "#define LIMIT 10\n"
+     "static int count;\n"
+     "struct pair { int a; };\n",
+     "LIMIT\tfld.c\t/^#define LIMIT /\n"
+     "a\tfld.c\t/^struct pair { int a; };$/\n"
+     "count\tfld.c\t/^static int count;$/\n"
+     "pair\tfld.c\t/^struct pair { int a; };$/\n",
+     ""},
+    {SHARED, "FLD-6 e-ctags", "z.c", "--fields=+zZ-n --output-format=e-ctags",
+     "struct s { int m; };\n",
+     "m\tz.c\t/^struct s { int m; };$/;\"\tkind:m\tscope:struct:s\ttyperef:typename:int\tfile:\n"
+     "s\tz.c\t/^struct s { int m; };$/;\"\tkind:s\tfile:\n",
+     ""},
+    {OURS, "FLD-5 end and nth write nothing here", "z.c", "--fields=+eo",
+     "struct s { int m; };\n",
+     "m\tz.c\t/^struct s { int m; };$/;\"\tm\tline:1\tstruct:s\ttyperef:typename:int\tfile:\n"
+     "s\tz.c\t/^struct s { int m; };$/;\"\ts\tline:1\tfile:\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -597,6 +676,48 @@ static TagCase cxxcases[] = {
      "l\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tv\tline:3\ttyperef:typename:auto\n"
      "v\ta.cpp\t/^struct { int a; } v;$/;\"\tv\tline:2\ttyperef:struct:__anon0ef536770108\n"
      "y\ta.cpp\t/^auto l = [](int y) { return y; };$/;\"\tz\tline:3\tfunction:__anon0ef536770202\ttyperef:typename:int\tfile:\n",
+     ""},
+
+    // Line formats
+    {SHARED, "FLD-5 long kinds, languages, scope keys", "k.cpp",
+     "--fields=K+Zsl --kinds-C++=+A",
+     "namespace geo {\n"
+     "class Shape { int sides; };\n"
+     "namespace g2 = geo;\n"
+     "}\n"
+     "static auto f = [](int x) { return x; };\n",
+     "Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tclass\tlanguage:C++\tscope:namespace:geo\n"
+     "__anon0faa2b810102\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tfunction\tlanguage:C++\n"
+     "f\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tvariable\tlanguage:C++\n"
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\talias\tlanguage:C++\tscope:namespace:geo\tname:geo\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tnamespace\tlanguage:C++\n"
+     "sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tmember\tlanguage:C++\tscope:class:geo::Shape\n",
+     ""},
+    {SHARED, "FLD-5 extras of qualified and anonymous tags", "k.cpp",
+     "--fields=+E --extras=+q --kinds-C++=+Az",
+     "namespace geo {\n"
+     "class Shape { int sides; };\n"
+     "namespace g2 = geo;\n"
+     "}\n"
+     "static auto f = [](int x) { return x; };\n",
+     "Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tc\tline:2\tnamespace:geo\tfile:\textras:fileScope\n"
+     "__anon0faa2b810102\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tf\tline:5\tfile:\textras:fileScope,anonymous\n"
+     "f\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tv\tline:5\ttyperef:typename:auto\n"
+     "g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:3\tnamespace:geo\tfile:\textras:fileScope\tname:geo\n"
+     "geo\tk.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\textras:fileScope\n"
+     "geo::Shape\tk.cpp\t/^class Shape { int sides; };$/;\"\tc\tline:2\tnamespace:geo\tfile:\textras:fileScope,qualified\n"
+     "geo::Shape::sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tm\tline:2\tclass:geo::Shape\ttyperef:typename:int\tfile:\textras:fileScope,qualified\n"
+     "geo::g2\tk.cpp\t/^namespace g2 = geo;$/;\"\tA\tline:3\tnamespace:geo\tfile:\textras:fileScope,qualified\tname:geo\n"
+     "sides\tk.cpp\t/^class Shape { int sides; };$/;\"\tm\tline:2\tclass:geo::Shape\ttyperef:typename:int\tfile:\textras:fileScope\n"
+     "x\tk.cpp\t/^static auto f = [](int x) { return x; };$/;\"\tz\tline:5\tfunction:__anon0faa2b810102\ttyperef:typename:int\tfile:\textras:fileScope\n",
+     ""},
+    {SHARED, "OUT-8 no name field in the original format", "k.cpp",
+     "--format=1 --kinds-C++=+A",
+     "namespace geo {\n"
+     "namespace g2 = geo;\n"
+     "}\n",
+     "g2\tk.cpp\t/^namespace g2 = geo;$/\n"
+     "geo\tk.cpp\t/^namespace geo {$/\n",
      ""},
 };
 

@@ -851,6 +851,46 @@ static TagCase fortrancases[] = {
      "main\tf.f90\t/^program main$/;\"\tp\tline:1\n"
      "s\tf.f90\t/^subroutine s(/;\"\ts\tline:5\n",
      ""},
+
+    // Line formats
+    {SHARED, "OUT-6 a common block's pattern ends after its name", "cb.f90",
+     "--excmd=pattern --kinds-Fortran=+L",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t/^10 continue$/;\"\tl\tline:4\tprogram:p\tfile:\n"
+     "blk\tcb.f90\t/^  common \\/blk\\//;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t/^  common \\/blk\\/ n$/;\"\tL\tline:3\tprogram:p\tfile:\n"
+     "n\tcb.f90\t/^  integer :: n$/;\"\tv\tline:2\tprogram:p\n"
+     "p\tcb.f90\t/^program p$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "OUT-6 a combined address but for common blocks", "cb.f90",
+     "--excmd=combine --kinds-Fortran=+L --fields=+E",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t4;/^10 continue$/;\"\tl\tline:4\tprogram:p\tfile:\textras:fileScope\n"
+     "blk\tcb.f90\t3;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t2;/^  integer :: n$/;\"\tv\tline:2\tprogram:p\n"
+     "n\tcb.f90\t3;/^  common \\/blk\\/ n$/;\"\tL\tline:3\tprogram:p\tfile:\textras:fileScope\n"
+     "p\tcb.f90\t1;/^program p$/;\"\tp\tline:1\n",
+     ""},
+    {SHARED, "OUT-6 line numbers by -n", "cb.f90", "-n --kinds-Fortran=+L",
+     "program p\n"
+     "  integer :: n\n"
+     "  common /blk/ n\n"
+     "10 continue\n"
+     "end program p\n",
+     "10\tcb.f90\t4;\"\tl\tline:4\tprogram:p\tfile:\n"
+     "blk\tcb.f90\t3;\"\tc\tline:3\tprogram:p\n"
+     "n\tcb.f90\t2;\"\tv\tline:2\tprogram:p\n"
+     "n\tcb.f90\t3;\"\tL\tline:3\tprogram:p\tfile:\n"
+     "p\tcb.f90\t1;\"\tp\tline:1\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

@@ -372,7 +372,8 @@ static void cxxcommit(Cxx *c, Tag *tag)
     wordcat(&c->pool, w, tag->name);
 
     Tag q = *tag;
-    q.name = {w->data, w->len};
+    q.name      = {w->data, w->len};
+    q.qualified = 1;
     tagemit(c->f, &q);
 }
 

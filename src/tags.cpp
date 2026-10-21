@@ -11,12 +11,24 @@ struct Source {
     b32  header;
 };
 
+// How tag lines are written, when the options change it from the
+// default: line: and the default fields, mixed addresses, patterns of at
+// most PATTERNLIMIT bytes.
+struct Format {
+    u64 fields;    // FIELD_* bits
+    iz  patmax;    // the pattern length limit, a huge one for none
+    i32 excmd;     // EXCMD_*
+    b32 nofields;  // --format=0 or 1: no ;" and no fields
+    b32 ectags;    // --output-format=e-ctags
+};
+
 // One parse of one file. A failed first pass discards its lines but
 // keeps the anonymous counter, so a second pass numbers on from it, and
 // may leave the second pass other state, as Universal Ctags does.
 struct File {
     Source *src;
     Kinds  *kinds;
+    Format *fmt;    // null for the default format
     u32     extras;
     Buf    *out;
     iz      mark;   // where this file's lines begin in out
@@ -39,6 +51,7 @@ struct Tag {
     b32 truncate;   // cut the pattern just after the name
     b32 lineaddr;   // address by line number instead of a pattern
     b32 anon;       // named for an unnamed entity
+    b32 qualified;  // a copy named by its scope (--extras=+q)
     Str aliased;    // C++ namespace aliases: the "name:" field
 };
 
@@ -49,7 +62,7 @@ struct Line {
     iz  len;   // without the newline
 };
 
-enum : i32 { PATTERNMAX = 96 };
+enum : i32 { PATTERNLIMIT = 96 };  // --pattern-length-limit's default
 
 // djb2 over the path's bytes, as Universal Ctags names anonymous tags.
 static u32 anonhash(Str path)
@@ -143,12 +156,12 @@ static Physline lineat(Str text, iz pos)
 
 // A search pattern for the tag's line, as Vim reads it: nomagic, with
 // only '\', '/', and a final '$' escaped. Like Universal Ctags it holds
-// at most PATTERNMAX bytes after escaping, plus enough to finish a UTF-8
+// at most max bytes after escaping, plus enough to finish a UTF-8
 // sequence, and ends with the "$" anchor only when it reaches the end of
 // the line. Unlike it, a lone CR or a NUL ends the pattern without the
 // anchor, since Vim would not find the line, and a '$' where the pattern
 // is cut is escaped, so it cannot be read as an anchor.
-static void printpattern(Buf *b, Str text, Tag *t)
+static void printpattern(Buf *b, Str text, Tag *t, iz max)
 {
     Physline l = lineat(text, t->linepos);
     if (t->truncate) {
@@ -173,7 +186,7 @@ static void printpattern(Buf *b, Str text, Tag *t)
             cut = 1;
             break;
         }
-        if (len>=PATTERNMAX && ((c&0xc0)!=0x80 || ++extra>3)) {
+        if (len>=max && ((c&0xc0)!=0x80 || ++extra>3)) {
             cut = 1;
             break;
         }
@@ -183,7 +196,7 @@ static void printpattern(Buf *b, Str text, Tag *t)
             b32 more = n < l.text.len;
             u8  next = more ? l.text[n] : 0;
             last = !more || next=='\r' || !next ||
-                   (len+1>=PATTERNMAX && (next&0xc0)!=0x80);
+                   (len+1>=max && (next&0xc0)!=0x80);
         }
         if (c=='\\' || c=='/' || last) {
             putbyte(b, '\\');
@@ -196,6 +209,159 @@ static void printpattern(Buf *b, Str text, Tag *t)
         putbyte(b, '$');
     }
     putbyte(b, '/');
+}
+
+// The format the options ask for, or null for the default, which
+// tagemit writes itself.
+static Format *newformat(Options *opt, Arena *a)
+{
+    u64 mask    = ((u64)1<<NCOMMONFIELDS) - 1;
+    mask |= (u64)1 << FIELD_CXXNAME;
+    b32 fields  = ((opt->fields ^ defaultfields()) & mask) != 0;
+    b32 address = opt->excmd!=EXCMD_MIXED || opt->patmax!=PATTERNLIMIT;
+    if (!fields && !address && opt->format==2 && opt->writer==WRITER_UCTAGS) {
+        return 0;
+    }
+
+    iz      huge = (iz)(~(uz)0 >> 1);
+    Format *f    = alloc<Format>(a);
+    f->fields   = opt->fields;
+    f->patmax   = !opt->patmax || (u64)opt->patmax>(u64)huge ? huge
+                                                             : (iz)opt->patmax;
+    f->excmd    = opt->excmd;
+    f->nofields = opt->format < 2;
+    f->ectags   = opt->writer == WRITER_ECTAGS;
+    return f;
+}
+
+static b32 hasbreak(Str s)
+{
+    for (iz i = 0; i < s.len; i++) {
+        if (s[i]=='\t' || s[i]=='\n') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+// Begin a field, after ;" if it is the first.
+static void beginfield(Buf *b, b32 *any, Str key)
+{
+    print(b, *any ? Str("\t") : Str(";\"\t"));
+    *any = 1;
+    if (key.data) {
+        print(b, key);
+        putbyte(b, ':');
+    }
+}
+
+// Append a tag as the format asks (OUT-6, FLD-5): the address by excmd,
+// then the enabled fields in Universal Ctags' order (FLD-4), the first
+// after ;". E-ctags writes names, paths, and scopes as they are, so it
+// drops tags it could not write that way (FLD-6).
+static void tagline(File *f, Tag *t)
+{
+    Source *src = f->src;
+    Format *fmt = f->fmt;
+    Buf    *b   = f->out;
+    u64     on  = fmt->fields;
+    b32     raw = fmt->ectags;
+    if (raw && (hasbreak(t->name) || hasbreak(src->path) ||
+                (!fmt->nofields && fieldon(on, FIELD_SCOPE) &&
+                 hasbreak(t->scope)) ||
+                (fieldon(on, FIELD_CXXNAME) && hasbreak(t->aliased)))) {
+        return;
+    }
+
+    if (raw) {
+        print(b, t->name);
+    } else {
+        printescaped(b, t->name, 1);
+    }
+    putbyte(b, '\t');
+    print(b, src->outpath);
+    putbyte(b, '\t');
+    i32 excmd = fmt->excmd;
+    if (excmd==EXCMD_NUMBER || (t->lineaddr && excmd!=EXCMD_PATTERN)) {
+        print(b, (i64)t->line);
+    } else {
+        if (excmd == EXCMD_COMBINE) {
+            print(b, (i64)t->line);
+            putbyte(b, ';');
+        }
+        printpattern(b, src->text, t, fmt->patmax);
+    }
+
+    if (!fmt->nofields) {
+        b32 any  = 0;
+        b32 kind = fieldon(on, FIELD_KINDLONG) || fieldon(on, FIELD_KIND);
+        if (kind) {
+            Str key = fieldon(on, FIELD_KINDKEY) ? Str("kind") : Str{};
+            beginfield(b, &any, key);
+            if (fieldon(on, FIELD_KINDLONG)) {
+                print(b, kindname(src->lang, t->kind));
+            } else {
+                putbyte(b, kindletter(src->lang, t->kind));
+            }
+        }
+        if (fieldon(on, FIELD_LINE)) {
+            beginfield(b, &any, "line");
+            print(b, (i64)t->line);
+        }
+        if (fieldon(on, FIELD_LANGUAGE)) {
+            beginfield(b, &any, "language");
+            print(b, langnames[src->lang]);
+        }
+        if (fieldon(on, FIELD_SCOPE) && t->scopekind.data) {
+            Str key = fieldon(on, FIELD_SCOPEKEY) ? Str("scope") : Str{};
+            beginfield(b, &any, key);
+            print(b, t->scopekind);
+            putbyte(b, ':');
+            if (raw) {
+                print(b, t->scope);
+            } else {
+                printescaped(b, t->scope, 0);
+            }
+        }
+        if (fieldon(on, FIELD_TYPEREF) && t->typekind.data) {
+            beginfield(b, &any, "typeref");
+            print(b, t->typekind);
+            putbyte(b, ':');
+            printescaped(b, t->type, 0);
+        }
+        if (fieldon(on, FIELD_FILE) && t->filescope) {
+            beginfield(b, &any, "file");
+        }
+        if (fieldon(on, FIELD_ROLES)) {
+            beginfield(b, &any, "roles");
+            print(b, "def");  // only reference tags have others
+        }
+        if (fieldon(on, FIELD_EXTRAS) && (t->filescope || t->qualified ||
+                                           t->anon)) {
+            Str extras[] = {
+                t->filescope ? Str("fileScope") : Str{},
+                t->qualified ? Str("qualified") : Str{},
+                t->anon      ? Str("anonymous") : Str{},
+            };
+            beginfield(b, &any, "extras");
+            Str sep = "";
+            for (iz i = 0; i < countof(extras); i++) {
+                if (extras[i].data) {
+                    print(b, sep);
+                    print(b, extras[i]);
+                    sep = ",";
+                }
+            }
+        }
+    }
+
+    // The parser's fields, which Universal Ctags appends without ;"
+    if (!fmt->nofields && fieldon(on, FIELD_CXXNAME) && t->aliased.data) {
+        print(b, "\tname:");
+        printescaped(b, t->aliased, 0);
+    }
+    putbyte(b, '\n');
+    f->ntags++;
 }
 
 // Append a finished tag to its file's output as one tags-file line:
@@ -211,6 +377,10 @@ static void tagemit(File *f, Tag *t)
         (t->anon      && !(f->extras & EXTRA_ANONYMOUS))) {
         return;
     }
+    if (f->fmt) {
+        tagline(f, t);
+        return;
+    }
 
     printescaped(b, t->name, 1);
     putbyte(b, '\t');
@@ -219,7 +389,7 @@ static void tagemit(File *f, Tag *t)
     if (t->lineaddr) {
         print(b, (i64)t->line);
     } else {
-        printpattern(b, src->text, t);
+        printpattern(b, src->text, t, PATTERNLIMIT);
     }
     print(b, ";\"\t");
     putbyte(b, kindletter(src->lang, t->kind));

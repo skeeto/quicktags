@@ -7,10 +7,13 @@ enum : i32 { SORT_NO, SORT_YES, SORT_FOLD };
 enum : i32 { WRITER_UCTAGS, WRITER_ECTAGS, WRITER_ETAGS };
 enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 
+struct Format;
+
 // Every option is parsed into its value here. Some are not acted on yet,
 // and parsefinish refuses them.
 struct Options {
     Str        output;       // "-" is standard output
+    Format    *fmt;          // how lines are written, null for the default
     Slice<Str> files;
     Kinds      kinds;
     b32        filekind;     // the file kind, F, which all languages share
@@ -91,7 +94,8 @@ struct Parse {
 
 enum : i32 { OPTFILEDEPTH = 16 };
 
-static Str errstr(i32 err);  // walk.cpp
+static Str     errstr(i32 err);                  // walk.cpp
+static Format *newformat(Options *, Arena *);    // tags.cpp
 
 
 // Messages
@@ -1780,13 +1784,21 @@ static i32 notyet(Parse *p, Str option)
     return fatal(p, option, ": not yet supported");
 }
 
-// Whether fields differ from the defaults where it matters: the parsers'
-// fields but C++'s name are accepted and do nothing.
-static b32 fieldschanged(u64 bits)
+// The first enabled field of those not yet written, as an option, or null.
+static Str laterfield(u64 bits)
 {
-    u64 mask = ((u64)1<<NCOMMONFIELDS) - 1;
-    mask |= (u64)1 << FIELD_CXXNAME;
-    return ((bits ^ defaultfields()) & mask) != 0;
+    static struct { i32 field; Str option; } later[] = {
+        {FIELD_SIGNATURE, "--fields=+S"},
+        {FIELD_ACCESS,    "--fields=+a"},
+        {FIELD_INHERITS,  "--fields=+i"},
+        {FIELD_IMPL,      "--fields=+m"},
+    };
+    for (iz i = 0; i < countof(later); i++) {
+        if (fieldon(bits, later[i].field)) {
+            return later[i].option;
+        }
+    }
+    return {};
 }
 
 // Check and complete the options once all are parsed.
@@ -1815,12 +1827,9 @@ static i32 parsefinish(Parse *p)
     // Parsed, but not yet implemented: each check goes when its
     // milestone lands
     b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
+    Str later    = laterfield(opt->fields);
+    if (later.data)                   return notyet(p, later);                     // M8
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
-    if (opt->writer == WRITER_ECTAGS) return notyet(p, "--output-format=e-ctags"); // M3a
-    if (fieldschanged(opt->fields))   return notyet(p, "--fields");                // M3a
-    if (opt->excmd != EXCMD_MIXED)    return notyet(p, "--excmd");                 // M3a
-    if (opt->format != 2)             return notyet(p, "--format");                // M3a
-    if (opt->patmax != 96)            return notyet(p, "--pattern-length-limit");  // M3a
     if (opt->tagrelative != TREL_NO)  return notyet(p, "--tag-relative");          // M3b
     if (opt->sort != SORT_YES)        return notyet(p, "--sort");                  // M4
     if (opt->append)                  return notyet(p, "--append");                // M5
@@ -1834,6 +1843,8 @@ static i32 parsefinish(Parse *p)
     if (opt->mapped)                  return notyet(p, "--langmap");               // M2b
     if (opt->headers)                 return notyet(p, "-h");                      // M2b
     if (opt->ignores.len)             return notyet(p, "-I");                      // M9
+
+    opt->fmt = newformat(opt, p->perm);
     return ARGS_OK;
 }
 
