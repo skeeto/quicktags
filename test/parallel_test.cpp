@@ -43,6 +43,8 @@ static void test_parallel(Test *t)
         "      PROGRAM OLD\n"
         "      END\n");
     vfsdir(os, "src/empty");
+    vfsfile(os, "src/README", "of no language: a section under etags\n");
+    vfsfile(os, "src/lib/notes.txt", "");
     for (i32 i = 0; i < 40; i++) {
         // Spread over directories, some nested, for the walk to interleave
         Buf name(&a, 32);
@@ -100,6 +102,8 @@ static void test_parallel(Test *t)
         "--sort=foldcase --extras=+q",
         "--extras=+f",
         "-u --extras=+fq --fields=+KE",
+        "-e",
+        "-e --extras=+fq --kinds-C=* --tag-relative=never",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;
@@ -129,7 +133,8 @@ static void test_parallel(Test *t)
         "zz\tsrc/gen/d1/f1.c\t9\n",
         "zz\tsrc/gen/d1/f1.c\t9\r\ng3\tsrc/gone.c\t1\r\nA\tsrc/main.c\t1\r\n",
     };
-    Str appends[] = {"-a", "-a --sort=no", "-a --sort=foldcase"};
+    Str appends[] = {"-a", "-a --sort=no", "-a --sort=foldcase",
+                     "-a -e -f tags"};
     for (iz m = 0; m < countof(appends); m++) {
         for (iz o = 0; o < countof(olds); o++) {
             os->seed = 0;

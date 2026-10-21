@@ -536,6 +536,52 @@ static TagCase ccases[] = {
      "\\x21x.c\t!x.c\t1;\"\tF\tline:1\n"
      "z\t!x.c\t/^int z;$/;\"\tv\tline:1\ttyperef:typename:int\n",
      ""},
+
+    // Emacs tags (OPT-21): the raw line, a CR before its LF dropped, a
+    // macro's cut after its name, offsets in bytes, in the parser's order
+    {SHARED, "OPT-21 etags entries", "e.c", "-e",
+     "#define LIMIT 10\r\n"
+     "int x;\r\r\n"
+     "int a; /* \r */ int b;\n"
+     "#define M(a) \\\n"
+     "  a\n"
+     "#define E\n"
+     "int last;",
+     "\f\ne.c,153\n"
+     "#define LIMIT \x7fLIMIT\x01" "1,0\n"
+     "int x;\r\x7fx\x01" "2,18\n"
+     "int a; /* \r */ int b;\x7f" "a\x01" "3,27\n"
+     "int a; /* \r */ int b;\x7f" "b\x01" "3,27\n"
+     "#define M(\x7fM\x01" "4,49\n"
+     "#define E\x7f" "E\x01" "6,68\n"
+     "int last;\x7flast\x01" "7,78\n",
+     ""},
+    {SHARED, "OPT-21 etags cut to the limit, not within a character", "e.c",
+     "-e --pattern-length-limit=12",
+     "int abc; /*\xc3\xa9\xc3\xa9 */\n"
+     "int d; /*  \xf0\x9f\x98\x80 */\n"
+     "int e; /*  \x80\x80\x80\x80\x80 */\n"
+     "int f;\n",
+     "\f\ne.c,82\n"
+     "int abc; /*\xc3\xa9\x7f" "abc\x01" "1,0\n"
+     "int d; /*  \xf0\x9f\x98\x80\x7f" "d\x01" "2,19\n"
+     "int e; /*  \x80\x80\x80\x80\x7f" "e\x01" "3,38\n"
+     "int f;\x7f" "f\x01" "4,58\n",
+     ""},
+    {SHARED, "OPT-21 etags offsets count the BOM, file tags", "e.c",
+     "-e --extras=+f --pattern-length-limit=0",
+     "\xef\xbb\xbfint a;\n"
+     "int b;\n",
+     "\f\ne.c,36\n"
+     "int a;\x7f" "a\x01" "1,3\n"
+     "int b;\x7f" "b\x01" "2,10\n"
+     "\x7f" "e.c\x01" "1,0\n",
+     ""},
+    {SHARED, "OPT-21 etags of no tags, whatever the fields", "e.c",
+     "--fields=+lK --format=1 --excmd=number --extras=+p --output-format=etags",
+     "#include <stdio.h>\n",
+     "\f\ne.c,0\n",
+     ""},
 };
 
 static TagCase cxxcases[] = {
@@ -1276,6 +1322,20 @@ static TagCase cxxcases[] = {
      "n\tn.cpp\t/^namespace n { int v; }$/;\"\tn\tline:1\tlanguage:C++\tfile:\n"
      "v\tn.cpp\t/^namespace n { int v; }$/;\"\tv\tline:1\tlanguage:C++\tnamespace:n\ttyperef:typename:int\n"
      "n.cpp\tn.cpp\t1;\"\tF\tline:1\tlanguage:C++\n",
+     ""},
+
+    {SHARED, "OPT-21 etags of qualified and anonymous tags", "e.cpp",
+     "-e --extras=+q",
+     "namespace N { struct S { int m; }; }\n"
+     "auto l = [](){};\n",
+     "\f\ne.cpp,289\n"
+     "namespace N { struct S { int m; }; }\x7fN\x01" "1,0\n"
+     "namespace N { struct S { int m; }; }\x7fS\x01" "1,0\n"
+     "namespace N { struct S { int m; }; }\x7fN::S\x01" "1,0\n"
+     "namespace N { struct S { int m; }; }\x7fm\x01" "1,0\n"
+     "namespace N { struct S { int m; }; }\x7fN::S::m\x01" "1,0\n"
+     "auto l = [](){};\x7f__anon0f3d987b0102\x01" "2,37\n"
+     "auto l = [](){};\x7fl\x01" "2,37\n",
      ""},
 };
 

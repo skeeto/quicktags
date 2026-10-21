@@ -266,7 +266,9 @@ static Pick matchlang(Options *opt, Str name)
 // Choose a file's language by its base name, then without a final
 // ".in", unless one is forced, and say whether it is a header by the
 // name without ".in", whatever the language (LANG-2, LANG-5, D2). One
-// this program does not parse is no language here.
+// this program does not parse, or Unknown for a file no other takes
+// (OPT-12), is LANG_FOREIGN under etags, which gives its files empty
+// sections (OPT-21), and elsewhere no language.
 static Lang detectlang(Options *opt, Str path)
 {
     Lang r    = {};
@@ -282,9 +284,14 @@ static Lang detectlang(Options *opt, Str path)
             p.fallback = p.fallback ? p.fallback : t.fallback;
         }
         lang = p.lang ? p.lang : p.fallback;
+        lang = lang ? lang : opt->unknown ? LANG_FOREIGN : LANG_NONE;
     }
-    r.lang   = lang!=LANG_FOREIGN ? lang : LANG_NONE;
-    r.header = r.lang && inlist(opt->headers, extension(bare));
+    if (lang==LANG_FOREIGN && opt->writer!=WRITER_ETAGS) {
+        lang = LANG_NONE;
+    }
+    r.lang   = lang;
+    r.header = lang && lang!=LANG_FOREIGN && inlist(opt->headers,
+                                                    extension(bare));
     return r;
 }
 
@@ -603,12 +610,16 @@ static void visitdir(Worker *w, Item *it)
 
 static void visitfile(Worker *w, Item *it)
 {
-    Ctx  *c   = w->ctx;
-    Arena tmp = w->scratch;
-    Read  r   = os_read(c->os, &tmp, it->path, FILEMAX);
-    if (r.err) {
-        warn(&w->log, "cannot open input file", it->path, r.err);
-        return;
+    Ctx  *c       = w->ctx;
+    Arena tmp     = w->scratch;
+    b32   foreign = it->lang == LANG_FOREIGN;  // no tags: not read
+    Read  r       = {};
+    if (!foreign) {
+        r = os_read(c->os, &tmp, it->path, FILEMAX);
+        if (r.err) {
+            warn(&w->log, "cannot open input file", it->path, r.err);
+            return;
+        }
     }
     if (c->opt->tagrelative!=TREL_NO &&
         driverelative(it->path, c->opt->windows)) {
@@ -624,11 +635,14 @@ static void visitfile(Worker *w, Item *it)
     }
 
     // Zeros past the end allow word-at-a-time scanning
-    u8 *pad = allocbytes(&tmp, 8);
-    assert(pad == r.data.data+r.data.len);
-    __builtin_memset(pad, 0, 8);
+    if (!foreign) {
+        u8 *pad = allocbytes(&tmp, 8);
+        assert(pad == r.data.data+r.data.len);
+        __builtin_memset(pad, 0, 8);
+    }
 
-    b32    raw = c->opt->writer == WRITER_ECTAGS;  // paths as given, FLD-6
+    // E-ctags and etags write paths as given (FLD-6, OPT-21)
+    b32    raw = c->opt->writer != WRITER_UCTAGS;
     Str    tp  = tagpath(&tmp, c, it->path);
     Source src = {};
     src.path     = it->path;
@@ -640,6 +654,7 @@ static void visitfile(Worker *w, Item *it)
     src.header   = it->header;
     if (startswith(src.text, "\xef\xbb\xbf")) {
         src.text = cuthead(src.text, 3);
+        src.bom  = 3;
     }
 
     File f = {};

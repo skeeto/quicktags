@@ -31,12 +31,17 @@ foreach(case IN LISTS cases)
             ${args} -f ref.tags ${file}
     WORKING_DIRECTORY ${case}
     RESULT_VARIABLE status ERROR_QUIET)
-  # Unsorted output is compared in order
+  # Unsorted output is compared in order, and Emacs tags as such
   set(diff "")
   list(FIND args --sort=no sortno)
   list(FIND args -u unsorted)
+  list(FIND args -e etags)
+  list(FIND args --output-format=etags etagslong)
   if(sortno GREATER -1 OR unsorted GREATER -1)
     set(diff --ordered)
+  endif()
+  if(etags GREATER -1 OR etagslong GREATER -1)
+    set(diff --ordered --etags)
   endif()
   execute_process(
     COMMAND ${TAGDIFF} ${diff} ${case}/ref.tags ${case}/want.tags

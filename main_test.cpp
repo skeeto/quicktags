@@ -192,6 +192,7 @@ static void runcases(Test *t, TagCase *cases, iz n)
 #include "test/cxx_test.cpp"
 #include "test/fortran_test.cpp"
 #include "test/parallel_test.cpp"
+#include "test/etagslint.cpp"
 #include "test/fuzz_test.cpp"
 
 #if _WIN32

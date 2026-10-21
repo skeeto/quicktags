@@ -1009,6 +1009,22 @@ static TagCase fortrancases[] = {
      "      procedure(f) :: ff\n",
      "x.f\tx.f\t1;\"\tF\tline:1\n",
      ""},
+
+    // Emacs tags (OPT-21): cut after the name, but a name not in its
+    // line keeps the whole line with its LF; labels are not cut
+    {SHARED, "OPT-21 etags of Fortran", "e.f90", "-e --kinds-Fortran=+L",
+     "subroutine fo&\r\n"
+     "  &o(x)\r\n"
+     "  common /blk/ y, z\r\n"
+     "10 continue\r\n"
+     "end subroutine\r\n",
+     "\f\ne.f90,120\n"
+     "subroutine fo&\n\x7f" "foo\x01" "1,0\n"
+     "  common /blk/\x7f" "blk\x01" "3,25\n"
+     "  common /blk/ y,\x7fy\x01" "3,25\n"
+     "  common /blk/ y, z\x7fz\x01" "3,25\n"
+     "10 continue\x7f" "10\x01" "4,46\n",
+     ""},
 };
 
 // Subroutine i of the nested ones in deepcase, as a tag line.

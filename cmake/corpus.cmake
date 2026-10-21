@@ -23,9 +23,11 @@ set(ctags_fmt_fields --fields=+iaSmlKzZEr)  # 1
 set(ctags_fmt_combine --excmd=combine)   # 2
 set(ctags_fmt_sortno --sort=no)          # 3, in the walk's order
 set(ctags_fmt_sortno_diff --ordered)
+set(ctags_fmt_etags -e)                  # 4, Emacs tags in the walk's order
+set(ctags_fmt_etags_diff --etags --ordered)
 set(ctags_fmt_foldcase --sort=foldcase)  # 5, ours in folded order
 set(ctags_fmt_foldcase_diff --folded)
-set(ctags_fmt_sets fields combine sortno foldcase)
+set(ctags_fmt_sets fields combine sortno etags foldcase)
 set(ctags_fmt_llvm fields combine sortno)
 
 # A list as one argument of add_test
@@ -121,6 +123,7 @@ if(CTAGS_CORPUS_LLAMA)
   ctags_same_test(llama/sortno ${CTAGS_CORPUS_LLAMA} --jobs=1 --sort=no)
   ctags_same_test(llama/foldcase ${CTAGS_CORPUS_LLAMA} --jobs=1
     --sort=foldcase)
+  ctags_same_test(llama/etags ${CTAGS_CORPUS_LLAMA} --jobs=1 -e)
 endif()
 if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast ${CTAGS_CORPUS_LLVM} --_nofast)
@@ -128,4 +131,5 @@ if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast-fields ${CTAGS_CORPUS_LLVM} --_nofast
     ${ctags_same_fields})
   ctags_same_test(llvm/sortno ${CTAGS_CORPUS_LLVM} --jobs=1 --sort=no)
+  ctags_same_test(llvm/etags ${CTAGS_CORPUS_LLVM} --jobs=1 -e)
 endif()

@@ -77,6 +77,7 @@ struct Options {
     i32         tagrelative;  // TREL_*
     i32         force;        // forced language, LANG_NONE for none
     u32         langs;        // enabled languages, one bit per LANG_*
+    b32         unknown;      // Unknown, which takes files of no language
     LangMap     map;          // which names are of which language
     Slice<Str>  headers;      // the extensions of header files
     Slice<Glob> excludes;     // --exclude patterns, the defaults first
@@ -757,6 +758,7 @@ static i32 languagesopt(Parse *p, Str name, Str value)
         }
         if (!mode) {
             *langs = 0;
+            p->opt->unknown = 0;
             for (iz i = 0; i < defs.len; i++) {
                 defs[i].on = 0;
             }
@@ -766,6 +768,7 @@ static i32 languagesopt(Parse *p, Str name, Str value)
         }
         if (lang == "all") {
             *langs = mode=='-' ? 0u : (u32)LANGS_ALL;
+            p->opt->unknown = mode != '-';
             for (iz i = 0; i < defs.len; i++) {
                 defs[i].on = mode != '-';
             }
@@ -776,6 +779,8 @@ static i32 languagesopt(Parse *p, Str name, Str value)
                         "\" option");
             } else if (l.def) {
                 l.def->on = mode != '-';
+            } else if (l.name == "Unknown") {
+                p->opt->unknown = mode != '-';
             } else if (l.lang != LANG_FOREIGN) {
                 *langs &= ~(1u << l.lang);
                 *langs |= (u32)(mode!='-') << l.lang;
@@ -1640,11 +1645,14 @@ static i32 listlangsopt(Parse *p, Str value)
 
 // Long options
 
+// -e and --output-format=etags: unsorted, relative paths, and files of
+// no language tagged as Unknown (OPT-21)
 static void etagsmode(Options *opt)
 {
     opt->writer      = WRITER_ETAGS;
     opt->sort        = SORT_NO;
     opt->tagrelative = TREL_YES;
+    opt->unknown     = 1;
 }
 
 enum : i32 {
@@ -2185,9 +2193,10 @@ static i32 parsefinish(Parse *p)
         return unsupported(p, "--extras-Fortran=+{linkName}");
     }
 
-    // Parsed, but not yet implemented: each check goes when its
-    // milestone lands
-    if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
+    // Parsed, but not yet implemented
+    if (opt->writer==WRITER_ETAGS && opt->sort!=SORT_NO) {
+        return notyet(p, "-e with --sort");
+    }
 
     // Universal Ctags finds this once it is to tag a file (LANG-6)
     i32 force = opt->force;

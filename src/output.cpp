@@ -127,6 +127,18 @@ static void print(Out *o, Str s)
     o->len += s.len;
 }
 
+static void print(Out *o, i64 v)
+{
+    assert(v >= 0);
+    u8  tmp[20];
+    u8 *end = tmp + countof(tmp);
+    u8 *beg = end;
+    do {
+        *--beg = (u8)('0' + v%10);
+    } while (v /= 10);
+    print(o, span(beg, end));
+}
+
 
 // Merging
 
@@ -243,8 +255,9 @@ static b32 chunkless(Chunk **a, Chunk **b)
 }
 
 // Write each file's lines as its parser made them, the files in the
-// walk's order (SORT-4), and return how many.
-static iz writechunks(Out *o, Worker *ws, i32 n, Arena scratch)
+// walk's order (SORT-4), each under its section's head for etags
+// (OPT-21), and return how many.
+static iz writechunks(Out *o, Worker *ws, i32 n, b32 etags, Arena scratch)
 {
     iz total = 0;
     for (i32 i = 0; i < n; i++) {
@@ -261,6 +274,13 @@ static iz writechunks(Out *o, Worker *ws, i32 n, Arena scratch)
 
     iz count = 0;
     for (iz i = 0; i < len; i++) {
+        if (etags) {
+            print(o, "\f\n");
+            print(o, all[i]->outpath);
+            print(o, ",");
+            print(o, (i64)all[i]->text.len);
+            print(o, "\n");
+        }
         print(o, all[i]->text);
         count += all[i]->ntags;
     }
@@ -351,6 +371,9 @@ static b32 loadold(Old *old, Os *os, Options *opt, Arena *mem, Buf *log)
     } else if (r.size > max) {
         os_oom();
     } else if (!r.data.len) {
+        return 1;
+    } else if (opt->writer == WRITER_ETAGS) {
+        old->text = r.data;  // its bytes as they are (OPT-21)
         return 1;
     }
 
@@ -521,6 +544,12 @@ static b32 checkoutput(Os *os, Str path, Arena scratch, Buf *log)
 static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
                      Arena scratch)
 {
+    if (opt->writer == WRITER_ETAGS) {
+        // The new sections after the old file's bytes (OPT-21)
+        print(o, old->text);
+        return writechunks(o, ws, n, 1, scratch);
+    }
+
     Stream *s  = alloc<Stream>(&scratch, n+1);
     i32     ns = n;
     if (old->text.data) {
@@ -559,7 +588,7 @@ static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
                 count++;
             }
         }
-        return count + writechunks(o, ws, n, scratch);
+        return count + writechunks(o, ws, n, 0, scratch);
     }
 
     for (i32 i = 0; i < n; i++) {
@@ -610,7 +639,8 @@ static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, Old *old,
     }
 
     Out *o = newout(os, &scratch, 3);
-    if (opt->extras&EXTRA_PSEUDO && !old->text.data) {
+    b32 pseudo = opt->extras&EXTRA_PSEUDO && opt->writer!=WRITER_ETAGS;
+    if (pseudo && !old->text.data) {
         print(o, pseudotags(os, opt, &scratch, log));
     }
     *count = writelines(o, opt, ws, n, old, scratch);
