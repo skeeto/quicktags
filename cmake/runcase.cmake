@@ -2,6 +2,14 @@
 #   $ cmake -DUCTAGS=... -DOURS=... -DTAGDIFF=... -DCASE=dir -DMODE=default
 #           -DSCOPE=name -DLEDGER=file -DWORK=dir [-DONLY=kinds] -P runcase.cmake
 # Exits 77 (skipped) when the mode does not apply to the case.
+#
+# Modes: "default" (no options), "allkinds" (every kind enabled), "args"
+# (the case's options that change which tags exist), and "fmt" (those and
+# its options that change only how tags are written, compared by tag
+# against a run without the latter: tagdiff --base). caseopts.cmake
+# chooses the options.
+
+include(${CMAKE_CURRENT_LIST_DIR}/caseopts.cmake)
 
 # Inputs: input.* first, then extra inputs (input-N..., input_N...), in
 # the languages this program tags
@@ -26,63 +34,70 @@ if(NOT inputs)
   cmake_language(EXIT 77)
 endif()
 
-# Options: the case's --kinds and --extras options are kept for the
-# "args" mode, and the rest ignored, as features this program does not
-# have. So are the reference (r) and guest (g) extras, whose tags come
-# from those features.
+set(lines "")
+if(EXISTS ${CASE}/args.ctags)
+  file(STRINGS ${CASE}/args.ctags lines)
+endif()
+ctags_caseopts("${lines}")
+
+set(base "")
 set(opts "")
 if(MODE STREQUAL "allkinds")
   set(opts --kinds-C=* --kinds-C++=* --kinds-Fortran=*)
 elseif(MODE STREQUAL "args")
-  if(EXISTS ${CASE}/args.ctags)
-    file(STRINGS ${CASE}/args.ctags lines)
-    foreach(line IN LISTS lines)
-      string(STRIP "${line}" line)
-      string(TOLOWER "${line}" lower)
-      if(lower MATCHES "^--(kinds-(c|c\\+\\+|fortran)|(c|c\\+\\+|fortran)-(kinds|types))=")
-        list(APPEND opts "${line}")
-      elseif(line MATCHES "^(--extras?=)(.*)$")
-        set(name "${CMAKE_MATCH_1}")
-        set(spec "${CMAKE_MATCH_2}")
-        if(NOT spec MATCHES "{")
-          string(REGEX REPLACE "[rg]" "" spec "${spec}")
-        endif()
-        if(NOT spec STREQUAL "+")
-          list(APPEND opts "${name}${spec}")
-        endif()
-      endif()
-    endforeach()
-  endif()
+  set(opts ${ctags_args})
   if(NOT opts)
     message("no --kinds or --extras options")
     cmake_language(EXIT 77)
   endif()
+elseif(MODE STREQUAL "fmt")
+  if(NOT ctags_fmt)
+    message("no format options")
+    cmake_language(EXIT 77)
+  endif()
+  set(base ${ctags_args})
+  set(opts ${ctags_args} ${ctags_fmt})
 endif()
 
 file(REMOVE_RECURSE ${WORK})
 file(MAKE_DIRECTORY ${WORK})
-execute_process(
-  COMMAND ${UCTAGS} --options=NONE --languages=C,C++,Fortran --fields=+n
-          -f ${WORK}/ref.tags ${opts} ${inputs}
-  WORKING_DIRECTORY ${CASE}
-  RESULT_VARIABLE status ERROR_VARIABLE err)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "Universal Ctags failed (${status}): ${err}")
+
+# Tag the inputs with both tools, into PREFIXref.tags and PREFIXours.tags
+function(ctags_runboth prefix)
+  execute_process(
+    COMMAND ${UCTAGS} --options=NONE --languages=C,C++,Fortran --fields=+n
+            -f ${WORK}/${prefix}ref.tags ${ARGN} ${inputs}
+    WORKING_DIRECTORY ${CASE}
+    RESULT_VARIABLE status ERROR_VARIABLE err)
+  if(NOT status EQUAL 0)
+    message(FATAL_ERROR "Universal Ctags failed (${status}): ${err}")
+  endif()
+  execute_process(
+    COMMAND ${OURS} ${ARGN} -f ${WORK}/${prefix}ours.tags ${inputs}
+    WORKING_DIRECTORY ${CASE}
+    RESULT_VARIABLE status ERROR_VARIABLE err)
+  if(NOT status EQUAL 0)
+    message(FATAL_ERROR "ctags failed (${status}): ${err}")
+  endif()
+endfunction()
+
+set(diff "")
+if(MODE STREQUAL "fmt")
+  ctags_runboth(base- ${base})
+  list(APPEND diff --base ${WORK}/base-ref.tags ${WORK}/base-ours.tags)
 endif()
-execute_process(
-  COMMAND ${OURS} ${opts} -f ${WORK}/ours.tags ${inputs}
-  WORKING_DIRECTORY ${CASE}
-  RESULT_VARIABLE status ERROR_VARIABLE err)
-if(NOT status EQUAL 0)
-  message(FATAL_ERROR "ctags failed (${status}): ${err}")
+ctags_runboth("" ${opts})
+list(FIND opts --sort=no sortno)
+list(FIND opts -u unsorted)
+if(sortno GREATER -1 OR unsorted GREATER -1)
+  list(APPEND diff --ordered)
 endif()
 
-set(only "")
 if(ONLY)
-  set(only --only ${ONLY})
+  list(APPEND diff --only ${ONLY})
 endif()
 execute_process(
-  COMMAND ${TAGDIFF} --ledger ${LEDGER} --scope ${SCOPE} ${only}
+  COMMAND ${TAGDIFF} --ledger ${LEDGER} --scope ${SCOPE} ${diff}
           ${WORK}/ref.tags ${WORK}/ours.tags
   RESULT_VARIABLE status)
 if(NOT status EQUAL 0)

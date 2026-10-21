@@ -101,7 +101,9 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
     -DTAGDIFF=$<TARGET_FILE:tagdiff>
     -DWORK=${PROJECT_BINARY_DIR}/work/harness/tagdiff
     -P ${PROJECT_SOURCE_DIR}/cmake/tagdiff_test.cmake)
-  set_tests_properties(harness/tagdiff PROPERTIES LABELS unit)
+  add_test(NAME harness/caseopts COMMAND ${CMAKE_COMMAND}
+    -P ${PROJECT_SOURCE_DIR}/cmake/caseopts_test.cmake)
+  set_tests_properties(harness/tagdiff harness/caseopts PROPERTIES LABELS unit)
   include(cmake/units.cmake)
   include(cmake/corpus.cmake)
   if(ctags_units_ok)

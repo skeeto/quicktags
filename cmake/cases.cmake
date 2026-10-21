@@ -31,8 +31,15 @@ foreach(case IN LISTS cases)
             ${args} -f ref.tags ${file}
     WORKING_DIRECTORY ${case}
     RESULT_VARIABLE status ERROR_QUIET)
+  # Unsorted output is compared in order
+  set(diff "")
+  list(FIND args --sort=no sortno)
+  list(FIND args -u unsorted)
+  if(sortno GREATER -1 OR unsorted GREATER -1)
+    set(diff --ordered)
+  endif()
   execute_process(
-    COMMAND ${TAGDIFF} ${case}/ref.tags ${case}/want.tags
+    COMMAND ${TAGDIFF} ${diff} ${case}/ref.tags ${case}/want.tags
     RESULT_VARIABLE status OUTPUT_VARIABLE out)
   if(NOT status EQUAL 0)
     message("${name} (${kindfile}):\n${out}")
