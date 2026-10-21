@@ -42,8 +42,8 @@ struct Options {
 
 static Str usage =
 "usage: ctags [options] [file(s)]\n"
-"  -R, --recurse[=yes|no]  with no files, tag the current directory; a\n"
-"                          directory is always tagged recursively\n"
+"Tags C, C++, and Fortran files, and directories recursively.\n"
+"  -R, --recurse[=yes|no]  with no files, tag the current directory\n"
 "  -f FILE, -o FILE        write tags to FILE, - for standard output\n"
 "                          (default: tags)\n"
 "  --kinds-LANG=[+|-]KINDS enable or disable tag kinds for C, C++, or\n"
@@ -51,9 +51,16 @@ static Str usage =
 "  --extras=[+|-]EXTRAS    q: also tag C and C++ names qualified by\n"
 "                          scope (ns::Class::f), F: file-scoped tags,\n"
 "                          p: pseudo-tags (default: Fp)\n"
+"  --options=FILE|DIR      read options from FILE, one per line, or from\n"
+"                          the *.ctags files in DIR\n"
 "  --jobs=N                threads, 0 for one per processor (default: 0)\n"
+"  --list-languages, --list-kinds[=LANG], --list-kinds-full[=LANG],\n"
+"  --list-extras[=LANG], --list-fields[=LANG]\n"
+"                          list them as Universal Ctags does\n"
 "  --version               print the version\n"
-"  --help                  print this message\n";
+"  --help                  print this message\n"
+"Universal Ctags' other options are accepted where they change nothing\n"
+"here, as are those naming its other languages, and refused otherwise.\n";
 
 enum : i32 {
     ARGS_OK,
