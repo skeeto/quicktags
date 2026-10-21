@@ -160,9 +160,12 @@ static iz arenasize(Arena a)
 
 static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 {
-    // Global memory for the main thread, the rest split between workers
+    // Global memory for the main thread, the rest split between workers.
+    // A reservation commits only what is used, so on 64-bit it may be
+    // generous, as long lists of files need.
+    iz    gmax = mem.lim ? (iz)1<<(sizeof(void *)==8 ? 32 : 26) : (iz)64<<20;
     iz    gcap = arenasize(mem)/4;
-    gcap = gcap<(iz)64<<20 ? gcap : (iz)64<<20;
+    gcap = gcap<gmax ? gcap : gmax;
     Arena g    = carve(&mem, gcap);
     Buf   log(&g, 1<<12);
 
