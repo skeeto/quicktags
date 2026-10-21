@@ -168,9 +168,12 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 
     Options opt = {};
     opt.windows = os_windows(os);
-    switch (parseargs(&opt, args, nargs, &g, &log)) {
+    switch (parseargs(&opt, os, args, nargs, &g, &log)) {
     case ARGS_EXIT:
-        return os_write(os, 1, finish(&log)) ? 0 : 1;
+        if (log.len) {
+            os_write(os, 2, finish(&log));
+        }
+        return os_write(os, 1, opt.print) ? 0 : 1;
     case ARGS_FATAL:
         os_write(os, 2, finish(&log));
         return 1;
@@ -189,7 +192,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     b32   anydir = 0;
     Item *first  = 0;
     Item *last   = 0;
-    for (iz i = 0; i < opt.nfiles; i++) {
+    for (iz i = 0; i < opt.files.len; i++) {
         Str path = opt.files[i];
         if (excluded(path, opt.windows)) {
             continue;

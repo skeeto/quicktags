@@ -36,9 +36,58 @@ static Str showextras(Arena *a, u32 bits)
     return finish(&b);
 }
 
+struct Parsed {
+    Options opt;
+    Str     log;
+    i32     status;
+};
+
+// Parse a command line, split by words(), on the given file system.
+static Parsed parseos(Arena *a, Os *os, Str cmd)
+{
+    Parsed     r    = {};
+    Slice<Str> args = words(a, cmd);
+    Buf        log(a, 256);
+    r.status = parseargs(&r.opt, os, args.data, (i32)args.len, a, &log);
+    r.log    = finish(&log);
+    return r;
+}
+
+static Parsed parsecmd(Arena *a, Str cmd)
+{
+    return parseos(a, newos(a), cmd);
+}
+
+static Str joinlines(Arena *a, Slice<Str> lines)
+{
+    Buf b(a, 64);
+    for (iz i = 0; i < lines.len; i++) {
+        print(&b, lines[i]);
+        putbyte(&b, '|');
+    }
+    return finish(&b);
+}
+
 static void test_cli(Test *t)
 {
     Arena a = t->perm;
+
+    struct { Str text; u32 flags; Str want; } lines[] = {
+        {"",                    0,                         ""},
+        {"a\nb",                0,                         "a|b|"},
+        {"a\r\nb\r\n",          0,                         "a|b|"},
+        {"a\rb\r\r\nc",         0,                         "a|b||c|"},
+        {"a\n\n b \n",          0,                         "a|| b |"},
+        {"a\n\n b \n",          LINES_TRIM,                "a|b|"},
+        {" \t\n\v\f\r",         LINES_TRIM,                ""},
+        {"# x\n  #y\na#\n",     LINES_COMMENTS,            "a#|"},
+        {" # x\r\r--a  \r",     LINES_TRIM|LINES_COMMENTS, "--a|"},
+    };
+    for (iz i = 0; i < countof(lines); i++) {
+        Arena tmp = a;
+        Str   got = joinlines(&tmp, splitlines(&tmp, lines[i].text, lines[i].flags));
+        expect(t, lines[i].text, got, lines[i].want);
+    }
 
     struct { Str args, kinds, log; } kinds[] = {
         {"x.c", "C:defghmstuv C++:defghmstuvcnMP F:bceEfiklmMnNpstvS", ""},
@@ -72,14 +121,11 @@ static void test_cli(Test *t)
          "ctags: Warning: Unknown language \"cpp\" in \"kinds-cpp\" option\n"},
     };
     for (iz i = 0; i < countof(kinds); i++) {
-        Arena      tmp  = a;
-        Slice<Str> args = words(&tmp, kinds[i].args);
-        Options    opt  = {};
-        Buf        log(&tmp, 256);
-        i32 r = parseargs(&opt, args.data, (i32)args.len, &tmp, &log);
-        expect(t, kinds[i].args, num(&tmp, r), num(&tmp, ARGS_OK));
-        expect(t, kinds[i].args, showkinds(&tmp, &opt.kinds), kinds[i].kinds);
-        expect(t, kinds[i].args, finish(&log), kinds[i].log);
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, kinds[i].args);
+        expect(t, kinds[i].args, num(&tmp, r.status), num(&tmp, ARGS_OK));
+        expect(t, kinds[i].args, showkinds(&tmp, &r.opt.kinds), kinds[i].kinds);
+        expect(t, kinds[i].args, r.log, kinds[i].log);
     }
 
     // As Universal Ctags 6.2.1 parses them
@@ -111,14 +157,11 @@ static void test_cli(Test *t)
          "use \"--extras=+F\" instead\n"},
     };
     for (iz i = 0; i < countof(xs); i++) {
-        Arena      tmp  = a;
-        Slice<Str> args = words(&tmp, xs[i].args);
-        Options    opt  = {};
-        Buf        log(&tmp, 256);
-        i32 r = parseargs(&opt, args.data, (i32)args.len, &tmp, &log);
-        expect(t, xs[i].args, num(&tmp, r), num(&tmp, ARGS_OK));
-        expect(t, xs[i].args, showextras(&tmp, opt.extras), xs[i].extras);
-        expect(t, xs[i].args, finish(&log), xs[i].log);
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, xs[i].args);
+        expect(t, xs[i].args, num(&tmp, r.status), num(&tmp, ARGS_OK));
+        expect(t, xs[i].args, showextras(&tmp, r.opt.extras), xs[i].extras);
+        expect(t, xs[i].args, r.log, xs[i].log);
     }
 
     struct { Str args; i32 status; Str output, files, log; } opts[] = {
@@ -144,7 +187,16 @@ static void test_cli(Test *t)
         {"-f -x a",          ARGS_FATAL, "", "",
          "ctags: output file name may not begin with a '-'\n"},
         {"a -f",             ARGS_FATAL, "", "",
-         "ctags: -f: Parameter missing\n"},
+         "ctags: Missing parameter for \"f\" option\n"},
+        {"-f a -o b x",      ARGS_OK, "b", "x",
+         "ctags: Warning: -o option specified more than once, last value used\n"},
+        {"-f a -f -x x",     ARGS_OK, "-x", "x",
+         "ctags: Warning: -f option specified more than once, last value used\n"},
+        {"- a",              ARGS_FATAL, "", "", "ctags: Unknown option: -\n"},
+        {"-- a",             ARGS_FATAL, "", "", "ctags: Unknown option: --\n"},
+        {"--=x a",           ARGS_FATAL, "", "", "ctags: Unknown option: --\n"},
+        {"--foo-bar-kinds=x a", ARGS_FATAL, "", "",
+         "ctags: Unknown option: --foo-bar-kinds\n"},
         {"--kinds-C={x a",   ARGS_FATAL, "", "",
          "ctags: unexpected character in kind specification\n"},
         {"--extras=+} a",    ARGS_FATAL, "", "",
@@ -155,20 +207,17 @@ static void test_cli(Test *t)
          "ctags: Invalid value for \"file-scope\" option\n"},
     };
     for (iz i = 0; i < countof(opts); i++) {
-        Arena      tmp  = a;
-        Slice<Str> args = words(&tmp, opts[i].args);
-        Options    opt  = {};
-        Buf        log(&tmp, 256);
-        i32 r = parseargs(&opt, args.data, (i32)args.len, &tmp, &log);
-        expect(t, opts[i].args, num(&tmp, r), num(&tmp, opts[i].status));
-        expect(t, opts[i].args, finish(&log), opts[i].log);
-        if (r == ARGS_OK) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, opts[i].args);
+        expect(t, opts[i].args, num(&tmp, r.status), num(&tmp, opts[i].status));
+        expect(t, opts[i].args, r.log, opts[i].log);
+        if (r.status == ARGS_OK) {
             Buf files(&tmp, 64);
-            for (iz j = 0; j < opt.nfiles; j++) {
+            for (iz j = 0; j < r.opt.files.len; j++) {
                 if (j) putbyte(&files, ' ');
-                print(&files, opt.files[j]);
+                print(&files, r.opt.files[j]);
             }
-            expect(t, opts[i].args, opt.output, opts[i].output);
+            expect(t, opts[i].args, r.opt.output, opts[i].output);
             expect(t, opts[i].args, finish(&files), opts[i].files);
         }
     }
