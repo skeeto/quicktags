@@ -69,17 +69,23 @@ enum : i32 {
     ARGS_FATAL,  // printed the problem, exit 1
 };
 
+// A language defined by --langdef.
+struct Langdef {
+    Str name;
+    b32 based;  // a subparser that our parsers run on their files
+};
+
 // The state of parsing, shared by the arguments and the option files.
 struct Parse {
-    Options   *opt;
-    Os        *os;
-    Arena     *perm;
-    Buf       *log;
-    Str        optfile;   // the option file being read, null for arguments
-    Map<b32>  *read;      // option files read, by path
-    i32        depth;     // option files being read
-    Slice<Str> langdefs;  // languages defined by --langdef
-    b32        seenf;     // -f or -o given
+    Options       *opt;
+    Os            *os;
+    Arena         *perm;
+    Buf           *log;
+    Str            optfile;   // the option file being read, null for arguments
+    Map<b32>      *read;      // option files read, by path
+    i32            depth;     // option files being read
+    Slice<Langdef> langdefs;
+    b32            seenf;     // -f or -o given
 };
 
 enum : i32 { OPTFILEDEPTH = 16 };
@@ -280,8 +286,9 @@ static Str foreignlangs[] = {
 };
 
 struct Named {
-    i32 lang;  // LANG_*
-    Str name;  // as Universal Ctags spells it, or as given if unknown
+    i32 lang;   // LANG_*
+    Str name;   // as Universal Ctags spells it, or as given if unknown
+    b32 based;  // LANG_FOREIGN, but tagging our files (Langdef)
 };
 
 // Find a language by name, ignoring case: ours, one we don't parse
@@ -305,9 +312,11 @@ static Named langnamed(Parse *p, Str name)
         }
     }
     for (iz i = 0; i < p->langdefs.len; i++) {
-        if (equalsfold(name, p->langdefs[i])) {
-            r.lang = LANG_FOREIGN;
-            r.name = p->langdefs[i];
+        Langdef *d = &p->langdefs[i];
+        if (equalsfold(name, d->name)) {
+            r.lang  = LANG_FOREIGN;
+            r.name  = d->name;
+            r.based = d->based;
             return r;
         }
     }
@@ -516,6 +525,57 @@ static i32 forceopt(Parse *p, Str name, Str value)
     return ARGS_OK;
 }
 
+// The flags of --langdef=NAME{flags}: {base=LANG} makes the language a
+// subparser of LANG, which runs it on its own files unless {dedicated}.
+// Whether it then tags our files, directly or through another subparser.
+static b32 langdefbased(Parse *p, Str flags)
+{
+    Named base   = {};
+    b32   shared = 1;
+    b32   dirs   = 0;  // a direction was given
+    for (iz i = 0; i < flags.len; i++) {
+        if (flags[i] != '{') {
+            continue;
+        } else if (i+1<flags.len && flags[i+1]=='{') {
+            break;  // a script, not flags
+        }
+        Cut c = cut(cuthead(flags, i+1), '}');
+        if (!c.ok) {
+            warning(p, "long flags specifier opened with `{' is not closed "
+                    "`}': \"", flags, "\"");
+            break;
+        }
+        i = flags.len - c.tail.len - 1;
+
+        Cut flag = cut(c.head, '=');
+        if (flag.head == "base") {
+            Named b = langnamed(p, flag.tail);
+            if (!flag.tail.len) {
+                warning(p, "No base parser specified for \"base\" flag of "
+                        "--langdef option");
+            } else if (!b.lang) {
+                warning(p, "Unknown language(", flag.tail, ") is specified "
+                        "for \"base\" flag of --langdef option");
+            } else if (b.name == "CPreProcessor") {
+                warning(p, "Because of an internal limitation, Making a sub "
+                        "parser based on the CPreProcessor parser is not "
+                        "allowed: ", flag.tail);
+            } else {
+                base = b;
+            }
+        } else if (flag.head=="dedicated" || flag.head=="shared" ||
+                   flag.head=="bidirectional") {
+            shared = flag.head != "dedicated";
+            dirs   = 1;
+        }
+    }
+    if (!base.lang && dirs) {
+        warning(p, "Ignore the direction of subparser because \"{base=}\" is "
+                "not given");
+    }
+    return shared && (base.based || (base.lang && base.lang!=LANG_FOREIGN));
+}
+
 // --langdef=NAME[{flags}] defines a language, which this program does
 // not parse, so that options may name it.
 static i32 langdefopt(Parse *p, Str name, Str value)
@@ -540,7 +600,10 @@ static i32 langdefopt(Parse *p, Str name, Str value)
                          lang, ")");
         }
     }
-    p->langdefs = push(p->perm, p->langdefs, lang);
+    Langdef d = {};
+    d.name  = lang;
+    d.based = langdefbased(p, cuthead(value, lang.len));
+    p->langdefs = push(p->perm, p->langdefs, d);
     return ARGS_OK;
 }
 
@@ -1294,12 +1357,14 @@ static i32 langopt(Parse *p, i32 family, Str name, Str value)
     case LOPT_ROLES:  return rolesopt(p, name, value);
     case LOPT_DEFINE: {
         // --regex-LANG, --mline-regex-LANG, and --kinddef-LANG, which
-        // would change which tags exist
+        // would change which tags exist in our languages and in those
+        // based on them
         Named lang = langpart(p, name, langopts[family].prefix.len);
         if (!lang.lang) {
             return unknownlang(p, lang.name, name);
         }
-        return lang.lang==LANG_FOREIGN ? ARGS_OK : unsupported(p, "--", name);
+        b32 ours = lang.lang!=LANG_FOREIGN || lang.based;
+        return ours ? unsupported(p, "--", name) : ARGS_OK;
     }
     }
     return ARGS_OK;

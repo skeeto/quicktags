@@ -496,6 +496,55 @@ static void test_cli(Test *t)
                                          "ctags: Unknown language \"cpp\" in "
                                          "\"lang\" option\n"},
         {"--langdef=foo --kinds-foo=+x --regex-FOO=/x/y/ a", OK, ""},
+
+        // Subparsers of ours, which our parsers run on their files
+        {"--langdef=Foo{base=C} --kinddef-Foo=y,yy,yys a", FATAL,
+         "ctags: --kinddef-Foo: not supported\n"},
+        {"--langdef=Foo{base=c++}{shared} --regex-foo=/x/y/ a", FATAL,
+         "ctags: --regex-foo: not supported\n"},
+        {"--langdef=Foo{dedicated}{base=fortran}{bidirectional} "
+         "--mline-regex-Foo=/x/y/ a", FATAL,
+         "ctags: --mline-regex-Foo: not supported\n"},
+        {"--langdef=Foo{base=C}{dedicated} --kinddef-Foo=y,yy,yys "
+         "--regex-Foo=/x/y/ a", OK, ""},
+        {"--langdef=Foo{base=C} --langdef=Bar{base=Foo} --regex-Bar=/x/y/ a",
+         FATAL, "ctags: --regex-Bar: not supported\n"},
+        {"--langdef=Foo{base=C}{dedicated} --langdef=Bar{base=Foo} "
+         "--regex-Bar=/x/y/ a", OK, ""},
+        {"--langdef=Foo{base=Python} --regex-Foo=/x/y/ a",       OK, ""},
+        {"--langdef=Foo{base=QtMoc} --regex-Foo=/x/y/ a",        OK, ""},
+        {"--langdef=Foo{base=C}{base=Python} --regex-Foo=/x/y/ a", OK, ""},
+        {"--langdef=Foo{base=Python}{base=C} --regex-Foo=/x/y/ a", FATAL,
+         "ctags: --regex-Foo: not supported\n"},
+        {"--langdef=Foo{version=1.0}x{base=C} --regex-Foo=/x/y/ a", FATAL,
+         "ctags: --regex-Foo: not supported\n"},
+        {"--langdef=Foo{{base=C}} --regex-Foo=/x/y/ a",          OK, ""},
+        {"--langdef=Foo{base=C}{base=cpp} --regex-Foo=/x/y/ a",  FATAL,
+         "ctags: Warning: Unknown language(cpp) is specified for \"base\" "
+         "flag of --langdef option\n"
+         "ctags: --regex-Foo: not supported\n"},
+        {"--langdef=Foo{base=} a", OK, "ctags: Warning: No base parser "
+                                       "specified for \"base\" flag of "
+                                       "--langdef option\n"},
+        {"--langdef=Foo{base} a",  OK, "ctags: Warning: No base parser "
+                                       "specified for \"base\" flag of "
+                                       "--langdef option\n"},
+        {"--langdef=Foo{base=cpreprocessor} --regex-Foo=/x/y/ a", OK,
+         "ctags: Warning: Because of an internal limitation, Making a sub "
+         "parser based on the CPreProcessor parser is not allowed: "
+         "cpreprocessor\n"},
+        {"--langdef=Foo{base=}{shared} a", OK,
+         "ctags: Warning: No base parser specified for \"base\" flag of "
+         "--langdef option\n"
+         "ctags: Warning: Ignore the direction of subparser because "
+         "\"{base=}\" is not given\n"},
+        {"--langdef=Foo{base=C --regex-Foo=/x/y/ a", OK,
+         "ctags: Warning: long flags specifier opened with `{' is not "
+         "closed `}': \"{base=C\"\n"},
+        {"--langdef=Foo{base=C}{dedicated --regex-Foo=/x/y/ a", FATAL,
+         "ctags: Warning: long flags specifier opened with `{' is not "
+         "closed `}': \"{base=C}{dedicated\"\n"
+         "ctags: --regex-Foo: not supported\n"},
         {"--langdef=a{x} --map-A=+.c a", FATAL, "ctags: --langmap: not yet "
                                                 "supported\n"},
         {"--langdef=a#+ --langdef=All a", OK, ""},
