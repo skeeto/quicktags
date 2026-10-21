@@ -368,7 +368,7 @@ depends on how far the walk had read when the label was seen. Our
 - **FTN-4 Tokens** [S][V]:
   - Identifiers are an ASCII letter, then letters, digits, `_` and `$`. **A leading `_` is not an identifier** (we depart, F3): `_`, `$` and bytes from 0x80 are one-character tokens of no type.
   - Keywords are matched ignoring ASCII case: `abstract allocatable assignment associate automatic bind block byte cexternal cglobal character class codimension common complex contains data deferred dimension dll_export dll_import do double elemental end entry enum enumerator equivalence extends external final forall format function generic if implicit import include inline integer intent interface intrinsic kind len logical map module namelist non_overridable nopass operator optional parameter pascal pass pexternal pglobal pointer precision private procedure program protected public pure real record recursive save select sequence static stdcall structure submodule subroutine target then type union use value virtual volatile where while`. `blockdata`, `doubleprecision`, `impure`, `non_recursive`, `simple`, `critical`, `team` and `enumeration` are not keywords.
-  - **Joined END**: an identifier that is not a keyword, starts with lowercase `end`, and whose rest is a keyword (any case) reads as END with that keyword as the word after it (`enddo`, `endType`). `ENDDO` and `EndDo` are plain identifiers.
+  - **Joined END**: an identifier that is not a keyword, starts with lowercase `end`, and whose rest is a keyword (any case) reads as END with that keyword as the word after it (`enddo`, `endType`). `ENDDO` and `EndDo` are plain identifiers (we depart, F5).
   - Operators: one of `* / + - = < >`, continued by any of `* / + = < >` (not `-`). A `.` followed by identifier characters and a `.` is an operator (`.eq.`); without the closing dot it has no type.
   - Numbers: digits, a kind suffix `_` + letters (dropped), an optional `.` and digits, and an optional `e` or `E` and digits (a sign after it starts a new token).
   - Strings: from `'` or `"` to the same quote or the line end, which is consumed. A doubled quote reads as two strings.
@@ -384,7 +384,7 @@ depends on how far the walk had read when the label was seen. Our
   - STDCALL is skipped as a word; AUTOMATIC followed by a type specifier is a type declaration (else the statement is skipped).
   - Skipped: `cexternal cglobal dll_export dll_import external format include inline parameter pascal pexternal pglobal static value virtual volatile`.
   - Type declarations (FTN-13) start with `byte integer real double complex character logical record type procedure final generic class enumerator`.
-  - A statement that starts with an identifier is skipped; the part goes on only if it is a statement function, `name(...) =`.
+  - A statement that starts with an identifier is skipped; the part goes on only if it is a statement function, `name(...) =`. That includes a joined END, so after a body of declarations only, `endmodule` is skipped with the next statement, the next unit's header (we depart, F5).
   - COMMON and NAMELIST (FTN-18), STRUCTURE (FTN-17); `allocatable data dimension equivalence external intent intrinsic optional pointer private protected public save target` statements are skipped.
   - Anything else ends the part, unread.
 - **FTN-13 Type declarations.** A type specifier, then `, attributes` and `::`, then a list of entities, each tagged with the kind of FTN-6.
@@ -709,5 +709,9 @@ Fortran (section 1.6 marks where each departs):
 
 - **F3** A name may start with `_` (FTN-4), as flang's runtime modules
   do (`module __fortran_builtins`), so they are tagged and give scope.
+- **F5** A joined END ignores case (`ENDSUBROUTINE`, FTN-4), and it ends
+  a specification part (FTN-12) instead of being skipped as a statement
+  function together with the next unit's header (`endmodule` after a
+  module with only declarations lost the next module).
 - **F6** A subprogram named by a keyword (`function sequence`,
   `subroutine inline`) is the scope of its contents (FTN-7).

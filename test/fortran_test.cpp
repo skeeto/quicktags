@@ -184,7 +184,7 @@ static TagCase fortrancases[] = {
      "c3\tx.f90\t/^  integer :: a_1, b$2, c3$/;\"\tv\tline:2\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
      ""},
-    {SHARED, "FTN-4 a joined END splits only in lowercase", "x.f90", "",
+    {IMPROVED, "F5 a joined END ignores case", "x.f90", "",
      "module m\n"
      "contains\n"
      "  subroutine a\n"
@@ -196,10 +196,33 @@ static TagCase fortrancases[] = {
      "  SUBROUTINE D\n"
      "  END SUBROUTINE\n"
      "end module\n",
+     "C\tx.f90\t/^  SUBROUTINE C$/;\"\ts\tline:7\tmodule:m\n"
+     "D\tx.f90\t/^  SUBROUTINE D$/;\"\ts\tline:9\tmodule:m\n"
+     "a\tx.f90\t/^  subroutine a$/;\"\ts\tline:3\tmodule:m\n"
+     "b\tx.f90\t/^  subroutine b$/;\"\ts\tline:5\tmodule:m\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
      "C\tx.f90\t/^  SUBROUTINE C$/;\"\ts\tline:7\n"
      "a\tx.f90\t/^  subroutine a$/;\"\ts\tline:3\tmodule:m\n"
-     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
-     ""},
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"},
+    {IMPROVED, "F5 a joined END ends a specification part", "x.f90", "",
+     "module m\n"
+     "  integer :: x\n"
+     "endmodule\n"
+     "module n\n"
+     "end module\n"
+     "pure subroutine s()\n"
+     "  integer :: y\n"
+     "ENDSUBROUTINE\n"
+     "subroutine t\n"
+     "end subroutine\n",
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "n\tx.f90\t/^module n$/;\"\tm\tline:4\n"
+     "s\tx.f90\t/^pure subroutine s(/;\"\ts\tline:6\n"
+     "t\tx.f90\t/^subroutine t$/;\"\ts\tline:9\n"
+     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:2\tmodule:m\n",
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "s\tx.f90\t/^pure subroutine s(/;\"\ts\tline:6\n"
+     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:2\tmodule:m\n"},
     {IMPROVED, "F3 a name may start with an underscore", "x.f90", "",
      "module __m\n"
      "  integer :: x, _y\n"

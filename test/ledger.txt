@@ -732,3 +732,19 @@
 + g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118	subroutine:inline
 - f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113
 - g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118
+
+@ corpus/llvm/flang: F5, a joined END (endmodule, endblock) ends a specification part instead of being skipped as a statement function with the next unit's header: subroutines one and four, modules m2 and m4, and s7 come back. In keyword-optional-spaces.f90, subroutine one's declarations now end at the joined doubleprecision (FTN-12), so its enum is no longer tagged at the top level, and F2's bogus modules shift.
++ __anonfa7f6f280105	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
++ __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117
++ four	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine four$/;"	s	line:91
++ m2	flang/test/Parser/keyword-optional-spaces.f90	/^module m2$/;"	m	line:124
++ m4	flang/test/Parser/keyword-optional-spaces.f90	/^module m4$/;"	m	line:128
++ one	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine one(/;"	s	line:9
++ s7	flang/test/Semantics/resolve57.f90	/^pure subroutine s7(/;"	s	line:117
++ subroutine	flang/test/Parser/keyword-optional-spaces.f90	/^    module subroutine /;"	m	line:114
+- __anonfa7f6f280103	flang/test/Parser/keyword-optional-spaces.f90	/^  enum, bind(c)$/;"	E	line:15
+- __anonfa7f6f280205	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
+- __anonfa7f6f280305	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:117
+- assigned	flang/test/Parser/keyword-optional-spaces.f90	/^  integer assigned$/;"	v	line:19
+- e2	flang/test/Parser/keyword-optional-spaces.f90	/^    enumerator :: e2=/;"	N	line:16	enum:__anonfa7f6f280103
+- p	flang/test/Parser/keyword-optional-spaces.f90	/^  class(*), pointer :: p$/;"	v	line:18

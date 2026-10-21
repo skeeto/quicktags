@@ -550,8 +550,9 @@ static void ftnlex(Ftn *p, FtnTok *t)
                 break;
             }
             t->type = FT_IDENT;
-            // A joined END: "enddo" is END with a secondary DO
-            if (startswith(text, "end")) {
+            // A joined END: "enddo" is END with a secondary DO. Unlike
+            // Universal Ctags, "ENDDO" is too (F5).
+            if (text.len>3 && equalsfold(takehead(text, 3), "end")) {
                 i32 word = ftnkeyword(cuthead(text, 3));
                 if (word >= 0) {
                     t->word    = FW_END;
@@ -1362,7 +1363,9 @@ static b32 ftndeclaration(Ftn *p)
         ftndecl(p);
         return 1;
     }
-    if (ftnis(p, FT_IDENT)) {
+    if (ftnis(p, FT_IDENT) && p->tok.word!=FW_END) {
+        // Unlike Universal Ctags, a joined END (an identifier) is not
+        // taken for a statement function, which would skip it (F5)
         return ftnstmtfunc(p);
     }
     return ftnspecstmt(p);
