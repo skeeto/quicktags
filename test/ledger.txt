@@ -69,6 +69,11 @@
 = 12 compiler-rt/test/BlocksRuntime/copyconstructor.C
 = 14 compiler-rt/test/BlocksRuntime/reference.C
 
+@ corpus-fmt/llvm/compiler-rt/fields: D1, .C is C++, so the tags the base runs agree on say language:C++
+= 10 compiler-rt/test/BlocksRuntime/copyconstructor.C
+= 10 compiler-rt/test/BlocksRuntime/josh.C
+= 12 compiler-rt/test/BlocksRuntime/reference.C
+
 @ corpus/llvm/libcxx: X3, u8'x' is a character literal, not a digit separator
 = 1 libcxx/test/std/ranges/range.adaptors/range.lazy.split/general.pass.cpp
 = 2 libcxx/test/std/ranges/range.adaptors/range.split/general.pass.cpp

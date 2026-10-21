@@ -22,8 +22,10 @@ option(CTAGS_CORPUS_REUSE_REF
 #   set(ctags_fmt_sortno --sort=no)
 #   set(ctags_fmt_sortno_diff --ordered)
 #   list(APPEND ctags_fmt_sets sortno)
-set(ctags_fmt_sets "")
-set(ctags_fmt_llvm "")
+set(ctags_fmt_fields --fields=+lKzZEr)   # 1: also iaS from M8
+set(ctags_fmt_combine --excmd=combine)   # 2
+set(ctags_fmt_sets fields combine)
+set(ctags_fmt_llvm fields combine)
 
 # A list as one argument of add_test
 function(ctags_listarg var)
