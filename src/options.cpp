@@ -946,23 +946,29 @@ static Str defaultexcludes[] = {
     "RESYNC", "SCCS", "_darcs", "autom4te.cache", "{arch}",
 };
 
-// --exclude and --exclude-exception: a pattern, with '\' as '/' on
-// Windows; "@FILE", the lines of a file as they are; or an empty value,
-// which empties the list.
+// Add an exclusion pattern to a list, on Windows with '\' as '/', so
+// that it is a separator like the names' (DISC-3).
+static void addexclude(Parse *p, Slice<Glob> *list, Str pat)
+{
+    if (p->opt->windows) {
+        pat = clone(p->perm, pat);
+        for (iz i = 0; i < pat.len; i++) {
+            pat[i] = pat[i]=='\\' ? (u8)'/' : pat[i];
+        }
+    }
+    *list = push(p->perm, *list, newglob(pat));
+}
+
+// --exclude and --exclude-exception: a pattern; "@FILE", one pattern
+// per line of a file, which Universal Ctags takes without making '\'
+// into '/' (D12); or an empty value, which empties the list.
 static i32 excludeopt(Parse *p, Slice<Glob> *list, Str value)
 {
     if (!value.len) {
         *list = {};
         return ARGS_OK;
     } else if (value[0] != '@') {
-        Str pat = value;
-        if (p->opt->windows) {
-            pat = clone(p->perm, value);
-            for (iz i = 0; i < pat.len; i++) {
-                pat[i] = pat[i]=='\\' ? (u8)'/' : pat[i];
-            }
-        }
-        *list = push(p->perm, *list, newglob(pat));
+        addexclude(p, list, value);
         return ARGS_OK;
     }
 
@@ -977,7 +983,7 @@ static i32 excludeopt(Parse *p, Slice<Glob> *list, Str value)
         c = cut(c.tail, '\n');
         Str pat = trimright(c.head);
         if (pat.len) {
-            *list = push(p->perm, *list, newglob(pat));
+            addexclude(p, list, pat);
         }
     }
     return ARGS_OK;

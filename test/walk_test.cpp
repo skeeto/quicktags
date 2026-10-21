@@ -472,7 +472,7 @@ static void test_walk(Test *t)
             {"-R --exclude=*.c --exclude-exception=s.c", 2, "b h s",  ""},
             {"-R --exclude-exception=x --exclude=sub --exclude-exception=",
              2, "a b h o", ""},
-            {"-R --exclude=@wild",                    2, "a b d o s", ""},
+            {"-R --exclude=@wild",                    0, "a b d o s", ""},
             {"-R --exclude=./sub",                    2, all,         ""},
             {"-R --exclude=./sub ./sub",              2, "",          ""},
             {"--exclude=sub ./sub",                   2, "",          ""},
@@ -526,6 +526,16 @@ static void test_walk(Test *t)
             b32 same = d11[i].names==d11[i].uctags && d11[i].err==d11[i].uerr;
             expect(t, args, num(&a, same), "0");
         }
+
+        // D12: on Windows, '\' is '/' in the patterns of an @FILE too, so
+        // "sub\deep" in it excludes sub/deep. Universal Ctags keeps the
+        // '\', an escape there, so the pattern matches only "subdeep".
+        os->windows = 1;
+        Str uctags = "a b d o s";
+        Run r      = run(os, a, "-f - -R --exclude=@wild");
+        Str names  = tagnames(&a, r.out);
+        expect(t, "D12", names, "a b o s");
+        expect(t, "D12 departs", num(&a, names==uctags), "0");
     }
 
     {

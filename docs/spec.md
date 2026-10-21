@@ -100,7 +100,7 @@ apply.
 - **DISC-3 [V][S] Exclusion** (`options.c isExcludedFile`, `strlist.c`).
   - Two lists of patterns: `--exclude`, which starts as the default list, and `--exclude-exception`, which starts empty. The default list:
     `*.a *.class *.dll *.exe *.gcda *.gcno *.lib *.o *.obj *.pyc *.pyo *.so *~ .*.swp .DS_Store .arch-ids .arch-inventory .bzr .bzrignore .cvsignore .deps .dvi .git .gitattributes .gitignore .hg .hgignore .svn BitKeeper CVS EIFGEN PENDING RCS RESYNC SCCS _darcs autom4te.cache {arch}`
-  - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows; here `No such file or directory`). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
+  - `--exclude=PATTERN` adds a pattern, and on Windows its `\` become `/`. `--exclude=@FILE` adds the lines of FILE as they are: split at LF, each without its trailing whitespace (a CR among it), and kept unless that leaves it empty, leading blanks and a leading `#` included. So on Windows their `\` stay escapes, and Vim `wildignore` entries written with them, like `build\*`, match nothing (here they become `/` too, D12). A FILE that cannot be read is FATAL `cannot open "FILE" : REASON`; `@` alone names the empty path (`Invalid argument` on Windows; here `No such file or directory`). An empty value, `--exclude=`, empties the list, the default patterns too. `--exclude-exception` takes the same three forms for its own list.
   - A path is excluded when its base name, or else the whole path as constructed (DISC-2), matches an `--exclude` pattern, and neither the base name nor the path matches an exception. On Windows, `\` in the path is taken as `/`, and the pattern and the path are uppercased before matching.
   - Matching is gnulib's `fnmatch(pattern, name, 0)` (DISC-8), so `*` and `?` match `/`, and a leading `.` is not special.
   - When (DISC-1): before anything else, unless any exception is given, an excluded entry is dropped, so a missing file that is excluded gets no warning, and an excluded directory is not descended. A regular file is checked again, now with the exceptions, just before it is parsed. Directories are checked only by the first step, so **[V] Bug:** with any exception given, excluded directories are walked: `--exclude=sub --exclude-exception=nothing -R` tags `sub/s.c` and `sub/deep/d.c`. Here every entry is checked once, with the exceptions, before it is examined, so an excluded directory is pruned unless an exception matches it, and a missing file that is excluded gets no warning, exceptions or not (D11).
@@ -844,6 +844,12 @@ Decided for this program, deliberately different from Universal Ctags.
   every excluded directory, `.git` included (`--exclude=sub
   --exclude-exception=x` tags `sub/`), checking only regular files, and
   warns that a missing file it excludes cannot be opened.
+- **D12** On Windows, `\` becomes `/` in the patterns of an
+  `--exclude=@FILE` or `--exclude-exception=@FILE` list too, as it does
+  in those given directly and in the names they match (DISC-3).
+  Universal Ctags leaves them, so there they quote the next character:
+  `sub\deep` in a list matches only `subdeep`, and Windows `wildignore`
+  entries written with backslashes match nothing.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
