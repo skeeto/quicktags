@@ -101,6 +101,7 @@ W32(uz,     FindFirstFileExW(c16 *, i32, FindData *, i32, uz, i32));
 W32(b32,    FindNextFileW(uz, FindData *));
 W32(c16 *,  GetCommandLineW());
 W32(b32,    GetConsoleMode(uz, i32 *));
+W32(i32,    GetCurrentDirectoryW(i32, c16 *));
 W32(b32,    GetFileAttributesExW(c16 *, i32, FileAttributes *));
 W32(b32,    GetFileSizeEx(uz, i64 *));
 W32(i32,    GetFileType(uz));
@@ -441,16 +442,17 @@ static b32 os_windows(Os *)
     return 1;
 }
 
-// The full path of "." without the extended-length prefix of widepath.
+// The current directory as the system holds it. GetFullPathNameW(".")
+// is no substitute: at a drive root it asks for too small a buffer, and
+// given that one, it returns the drive alone ("C:" for C:\).
 static Str os_cwd(Os *, Arena *a)
 {
-    c16 dot[] = {'.', 0};
-    i32 cap   = GetFullPathNameW(dot, 0, 0, 0);  // with the terminator
+    i32 cap = GetCurrentDirectoryW(0, 0);  // with the terminator
     if (cap <= 0) {
         return {};
     }
     c16 *buf = alloc<c16>(a, cap);
-    i32  len = GetFullPathNameW(dot, cap, buf, 0);
+    i32  len = GetCurrentDirectoryW(cap, buf);
     if (!len || len>=cap) {
         return {};
     }
