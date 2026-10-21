@@ -257,12 +257,14 @@ etagsection(spaced x.c "${f}" "int  v<DEL>v<SOH>2,8")
 etagsection(spaced empty.c)
 etags(e-text.tags "${spaced}")
 fixture(e-badsize.tags "<FF>" "x.c,99" "${f}")
+fixture(e-bigsize.tags "<FF>" "x.c,99999999999999999999" "${f}")
 check(etags-same 0 --etags e-ref.tags e-same.tags MATCH "4 ref, 4 ours")
 check(etags-diff 1 --etags e-ref.tags e-diff.tags
   MATCH "- v.x\\.c.2.int v,8" "\\+ v.x\\.c.3.int v,8")
 check(etags-section 1 --etags e-ref.tags e-nosection.tags
   MATCH "- .empty\\.c.0" "1 missing, 0 extra")
 check(etags-size 1 --etags e-ref.tags e-badsize.tags MATCH "malformed TAGS")
+check(etags-bigsize 1 --etags e-ref.tags e-bigsize.tags MATCH "malformed TAGS")
 check(etags-format 1 --etags e-ref.tags base-ours.tags MATCH "malformed TAGS")
 check(etags-sets 0 --etags e-ref.tags e-swap.tags)
 check(etags-ordered 1 --etags --ordered e-ref.tags e-swap.tags

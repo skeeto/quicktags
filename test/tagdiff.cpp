@@ -336,8 +336,10 @@ static Lines etagslines(Arena *a, Str text, Str only)
             size = 0;
             have = 0;
             for (iz i = 0; ok && i < digits.len; i++) {
-                ok   = digit(digits[i]) && size<100000000;
-                size = size*10 + (digits[i] - '0');
+                ok = digit(digits[i]) && size<100000000;
+                if (ok) {
+                    size = size*10 + (digits[i] - '0');
+                }
             }
             if (!ok) {
                 r.bad++;
