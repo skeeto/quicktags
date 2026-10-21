@@ -1,8 +1,8 @@
-// Fuzzing in process: generated token soup and mutated tag-case sources,
-// each tagged with default and with all kinds, and in other formats,
-// checking that the output is well formed, and that fields added to the
-// default ones change nothing else. Debug builds also trap on undefined
-// behavior.
+// Fuzzing in process: inputs that once failed, generated token soup, and
+// mutated tag-case sources, each tagged with default and with all kinds,
+// and in other formats, checking that the output is well formed, and
+// that fields added to the default ones change nothing else. Debug
+// builds also trap on undefined behavior.
 
 static u32 rand32(u64 *rng)
 {
@@ -193,17 +193,28 @@ static b32 lintextras(Str s)
     return 1;
 }
 
-// Offset of the last ;" and tab in a line, which ends the address and
-// any pattern in it, or -1.
-static iz fieldsat(Str line)
+// Offset of the ;" and tab just after the address that begins s, or -1.
+// The address is read as written, a line number, a pattern, or both
+// (N;/^.../), whose escapes hide each '/' and '\' within, so a field
+// value may hold ;" and a tab, as readers allow.
+static iz fieldsat(Str s)
 {
-    iz at = -1;
-    for (iz i = 0; i+2 < line.len; i++) {
-        if (line[i]==';' && line[i+1]=='"' && line[i+2]=='\t') {
-            at = i;
-        }
+    iz i = 0;
+    for (; i<s.len && digit(s[i]); i++) {}
+    if (i && i+1<s.len && s[i]==';' && s[i+1]=='/') {
+        i++;
     }
-    return at;
+    if (i<s.len && s[i]=='/') {
+        for (i++; i<s.len && s[i]!='/'; i++) {
+            i += s[i] == '\\';
+        }
+        if (i >= s.len) {
+            return -1;
+        }
+        i++;
+    }
+    b32 ok = i+2<s.len && s[i]==';' && s[i+1]=='"' && s[i+2]=='\t';
+    return ok ? i : -1;
 }
 
 // Is the tags output well formed for the source and options? Sorted,
@@ -286,12 +297,15 @@ static Str fuzzstrip(Arena *a, Str out)
 {
     Slice<Str> lines = {};
     for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
-        Str l  = c.head;
-        iz  at = fieldsat(l);
+        Str l    = c.head;
+        Cut name = cut(l, '\t');
+        Cut file = cut(name.tail, '\t');
+        iz  at   = fieldsat(file.tail);
         if (at < 0) {
             lines = push(a, lines, l);
             continue;
         }
+        at += l.len - file.tail.len;
         Buf b(a, l.len);  // only shrinks
         print(&b, takehead(l, at+2));
         Cut f = {};
@@ -322,6 +336,70 @@ static Str fuzzstrip(Arena *a, Str out)
     return finish(&b);
 }
 
+// The checks of one input: the first problem found, if any, with the
+// options that showed it.
+struct Fuzzed {
+    Str   bad;    // null for none
+    Lint *lint;
+    iz    ntags;
+};
+
+// Tag the file with each option set in turn, the first the default
+// options, checking each output, and stopping at the first problem.
+static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
+{
+    Fuzzed r  = {};
+    Os    *os = newos(&a);
+    vfsfile(os, file, src);
+    Str deflt = {};
+    for (iz o = 0; o<nruns && !r.bad.data; o++) {
+        Buf cmd(&a, 128);
+        print(&cmd, runs[o]->opts);
+        print(&cmd, "-f - ");
+        print(&cmd, file);
+        Run got = runcap(os, a, finish(&cmd), (iz)8<<20);
+        r.bad  = fuzzlint(got.out, src, runs[o]);
+        r.lint = runs[o];
+        if (!o) {
+            deflt = got.out;
+        } else if (runs[o]->strip && !(fuzzstrip(&a, got.out) == deflt)) {
+            r.bad = "not the default output once stripped";
+        }
+        for (iz j = 0; j < got.out.len; j++) {
+            r.ntags += got.out[j] == '\n';
+        }
+        if (got.status) {
+            r.bad = "nonzero exit status";
+        }
+    }
+    return r;
+}
+
+// Expect no problem, else print the input, which and how it was tagged.
+static b32 fuzzexpect(Test *t, Fuzzed r, char const *what, i32 i, Str file,
+                      Str src)
+{
+    if (expect(t, "fuzz", r.bad, {})) {
+        return 1;
+    }
+    fprintf(stderr, "  %s %d (%.*s%.*s):\n[", what, i,
+            (int)r.lint->opts.len, (char *)r.lint->opts.data,
+            (int)file.len, (char *)file.data);
+    printstr(stderr, src);
+    fprintf(stderr, "]\n");
+    return 0;
+}
+
+// Inputs the checks once got wrong, each tagged with every option set:
+// field values holding ;" before a tab.
+static struct {
+    Str file;
+    Str src;
+} fuzzseeds[] = {
+    {"f.h", "class K : Y<\"x;\" {};\n"},
+    {"f.c", "typedef struct node\"nde, *nodeptr;\" z;\n"},
+};
+
 #ifndef FUZZRUNS
 #  define FUZZRUNS 3000  // more for a longer campaign: -DFUZZRUNS=1000000
 #endif
@@ -330,6 +408,19 @@ static void test_fuzz(Test *t)
 {
     TagCase *sets[]  = {ccases, cxxcases, fortrancases};
     iz       sizes[] = {countof(ccases), countof(cxxcases), countof(fortrancases)};
+
+    Lint *all[countof(lints)] = {};
+    for (iz i = 0; i < countof(lints); i++) {
+        all[i] = lints + i;
+    }
+    for (i32 i = 0; i < countof(fuzzseeds); i++) {
+        Str    file = fuzzseeds[i].file;
+        Str    src  = fuzzseeds[i].src;
+        Fuzzed r    = fuzzcheck(t->perm, file, src, all, countof(all));
+        if (!fuzzexpect(t, r, "seed", i, file, src)) {
+            return;
+        }
+    }
 
     // GCC 16 places u64 locals below their alignof (8) on i686 Windows,
     // which UBSan traps through the pointer: a regression w64devkit
@@ -348,42 +439,17 @@ static void test_fuzz(Test *t)
             src = fuzzmutate(&a, &rng, tc->src);
         }
 
-        Os *os = newos(&a);
         Buf path(&a, 16);
         print(&path, "f");
         print(&path, fuzzexts[ext]);
         Str file = finish(&path);
-        vfsfile(os, file, src);
 
         // Default options, all kinds, and a format option set in turn
-        Lint *runs[] = {lints, lints+1, lints + 2 + i%(countof(lints)-2)};
-        Str   deflt  = {};
-        for (iz o = 0; o < countof(runs); o++) {
-            Buf cmd(&a, 128);
-            print(&cmd, runs[o]->opts);
-            print(&cmd, "-f - ");
-            print(&cmd, file);
-            Run r = runcap(os, a, finish(&cmd), (iz)8<<20);
-            Str bad = fuzzlint(r.out, src, runs[o]);
-            if (!o) {
-                deflt = r.out;
-            } else if (runs[o]->strip && !(fuzzstrip(&a, r.out) == deflt)) {
-                bad = "not the default output once stripped";
-            }
-            for (iz j = 0; j < r.out.len; j++) {
-                ntags += r.out[j] == '\n';
-            }
-            if (r.status) {
-                bad = "nonzero exit status";
-            }
-            if (!expect(t, "fuzz", bad, {})) {
-                fprintf(stderr, "  input %d (%.*s%.*s):\n[", i,
-                        (int)runs[o]->opts.len, (char *)runs[o]->opts.data,
-                        (int)file.len, (char *)file.data);
-                printstr(stderr, src);
-                fprintf(stderr, "]\n");
-                return;
-            }
+        Lint  *runs[] = {lints, lints+1, lints + 2 + i%(countof(lints)-2)};
+        Fuzzed r      = fuzzcheck(a, file, src, runs, countof(runs));
+        ntags += r.ntags;
+        if (!fuzzexpect(t, r, "input", i, file, src)) {
+            return;
         }
     }
     expect(t, "fuzz found tags", num(&t->perm, ntags > FUZZRUNS), "1");
