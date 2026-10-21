@@ -777,6 +777,50 @@ static void test_walk(Test *t)
     }
 
     {
+        // Workers, as many as there are files to tag, without directories
+        // to walk, however many arguments are examined, by the workers or
+        // not: each worker takes a share of the memory
+        Os *os = newos(&a);
+        os->ncpu = 4;
+        Str srcs[] = {"a.c", "b.c", "c.c", "d.c", "e.c", "f.c", "sub/s.c"};
+        for (iz i = 0; i < countof(srcs); i++) {
+            vfsfile(os, srcs[i], "int x;\n");
+        }
+        Str docs[] = {"README", "Makefile", "notes.txt", "x.o", "y.txt"};
+        Buf list(&a, 256);
+        print(&list, "a.c\n");
+        for (iz i = 0; i < countof(docs); i++) {
+            vfsfile(os, docs[i], "text\n");
+            print(&list, docs[i]);
+            putbyte(&list, '\n');
+        }
+        vfsfile(os, "list", finish(&list));
+        struct { Str args, jobs; } cases[] = {
+            {"a.c",                                       "1"},
+            {"a.c b.c",                                   "2"},
+            {"a.c README nosuch.c",                       "1"},
+            {"a.c README notes.txt Makefile nosuch.c",    "1"},
+            {"-L list",                                   "1"},
+            {"a.c README notes.txt Makefile y.txt sub",   "4"},
+            {"a.c b.c README notes.txt Makefile",         "2"},
+            {"a.c b.c c.c d.c e.c f.c",                   "4"},
+            {"--jobs=2 a.c b.c c.c d.c",                  "2"},
+            {"",                                          "4"},
+        };
+        for (iz i = 0; i < countof(cases); i++) {
+            Str args = concat(&a, "--_stats -R -f - ", cases[i].args);
+            Run r    = run(os, a, args);
+            Str jobs = {};
+            for (Cut c = cut(r.err, '\n'); c.ok; c = cut(c.tail, '\n')) {
+                if (find(c.head, " jobs, ") > 0) {
+                    jobs = cut(cuthead(c.head, 7), ' ').head;
+                }
+            }
+            expect(t, args, jobs, cases[i].jobs);
+        }
+    }
+
+    {
         // The workers' warnings, more than the log first holds, sorted
         // after those of missing arguments, and each message intact
         // however full the log is when the tags file cannot be written

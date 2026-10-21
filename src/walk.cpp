@@ -20,10 +20,11 @@ struct Item {
     i32   err;     // an argument that cannot be examined: OSERR_*
 };
 
-// A lock-free stack of items (Treiber). Each item is pushed exactly
-// once and never reused, so a popped item cannot reappear at the top,
-// and the stack has no ABA problem. Work is done when pending, items
-// pushed but not yet finished, reaches zero.
+// A lock-free stack of items (Treiber). While workers run, each item is
+// pushed at most once and never reused, so a popped item cannot reappear
+// at the top, and the stack has no ABA problem. (Arguments examined by
+// workers are pushed again for the next run.) Work is done when pending,
+// items pushed but not yet finished, reaches zero.
 struct Queue {
     alignas(64) Item *top;
     alignas(64) iz    pending;
@@ -389,6 +390,15 @@ static void examine(Ctx *c, Item *it, Arena scratch)
     }
 }
 
+// Examine arguments from the work stack until none are left.
+static void examineall(Worker *w)
+{
+    Queue *q = &w->ctx->queue;
+    for (Item *it = popitem(q); it; it = popitem(q)) {
+        examine(w->ctx, it, w->scratch);
+    }
+}
+
 enum : i32 { STEP_DONE, STEP_DID, STEP_WAIT };
 
 // Pop and process one item: STEP_WAIT when the stack is empty but other
@@ -401,12 +411,9 @@ static i32 workstep(Worker *w)
         b32 done = !__atomic_load_n(&q->pending, __ATOMIC_ACQUIRE);
         return done ? STEP_DONE : STEP_WAIT;
     }
-    if (it->type == ITEM_ARG) {
-        examine(w->ctx, it, w->scratch);
-    }
     if (it->type == ITEM_DIR) {
         visitdir(w, it);
-    } else if (it->type == ITEM_FILE) {
+    } else {
         visitfile(w, it);
     }
     __atomic_fetch_sub(&q->pending, 1, __ATOMIC_RELEASE);

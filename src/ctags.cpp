@@ -217,23 +217,33 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 
     // Workers, as many as asked or as there are processors, but no more
     // than there are files if there are no directories to walk, and
-    // only as many as can each have a generous share of memory. Only
-    // when there are fewer roots than that are they examined here
+    // only as many as can each have a generous share of memory. Roots
+    // are examined first: here if they are few, else by the workers,
+    // with scratch from the memory they are yet to share.
     i32 n = opt.jobs ? opt.jobs : os_ncpu(os);
     n = n<1 ? 1 : n>32 ? 32 : n;
-    if (nroots <= n) {
-        b32 anydir = 0;
+    if (nroots > n) {
+        Arena   tmp  = g;
+        Arena   rest = mem;
+        Worker *ws   = alloc<Worker>(&tmp, n);
+        for (i32 i = 0; i < n; i++) {
+            ws[i].ctx     = &ctx;
+            ws[i].scratch = carve(&rest, arenasize(mem)/n);
+        }
+        for (iz i = 1; i < nroots; i++) {
+            roots[i-1].next = roots + i;
+        }
+        pushitems(&ctx.queue, roots, roots+nroots-1);
+        os_parallel(os, ws, n, examineall);
+    } else {
         for (iz i = 0; i < nroots; i++) {
             examine(&ctx, roots+i, g);
-            anydir |= roots[i].type == ITEM_DIR;
-        }
-        if (!anydir) {
-            n = nroots<n ? (i32)(nroots>1 ? nroots : 1) : n;
         }
     }
-    Item *first = 0;
-    Item *last  = 0;
-    iz    count = 0;
+    Item *first  = 0;
+    Item *last   = 0;
+    iz    count  = 0;
+    b32   anydir = 0;
     for (iz i = 0; i < nroots; i++) {
         Item *it = roots + i;
         if (it->type != ITEM_NONE) {
@@ -244,7 +254,11 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
             }
             last = it;
             count++;
+            anydir |= it->type == ITEM_DIR;
         }
+    }
+    if (!anydir) {
+        n = count<n ? (i32)(count>1 ? count : 1) : n;
     }
     if (first) {
         ctx.queue.pending = count;
