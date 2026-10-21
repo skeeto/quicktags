@@ -627,6 +627,23 @@ static Token *extractrange(Pool *p, Token *from, Token *to, b32 nospace)
     }
 }
 
+// In a type name, whether a token other than a bracket chain is followed
+// by a space before the next.
+static b32 typespace(Token *t, Token *next)
+{
+    u32 spaced = T_PARENS|T_IDENT|T_KEYWORD|T_STAR|T_AND|T_ANDS;
+    if (t->type & (T_PARENS|T_BRACKETS)) {
+        return t->space;  // decided by what precedes it
+    } else if (t->type == T_KEYWORD) {
+        return !kwflag(t->kw, KF_DECLTYPE) && next->type&spaced;
+    } else if (t->type & (T_IDENT|T_GT|T_AND|T_ANDS)) {
+        return !!(next->type & spaced);
+    } else if (t->type == T_STAR) {
+        return !(next->type & (T_STAR|T_COMMA|T_RPAREN));
+    }
+    return 0;
+}
+
 // Like extractrange, but skipping keywords that are not part of type
 // names (static, inline, ...). Null if there is nothing else.
 static Token *extracttypename(Pool *p, Token *from, Token *to)
@@ -649,32 +666,27 @@ static Token *extracttypename(Pool *p, Token *from, Token *to)
     r->line    = t->line;
     r->linepos = t->linepos;
     r->type    = t->type;
-    tokenappend(p, &r->word, t);
-    if (t->space) {
-        wordput(p, &r->word, ' ');
-    }
-    r->space = t->space;
-    while (t != to) {
-        t = t->next;
-        if (!t) {
+
+    // Departure P8: space each token against the next one written, not
+    // a skipped keyword, so "int * restrict" is "int *", not "int * "
+    Token *last    = 0;
+    b32    skipped = 0;
+    for (;; t = t->next) {
+        if (t->type==T_KEYWORD && kwflag(t->kw, KF_NOTTYPE)) {
+            skipped = 1;
+        } else {
+            if (last && (skipped ? typespace(last, t) : last->space)) {
+                wordput(p, &r->word, ' ');
+            }
+            tokenappend(p, &r->word, t);
+            r->space = t->space;
+            last     = t;
+            skipped  = 0;
+        }
+        if (t==to || !t->next) {
             return r;
         }
-        while (t->type==T_KEYWORD && kwflag(t->kw, KF_NOTTYPE)) {
-            if (t == to) {
-                return r;
-            }
-            t = t->next;
-            if (!t) {
-                return r;
-            }
-        }
-        tokenappend(p, &r->word, t);
-        if (t->space) {
-            wordput(p, &r->word, ' ');
-        }
-        r->space = t->space;
     }
-    return r;
 }
 
 static Token *extractindexrange(Pool *p, Chain *c, iz first, iz last, b32 nospace)
@@ -1051,23 +1063,14 @@ static void normalizerange(Token *from, Token *to)
     if (!from || !to) {
         return;
     }
-    u32 spaced = T_PARENS|T_IDENT|T_KEYWORD|T_STAR|T_AND|T_ANDS;
     for (Token *t = from;; t = t->next) {
         if (t->type & (T_PARENS|T_BRACKETS)) {
             b32 space = t->prev && t->prev->type==T_KEYWORD &&
                         kwflag(t->prev->kw, KF_DECLTYPE);
             normalizechain(t->chain);
             t->space = space;
-        } else if (t->type == T_KEYWORD) {
-            t->space = t->next && !kwflag(t->kw, KF_DECLTYPE) &&
-                       t->next->type&spaced;
-        } else if (t->type & (T_IDENT|T_GT|T_AND|T_ANDS)) {
-            t->space = t->next && t->next->type&spaced;
-        } else if (t->type == T_STAR) {
-            t->space = t->next &&
-                       !(t->next->type & (T_STAR|T_COMMA|T_RPAREN));
         } else {
-            t->space = 0;
+            t->space = t->next && typespace(t, t->next);
         }
         if (t == to) {
             break;

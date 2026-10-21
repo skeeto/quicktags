@@ -2182,3 +2182,9 @@
 = 4 clang/test/CXX/module/module.interface/p1.cpp
 = 2 clang/test/CXX/module/module.interface/p3.cpp
 = 2 clang/test/Modules/cxx20-10-2-ex1.cpp
+
+@ *: P8, a typeref has no space from a keyword dropped at its end
+! typeref-trailing-space
+
+@ corpus/llvm/clang: P8, a type's spaces do not depend on keywords dropped from it
+= 2 clang/test/Sema/constexpr.c

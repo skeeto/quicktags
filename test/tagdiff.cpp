@@ -14,6 +14,7 @@
 // applied before comparing:
 //   anon-namespace-file   functions, variables, and members within an
 //                         anonymous namespace are file: outside headers
+//   typeref-trailing-space   a typeref does not end in spaces
 //
 // Options:
 //   --ledger FILE      explain differences with this ledger
@@ -227,7 +228,10 @@ struct Entry {
     iz        count;
 };
 
-enum : u32 { REWRITE_ANONFILE = 1u<<0 };
+enum : u32 {
+    REWRITE_ANONFILE  = 1u<<0,
+    REWRITE_TYPESPACE = 1u<<1,
+};
 
 static Entry *readledger(Arena *a, Str text, Str scope)
 {
@@ -267,6 +271,8 @@ static Entry *readledger(Arena *a, Str text, Str scope)
             Str name = trim(cuthead(l, 2));
             if (name == "anon-namespace-file") {
                 cur->rewrites |= REWRITE_ANONFILE;
+            } else if (name == "typeref-trailing-space") {
+                cur->rewrites |= REWRITE_TYPESPACE;
             } else {
                 fprintf(stderr, "tagdiff: unknown rewrite: %.*s\n",
                         (int)name.len, (char *)name.data);
@@ -355,10 +361,37 @@ static b32 anonnamespace(Str scope)
     return 0;
 }
 
-// Apply a rewrite to a reference line, or return it unchanged.
+// Trim spaces ending the typeref field.
+static Str trimtyperef(Arena *a, Str line, b32 *changed)
+{
+    iz at = -1;
+    for (iz i = 0; i+8 < line.len; i++) {
+        if (line[i]=='\t' && startswith(cuthead(line, i+1), "typeref:")) {
+            at = i + 1;
+        }
+    }
+    if (at < 0) {
+        return line;
+    }
+    iz end = at;
+    for (; end<line.len && line[end]!='\t'; end++) {}
+    iz trim = end;
+    for (; trim>at && line[trim-1]==' '; trim--) {}
+    if (trim == end) {
+        return line;
+    }
+    *changed = 1;
+    Str head = {line.data, trim};
+    return concat(a, head, cuthead(line, end));
+}
+
+// Apply rewrites to a reference line, or return it unchanged.
 static Str rewrite(Arena *a, u32 rewrites, Str line, b32 *changed)
 {
     *changed = 0;
+    if (rewrites & REWRITE_TYPESPACE) {
+        line = trimtyperef(a, line, changed);
+    }
     if (!(rewrites & REWRITE_ANONFILE)) {
         return line;
     }

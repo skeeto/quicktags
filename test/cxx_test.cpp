@@ -137,7 +137,7 @@ static TagCase ccases[] = {
      "struct S { int a; } static x;\n",
      "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
      "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
-     "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \tfile:\n",
+     "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S\tfile:\n",
      "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
      "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
      "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \n"},
@@ -148,6 +148,16 @@ static TagCase ccases[] = {
      "load_certs\tp3.c\t/^STACK_OF(X509) *load_certs(const char *path) { return 0; }$/;\"\tf\tline:1\ttyperef:typename:STACK_OF (X509)*\n",
      "STACK_OF\tp3.c\t/^STACK_OF(X509) *load_certs(const char *path) { return 0; }$/;\"\tf\tline:1\n"
      "_Atomic\tp3.c\t/^_Atomic(int) *counter(void) { return 0; }$/;\"\tf\tline:2\n"},
+    {IMPROVED, "P8 keywords dropped from types", "p8.c", "",
+     "int * restrict p;\n"
+     "int * restrict * q;\n"
+     "static inline int (*handler)(void);\n",
+     "handler\tp8.c\t/^static inline int (*handler)(void);$/;\"\tv\tline:3\ttyperef:typename:int (*)(void)\tfile:\n"
+     "p\tp8.c\t/^int * restrict p;$/;\"\tv\tline:1\ttyperef:typename:int *\n"
+     "q\tp8.c\t/^int * restrict * q;$/;\"\tv\tline:2\ttyperef:typename:int **\n",
+     "handler\tp8.c\t/^static inline int (*handler)(void);$/;\"\tv\tline:3\ttyperef:typename:int (*)(void)\tfile:\n"
+     "p\tp8.c\t/^int * restrict p;$/;\"\tv\tline:1\ttyperef:typename:int * \n"
+     "q\tp8.c\t/^int * restrict * q;$/;\"\tv\tline:2\ttyperef:typename:int * *\n"},
 };
 
 static TagCase cxxcases[] = {
