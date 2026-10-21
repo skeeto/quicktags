@@ -539,14 +539,61 @@ static b32 checkoutput(Os *os, Str path, Arena scratch, Buf *log)
     return 1;
 }
 
+// Write an old TAGS file's bytes but the sections of the files in the
+// set (D9), ending in LF so that a new section starts a line. A section
+// starts at a form feed that starts a line, before LF or CRLF, and its
+// head names the file up to the last comma.
+static void writeoldetags(Out *o, Str old, Map<b32> *drop)
+{
+    iz  beg  = 0;  // the part to keep or drop
+    b32 keep = 1;  // the part before any section
+    b32 any  = 0;
+    u8  last = 0;
+    for (iz i = 0; i <= old.len; i++) {
+        Str rest  = cuthead(old, i);
+        b32 start = (!i || old[i-1]=='\n') &&
+                    (startswith(rest, "\f\n") || startswith(rest, "\f\r\n"));
+        if (i<old.len && !start) {
+            continue;
+        }
+        if (keep && i>beg) {
+            print(o, span(old.data+beg, old.data+i));
+            any  = 1;
+            last = old[i-1];
+        }
+        if (i == old.len) {
+            break;
+        }
+        Str head = cut(cuthead(rest, rest[1]=='\r' ? 3 : 2), '\n').head;
+        head = endswith(head, "\r") ? cuttail(head, 1) : head;
+        iz comma = head.len - 1;
+        for (; comma>=0 && head[comma]!=','; comma--) {}
+        keep = comma<0 || !upsert(&drop, takehead(head, comma), 0);
+        beg  = i;
+    }
+    if (any && last!='\n') {
+        print(o, "\n");
+    }
+}
+
 // Write the workers' lines, and those of a tags file appended to, in
 // the order the options ask, and return how many.
 static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
                      Arena scratch)
 {
+    // The files tagged again, whose old lines or sections go (D9)
+    Map<b32> *drop = 0;
+    if (old->text.data) {
+        for (i32 i = 0; i < n; i++) {
+            for (Chunk *k = ws[i].chunks; k; k = k->next) {
+                *upsert(&drop, k->outpath, &scratch) = 1;
+            }
+        }
+    }
+
     if (opt->writer == WRITER_ETAGS) {
-        // The new sections after the old file's bytes (OPT-21)
-        print(o, old->text);
+        // The new sections after the old file's others (OPT-21)
+        writeoldetags(o, old->text, drop);
         return writechunks(o, ws, n, 1, scratch);
     }
 
@@ -554,12 +601,6 @@ static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
     i32     ns = n;
     if (old->text.data) {
         // The old lines but those of files tagged again (D9)
-        Map<b32> *drop = 0;
-        for (i32 i = 0; i < n; i++) {
-            for (Chunk *k = ws[i].chunks; k; k = k->next) {
-                *upsert(&drop, k->outpath, &scratch) = 1;
-            }
-        }
         Stream *t = s + ns++;
         if (old->lines) {
             iz len = 0;

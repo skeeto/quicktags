@@ -877,6 +877,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **A file that cannot be read** gets an empty section, named by the path as constructed even where `--tag-relative` makes the others relative, with WARNING `cannot open "PATH" : REASON`: with `-f ../T -R` from `wl`, `wl/a.c` but `sub/b.c,0` [V]. A file of no language is read too, so one that cannot be gets the same. Here a file that cannot be read gets no section, as it gets no tags (D19), nor does one too large to read (D7); one of a language not parsed here is not read, so it gets its section, named as any other, and no warning.
   - **`--sort=yes` or `foldcase`** after `-e` sorts the lines of the TAGS file as if they were tags, which merges the sections and loses lines: `a.c`, then `z.c`, give one section of `a.c`'s entries, sorted, and none of `z.c`'s [V]. Here the order is that of the walk, whatever `--sort` says (D18).
   - **`-a`** (OPT-20) adds the new sections after the bytes of the file as they are [V]. An existing file must still pass CLI-3's test, which accepts a TAGS file by its first line, or a tags file, to which the sections are then added.
+  - Here the old sections of the files tagged in this run are dropped (D9): a section starts at a form feed that starts a line and is followed by LF or CRLF, and runs to the next; it is dropped when its head, up to its last comma, a CR before the LF dropped, is byte for byte the path this run writes for a file it gives a section, whether or not that has entries now. The rest is kept as it was, but for an LF added at the end of a file that lacks one, so that the first new section starts a line. So appending a tree to its own TAGS file changes nothing.
 
 ---
 
@@ -1022,7 +1023,10 @@ Decided for this program, deliberately different from Universal Ctags.
   line, so a file appended again has its stale tags and its new ones,
   both found by Vim, and one emptied of tags keeps them all. Plugins
   that append, as gutentags does, filter the file's lines out first,
-  which now changes nothing.
+  which now changes nothing. Under etags, the old sections of the files
+  tagged again are dropped in the same way (OPT-21), where Universal
+  Ctags adds a second section for each, so Emacs offers both the stale
+  tags and the new ones.
 - **D10** `;"` is written whenever any field is (FLD-4), also before a
   parser's field written alone, as C++'s `name:` is with `--fields=`.
   Universal Ctags writes `A\ta.cpp\t/^namespace A = N;$/\tname:N`,
@@ -1136,7 +1140,10 @@ Decided for this program, deliberately different from Universal Ctags.
   Universal Ctags leaves an old file out of order as it was; and an
   empty file gets the pseudo-tags a new one does, where Universal Ctags
   writes it none, which leaves readers that skip a fixed number of
-  lines, as LeaderF does, skipping tags.
+  lines, as LeaderF does, skipping tags. Under etags (OPT-21), an old
+  file whose last line lacks its LF gets one before the new sections,
+  where Universal Ctags runs that line into the first new form feed,
+  which then starts no section.
 - **Fields accepted without output** (FLD-5): `e` (`end:`) and `o`
   (`nth:`) are accepted and write nothing, since the parsers do not track
   where definitions end or count members. A reader of either must treat

@@ -2004,6 +2004,58 @@ static void test_walk(Test *t)
         r = run(os, a, "-a -e a.c");
         expect(t, "-a -e refused", num(&a, r.status), "1");
         expect(t, "-a -e refused", vfsfind(os, "TAGS", 0)->data, "int x;\n");
+
+        // D9: the old sections of the files tagged again go, by their
+        // heads, a file of no language and one with no entries included,
+        // and an LF ends the old bytes, where Universal Ctags keeps them
+        // all as they are
+        Str olda = "\f\na.c,13\nint q;\x7fq\x01" "1,0\n";
+        Str oldo = "\f\nold.c,13\nint o;\x7fo\x01" "1,0\n";
+        struct { Str old, args, want, uctags; } d9[] = {
+            {concat(&a, concat(&a, oldo, olda), oldo), "-a -e a.c",
+             concat(&a, concat(&a, oldo, oldo), sa),
+             concat(&a, concat(&a, concat(&a, oldo, olda), oldo), sa)},
+            {"\f\r\na.c,14\r\nint q;\x7fq\x01" "1,0\r\n", "-a -e a.c", sa,
+             concat(&a, "\f\r\na.c,14\r\nint q;\x7fq\x01" "1,0\r\n", sa)},
+            {concat(&a, sr, olda), "-a -e README sub/empty.c",
+             concat(&a, concat(&a, olda, sr), se),
+             concat(&a, concat(&a, concat(&a, sr, olda), sr), se)},
+            {"\f\nsub/empty.c,13\nint q;\x7fq\x01" "1,0\n",
+             "-a -e sub/empty.c", se,
+             concat(&a, "\f\nsub/empty.c,13\nint q;\x7fq\x01" "1,0\n", se)},
+            {"\f\nold.c,13\nint o;\x7fo\x01" "1,0", "-a -e a.c",
+             concat(&a, oldo, sa),
+             concat(&a, "\f\nold.c,13\nint o;\x7fo\x01" "1,0", sa)},
+            {"x\ta.c\t1;\"\n\f\na.c,0\n", "-a -e a.c",
+             concat(&a, "x\ta.c\t1;\"\n", sa),
+             concat(&a, "x\ta.c\t1;\"\n\f\na.c,0\n", sa)},
+            {"\f\nsub/c.f90,0\n", "-a -e -f sub/TAGS sub/c.f90",
+             "\f\nsub/c.f90,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n",
+             "\f\nsub/c.f90,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n"},
+        };
+        for (iz i = 0; i < countof(d9); i++) {
+            Str out = find(d9[i].args, "sub/TAGS")>=0 ? Str("sub/TAGS")
+                                                      : Str("TAGS");
+            vfsfile(os, out, d9[i].old);
+            Str name = concat(&a, "D9 -e: case ", num(&a, i));
+            r = run(os, a, d9[i].args);
+            expect(t, name, num(&a, r.status), "0");
+            expect(t, name, vfsfind(os, out, 0)->data, d9[i].want);
+            b32 departs = i < countof(d9)-1;  // the last as there
+            expect(t, name, num(&a, d9[i].want!=d9[i].uctags),
+                   num(&a, departs));
+            vfsunlink(os, out);
+        }
+
+        // So appending a tree to its own TAGS file changes nothing
+        run(os, a, "-e -R");
+        Str once = vfsfind(os, "TAGS", 0)->data;
+        for (i32 i = 0; i < 2; i++) {
+            r = run(os, a, "-a -e -R");
+            expect(t, "-a -e -R", num(&a, r.status), "0");
+            expect(t, "-a -e -R", vfsfind(os, "TAGS", 0)->data, once);
+        }
+        vfsunlink(os, "TAGS");
     }
 
     {
