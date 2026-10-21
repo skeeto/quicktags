@@ -27,10 +27,12 @@ adding to their stale ones. `--exclude`, `-L` file lists, `--languages`,
 work as in Universal Ctags. Files are tagged by extension, as Universal
 Ctags does.
 
-On a 24-thread machine quicktags tags llama.cpp in 0.1 seconds and llvm-project
-(800 MB in 77,000 files) in 1.3 seconds, where Universal Ctags takes 5
-and 39 seconds. Where it departs from Universal Ctags, and why, is in
-`docs/spec.md`, section 4.
+It is about 30 times faster than Universal Ctags on a 24-thread machine,
+and 4 to 9 times faster on one thread. It tags llama.cpp in 0.16 seconds
+and llvm-project (800 MB in 77,000 files) in 1.5 seconds, where
+Universal Ctags, limited to the same languages, takes 5 and 38 seconds.
+Where it departs from Universal Ctags, and why, is in `docs/spec.md`,
+section 4.
 
 ## Build
 
