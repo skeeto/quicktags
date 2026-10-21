@@ -1053,6 +1053,34 @@ static void test_cli(Test *t)
          "printable\n"
          "ctags: Warning: Cannot disable fixed field: 'N'{name} in ctags "
          "output mode\n"},
+        {"-e --fields=-N --list-fields=NONE", ARGS_EXIT,
+         "#LETTER NAME           ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION\n"
+         "C       compact        no      NONE     s--    no    -- compact input line (used only in xref output)\n"
+         "E       extras         no      NONE     s--    no    r- Extra tag type information\n"
+         "F       input          yes     NONE     s--    no    r- input file\n"
+         "K       NONE           no      NONE     s--    no    -- Kind of tag in long-name form\n"
+         "N       name           no      NONE     s--    no    rw tag name\n"
+         "P       pattern        yes     NONE     s-b    no    -- pattern\n"
+         "R       NONE           no      NONE     s--    no    -- Marker (R or D) representing whether tag is definition or reference\n"
+         "S       signature      no      NONE     s--    no    rw Signature of routine (e.g. prototype or parameter list)\n"
+         "T       epoch          yes     NONE     -i-    no    -- the last modified time of the input file (only for F/file kind tag)\n"
+         "Z       scope          no      NONE     s--    no    rw [tags output] prepend \"scope:\" key to s/scope field output, [xref and json output] the same as s/ field\n"
+         "a       access         no      NONE     s--    no    rw Access (or export) of class members\n"
+         "e       end            no      NONE     -i-    no    rw end lines of various items\n"
+         "f       file           yes     NONE     --b    no    -- File-restricted scoping\n"
+         "i       inherits       no      NONE     s-b    no    -w Inheritance information\n"
+         "k       NONE           yes     NONE     s--    no    -- Kind of tag in one-letter form\n"
+         "l       language       no      NONE     s--    no    r- Language of input file containing tag\n"
+         "m       implementation no      NONE     s--    no    -- Implementation information\n"
+         "n       line           yes     NONE     -i-    no    rw Line number of tag definition\n"
+         "o       nth            no      NONE     -i-    no    -- the order in the parent scope\n"
+         "p       scopeKind      no      NONE     s--    no    -- [tags output] no effect, [xref and json output] kind of scope in long-name form\n"
+         "r       roles          no      NONE     s--    no    r- Roles\n"
+         "s       NONE           yes     NONE     s--    no    -- [tags output] scope (kind:name) of tag definition, [xref and json output] name of scope\n"
+         "t       typeref        yes     NONE     s--    no    rw Type and name of a variable or typedef\n"
+         "x       xpath          no      NONE     s--    no    -- xpath for the tag\n"
+         "z       kind           no      NONE     s--    no    r- [tags output] prepend \"kind:\" to k/ (or K/) field output, [xref and json output] kind in long-name form\n",
+         ""},
         {"--list-fields=fortran", ARGS_EXIT,
          "#LETTER NAME ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION\n", ""},
         {"--list-kinds=cpp", ARGS_FATAL, {},
@@ -1073,6 +1101,31 @@ static void test_cli(Test *t)
         }
         expect(t, ls[i].args, r.log, ls[i].log);
     }
+
+    // The pseudo extra: until an option sets it, enabled where the writer
+    // has pseudo-tags and the output is a file; under etags, fixed
+    struct { Str args, row; } ps[] = {
+        {"--list-extras",                           "yes     NONE     no "},
+        {"-f - --list-extras",                      "no      NONE     no "},
+        {"-o /dev/stdout --list-extras",            "no      NONE     no "},
+        {"-f - --extras=+p --list-extras",          "yes     NONE     no "},
+        {"-f - --extras=+q --list-extras",          "no      NONE     no "},
+        {"-f - --extras=* --list-extras",           "yes     NONE     no "},
+        {"--extras=-p --list-extras",               "no      NONE     no "},
+        {"-e --list-extras",                        "no      NONE     yes"},
+        {"-e --extras=+p --list-extras",            "no      NONE     yes"},
+        {"--extras=+p -e --list-extras",            "yes     NONE     yes"},
+        {"-e --output-format=e-ctags --list-extras", "yes     NONE     no "},
+        {"-e --extras-all=* --output-format=e-ctags --list-extras",
+         "no      NONE     no "},
+    };
+    for (iz i = 0; i < countof(ps); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, ps[i].args);
+        Str    row = concat(&tmp, "\np       pseudo    ", ps[i].row);
+        expect(t, ps[i].args, num(&tmp, find(r.opt.print, row) > 0), "1");
+    }
+
     {
         // Listing all kinds in full, sorted by language and letter
         Arena  tmp  = a;

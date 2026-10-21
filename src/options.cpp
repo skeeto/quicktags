@@ -15,6 +15,7 @@ struct Options {
     Kinds      kinds;
     b32        filekind;     // the file kind, F, which all languages share
     u32        extras;       // EXTRA_*
+    b32        pseudoset;    // an option set the pseudo extra
     u64        fields;       // one bit per FIELD_*
     i32        jobs;         // 0: one per processor
     i32        excmd;        // EXCMD_*
@@ -627,13 +628,30 @@ static i32 kindspec(Parse *p, i32 lang, Str spec, Str option)
     return s.ok ? ARGS_OK : ARGS_FATAL;
 }
 
+// Whether the pseudo extra is enabled: as an option last set it, or else
+// where the writer has pseudo-tags and the output is a file.
+static b32 pseudoon(Options *opt)
+{
+    if (opt->pseudoset) {
+        return (opt->extras & EXTRA_PSEUDO) != 0;
+    }
+    return opt->writer!=WRITER_ETAGS && opt->output!="-";
+}
+
 // Store the extras a specification left, with those it set: setting the
-// inputFile extra sets the file kind to the same state.
+// inputFile extra sets the file kind to the same state, and under etags,
+// which has no pseudo-tags, the pseudo extra is fixed as it is.
 static void setextras(Parse *p, u64 bits, u64 set)
 {
     Options *opt = p->opt;
     if (set & EXTRA_INPUTFILE) {
         opt->filekind = (bits & EXTRA_INPUTFILE) != 0;
+    }
+    if (set & EXTRA_PSEUDO) {
+        b32 on = opt->writer==WRITER_ETAGS ? pseudoon(opt)
+                                           : (bits & EXTRA_PSEUDO) != 0;
+        bits = (bits & ~(u64)EXTRA_PSEUDO) | (on ? EXTRA_PSEUDO : 0u);
+        opt->pseudoset = 1;
     }
     opt->extras = (u32)bits;
 }
@@ -1173,13 +1191,16 @@ static i32 listextrasopt(Parse *p, Str name, Str value)
     }
     for (i32 i = 0; i < NEXTRAS; i++) {
         b32 common = i < NCOMMONEXTRAS;
+        b32 pseudo = 1u<<i == EXTRA_PSEUDO;
         if (l.lang ? l.lang==LANG_FORTRAN && !common : common || !none) {
-            Kind *x = extras + i;
+            Kind *x     = extras + i;
+            b32   on    = pseudo ? pseudoon(opt) : opt->extras>>i & 1;
+            b32   fixed = pseudo && opt->writer==WRITER_ETAGS;
             cells = push(p->perm, cells, letterof(x));
             cells = push(p->perm, cells, x->name);
-            cells = push(p->perm, cells, yesno(opt->extras>>i & 1));
+            cells = push(p->perm, cells, yesno(on));
             cells = push(p->perm, cells, common ? Str("NONE") : Str("Fortran"));
-            cells = push(p->perm, cells, Str("no"));
+            cells = push(p->perm, cells, yesno(fixed));
             cells = push(p->perm, cells, x->desc);
         }
     }
@@ -1190,16 +1211,18 @@ static i32 listextrasopt(Parse *p, Str name, Str value)
 }
 
 // --list-fields[=LANG|NONE]: the common fields, and C's and C++'s, after
-// enabling those that must be.
+// enabling those that must be. Under etags no field is fixed, so the
+// common fields are all listed by letter.
 static i32 listfieldsopt(Parse *p, Str name, Str value)
 {
-    Options *opt  = p->opt;
-    b32      none = equalsfold(value, "NONE");
-    Listed   l    = none ? Listed{} : listed(p, value);
+    Options *opt   = p->opt;
+    b32      none  = equalsfold(value, "NONE");
+    Listed   l     = none ? Listed{} : listed(p, value);
+    b32      etags = opt->writer == WRITER_ETAGS;
     if (!none && !l.ok) {
         return unknownlang(p, value, name);
     }
-    if (opt->writer != WRITER_ETAGS) {
+    if (!etags) {
         fixfields(p);
     }
 
@@ -1209,17 +1232,26 @@ static i32 listfieldsopt(Parse *p, Str name, Str value)
     for (iz i = 0; i < countof(header); i++) {
         cells = push(p->perm, cells, header[i]);
     }
+    Kind *rows[NFIELDS];
     for (i32 i = 0; i < NFIELDS; i++) {
+        rows[i] = fields + i;
+    }
+    if (etags) {
+        sort(rows, NCOMMONFIELDS, letterless, *p->perm);
+    }
+    for (i32 row = 0; row < NFIELDS; row++) {
+        i32 i    = (i32)(rows[row] - fields);
         i32 lang = i<FIELD_C ? LANG_NONE : i<FIELD_CXX ? LANG_C : LANG_CXX;
         if (l.lang ? l.lang==lang : !lang || !none) {
             Kind *f      = fields + i;
             b32   common = lang == LANG_NONE;
+            b32   fixed  = !etags && i<=FIELD_PATTERN;
             cells = push(p->perm, cells, letterof(f));
             cells = push(p->perm, cells, f->name.data ? f->name : Str("NONE"));
             cells = push(p->perm, cells, yesno(fieldon(opt->fields, i)));
             cells = push(p->perm, cells, langnames[lang]);
             cells = push(p->perm, cells, common ? fieldtypes[i] : Str("s--"));
-            cells = push(p->perm, cells, yesno(i <= FIELD_PATTERN));
+            cells = push(p->perm, cells, yesno(fixed));
             cells = push(p->perm, cells, common ? fieldops[i] : Str("--"));
             cells = push(p->perm, cells, f->desc);
         }
