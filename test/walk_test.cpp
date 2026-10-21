@@ -1991,4 +1991,29 @@ static void test_walk(Test *t)
         expect(t, "-a -e refused", num(&a, r.status), "1");
         expect(t, "-a -e refused", vfsfind(os, "TAGS", 0)->data, "int x;\n");
     }
+
+    {
+        // D18: an order asked for after -e changes nothing, where Universal
+        // Ctags sorts the TAGS file's lines as a tags file's, merging the
+        // sections, and here losing z.c's
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int b;\nint a;\n");
+        vfsfile(os, "z.c", "int z;\n");
+        Str want   = "\f\na.c,26\n"
+                     "int b;\x7f" "b\x01" "1,0\n"
+                     "int a;\x7f" "a\x01" "2,7\n"
+                     "\f\nz.c,13\n"
+                     "int z;\x7fz\x01" "1,0\n";
+        Str uctags = "\f\na.c,26\n"
+                     "int a;\x7f" "a\x01" "2,7\n"
+                     "int b;\x7f" "b\x01" "1,0\n";
+        Str sorts[] = {"--sort=yes", "--sort=foldcase", "-u", "--sort=no"};
+        for (iz i = 0; i < countof(sorts); i++) {
+            Str args = concat(&a, concat(&a, "-e ", sorts[i]), " -f - a.c z.c");
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, r.out, want);
+        }
+        expect(t, "D18 departs", num(&a, want!=uctags), "1");
+    }
 }

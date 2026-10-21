@@ -722,13 +722,13 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - An unknown language is FATAL `Unknown language "X" in "OPTION" option` for `--kinddef-`, `--regex-`, `--mline-regex-`, `--map-`, `--param-`, `--language-force` and the listings, and a WARNING otherwise: the same text for `--kinds-LANG` and `--languages`, `Unknown language: X (ignoring "--OPTION")` for `--fields-LANG` and `--extras-LANG`, `unknown language "X" in --OPTION option` for `--roles-LANG`, and for `--langmap` the whole value as the language.
 - **OPT-4 Other languages** (here). An option naming a language Universal Ctags knows and this program does not parse is accepted and does nothing, without Universal Ctags' checks of that language's kinds, extras, fields or parameters (it warns `Unsupported kind: 'x' for --kinds-python option`, say). So option files written for Universal Ctags work unchanged. The exceptions are the file kind, which every language shares (CLI-4): `--kinds-python=-F` disables it for C too, and the grammar's FATAL errors (a stray brace) apply; and languages defined as subparsers of ours (OPT-12).
 
-**What is refused, and what is not yet done**
+**What is refused, and what is accepted**
 - **OPT-5 Refused** (here): options that would change which tags exist in C, C++ or Fortran, or write another output, are FATAL `OPTION: not supported`:
   - `--regex-LANG`, `--mline-regex-LANG` and `--kinddef-LANG` for our languages, and for languages defined as subparsers that our parsers run (OPT-12); the Fortran extra `linkName` (`--extras-Fortran=+{linkName}`, also by `--extras-all=*`);
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` (or `--output-format=etags`) with `--sort=yes` or `foldcase` after it. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Accepted** (here). Nothing is refused as not yet supported: every option that OPT-5 does not refuse acts as this section says, or is accepted without effect. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -813,7 +813,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     - vim-clap requires the first line to start with `Universal Ctags`, which this does not.
 
 **Order of checks**
-- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check and OPT-6's check follow.
+- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check follows.
 
 **Identifiers**
 - **OPT-17 [S][V] `-I LIST|@FILE|-`** (`options.c processIgnoreOption`, `cpreprocessor.c saveIgnoreToken`) fills a table of identifiers that the C and C++ tokenizer drops or replaces (LEX-14), each option acting as it is read.
@@ -873,6 +873,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **File tags** (EX-7, `--extras=+f`): DEL, the name, SOH, `1,0`, LF, after the file's other entries. Files of the languages this program does not parse get them too.
   - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (section 4).
   - **The TAGS file** is created before any file is tagged, so a walk of its directory finds it, of no language, and gives it an empty section: `-R` writes `TAGS,0` [V]. Here, too, the file is created empty before the walk if it does not exist.
+  - **`--sort=yes` or `foldcase`** after `-e` sorts the lines of the TAGS file as if they were tags, which merges the sections and loses lines: `a.c`, then `z.c`, give one section of `a.c`'s entries, sorted, and none of `z.c`'s [V]. Here the order is that of the walk, whatever `--sort` says (D18).
   - **`-a`** (OPT-20) adds the new sections after the bytes of the file as they are [V]. An existing file must still pass CLI-3's test, which accepts a TAGS file by its first line, or a tags file, to which the sections are then added.
 
 ---
@@ -1073,6 +1074,11 @@ Decided for this program, deliberately different from Universal Ctags.
   while that is on, a file last modified while it was off is written an
   hour late (`1768500000` for `1768496400`), and the epoch of an
   unchanged file changes twice a year.
+- **D18** Emacs tags are written in the walk's order, a section per
+  file, whatever `--sort` says (OPT-21). With `--sort=yes` or
+  `foldcase` after `-e`, Universal Ctags sorts the TAGS file's lines as
+  a tags file's, so the sections' heads gather at the top, entries leave
+  their sections, and some are lost: a file that Emacs cannot read.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
@@ -1092,8 +1098,7 @@ Decided for this program, deliberately different from Universal Ctags.
   `--append` (OPT-20), the listings (OPT-15), `--version` (OPT-19), `--help`, and this program's
   `--jobs`. The others are
   accepted at their defaults and where they name other languages
-  (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
-  (OPT-6). Of the extras, only `anonymous`, `F`, `f`, `p` and `q` have
+  (OPT-4, OPT-6), and otherwise refused (OPT-5). Of the extras, only `anonymous`, `F`, `f`, `p` and `q` have
   effects (EX-6, EX-7).
 - Smaller departures in parsing options: a letter that takes a
   parameter is FATAL as the last argument (OPT-1); option files skip

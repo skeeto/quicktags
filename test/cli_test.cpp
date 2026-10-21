@@ -332,8 +332,7 @@ static void test_cli(Test *t)
     }
 
     // Every option's grammar, with the messages of Universal Ctags 6.2.1,
-    // ours for what it accepts and this program refuses, and "not yet
-    // supported" for what this program will do
+    // and ours for what it accepts and this program refuses
     i32 OK    = ARGS_OK;
     i32 FATAL = ARGS_FATAL;
     i32 EXIT  = ARGS_EXIT;
@@ -362,9 +361,8 @@ static void test_cli(Test *t)
         {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
                                  "tags to stdout\n"},
         {"-e a",          OK,    ""},
-        {"-e --sort=yes a", FATAL, "ctags: -e with --sort: not yet supported\n"},
-        {"-e --sort=foldcase a", FATAL,
-         "ctags: -e with --sort: not yet supported\n"},
+        {"-e --sort=yes a", OK,  ""},
+        {"-e --sort=foldcase a", OK, ""},
         {"--sort=yes -e a", OK,  ""},
         {"-n a",          OK,    ""},
         {"-N a",          OK,    ""},

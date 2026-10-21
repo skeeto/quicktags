@@ -57,8 +57,7 @@ struct Macros {
 
 struct Format;
 
-// Every option is parsed into its value here. Some are not acted on yet,
-// and parsefinish refuses them.
+// Every option is parsed into its value here.
 struct Options {
     Str         output;       // "-" is standard output
     Format     *fmt;          // how lines are written, null for the default
@@ -2160,11 +2159,6 @@ static i32 parseloop(Parse *p, Str *args, iz nargs)
     return ARGS_OK;
 }
 
-static i32 notyet(Parse *p, Str option)
-{
-    return fatal(p, option, ": not yet supported");
-}
-
 // Read the -L list, then check and complete the options.
 static i32 parsefinish(Parse *p)
 {
@@ -2191,11 +2185,6 @@ static i32 parsefinish(Parse *p)
     }
     if (opt->extras & EXTRA_LINKNAME) {
         return unsupported(p, "--extras-Fortran=+{linkName}");
-    }
-
-    // Parsed, but not yet implemented
-    if (opt->writer==WRITER_ETAGS && opt->sort!=SORT_NO) {
-        return notyet(p, "-e with --sort");
     }
 
     // Universal Ctags finds this once it is to tag a file (LANG-6)
