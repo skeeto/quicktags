@@ -38,8 +38,8 @@ apply.
   - No files with `-R`: recurse into `"."`.
 - **CLI-3 [V]** `-f`/`-o FILE`.
   - `-` or `/dev/stdout` means stdout; the default file is `tags`.
-  - A name starting with `-` that is longer than one character is FATAL.
-  - Repeating the option gives a warning, and the last value wins.
+  - A name starting with `-` that is longer than one character is FATAL `output file name may not begin with a '-'`.
+  - Repeating the option gives a warning naming the letter given, `-o option specified more than once, last value used`, and the last value wins, unchecked for a leading `-`.
   - Output to an existing directory is FATAL; so is overwriting a file that is not a tags file (G9) [S].
 - **CLI-4 [V]** `--kinds-<LANG>=SPEC`.
   - The language name is case-insensitive (`c++`, `C++`, `fortran`). There are no aliases: `--kinds-cpp` gives WARNING `Unknown language "cpp" in "kinds-cpp" option` and is ignored.
@@ -47,13 +47,15 @@ apply.
     - A leading `*` enables all kinds.
     - A first character other than `+`, `-` or `*` first disables all kinds.
     - `+` and `-` switch the mode for the letters that follow (`+p-d`).
-    - `{longname}` is case-sensitive.
+    - `{longname}` is case-sensitive. Within braces `+` and `-` are part of the name, and an unclosed `{name` at the end is ignored. A `{` inside braces or a `}` outside them is FATAL `unexpected character in kind specification: '}'`.
     - An empty SPEC disables all kinds of that language.
-    - An unknown letter gives WARNING `Unsupported kind: 'Q' for --kinds-C option` and is ignored.
+    - An unknown letter or name gives WARNING `Unsupported kind: 'Q' for --kinds-C option` (the name without braces) and is ignored.
+    - Every language has the file kind, `F` or `{file}`, off by default; it marks the `F` tags of the inputFile extra.
   - The old forms `--c-kinds=` and `--c++-types=` also work. The language is everything before the first `-`.
-  - `--kinds-all=` accepts only `*`, `F`, `{file}`.
+  - `--kinds-all=` accepts only `*`, `F`, `{file}` (OPT-10).
+  - Options naming other languages: OPT-4.
 - **CLI-5 [V]** C/C++ kind sharing. The letters `d e f g h l m p s t u v x z L D` are **shared** between C and C++ in both directions, so `--kinds-C=+p` turns on prototypes in `.h` files. The C++-only letters `c n A N U Z M P` are independent. CUDA is independent.
-- **CLI-6 [V]** Options may follow files and apply to later files only. initOnly options after a file are FATAL: `-a -e -f -o -u -x`, `--sort`, `--pattern-length-limit`, `--tag-relative`, `--format`, `--output-format`, `--list-*`, …
+- **CLI-6 [V]** Options may follow files and apply to later files only. initOnly options after a file are FATAL: `-a -e -f -o -u -x`, `--sort`, `--pattern-length-limit`, `--tag-relative`, `--format`, `--output-format`, `--list-*`, … The full grammar of the options is section 1.12.
 - **CLI-7 [V]** Exit status:
   - 0 with warnings (for example, a missing input: `ctags.exe: Warning: cannot open input file "x" : No such file or directory`);
   - 1 on FATAL.
@@ -587,6 +589,101 @@ depends on how far the walk had read when the label was seen. Our
 - **EX-5 [S] pseudo.** Without it, no pseudo-tags are written. With it given explicitly, Universal Ctags also writes them to stdout.
 - **EX-6** `inputFile`, `guest`, `reference`, `subparser` and `nulltag` produce tags only from features not ported (file-kind entries with an `epoch` field, guest parsers, reference tags with roles, subparsers, empty names).
 
+### 1.12 Options
+
+How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/args.c`), and how this program takes them. Messages are quoted without the `ctags: ` prefix, which here replaces Universal Ctags' `ctags.exe: `.
+
+**Grammar**
+- **OPT-1 [S][V] Arguments** (refines CLI-1).
+  - `--NAME=VALUE` splits at the first `=`; without one the value is empty. `--` and `--=x` are FATAL `Unknown option: --`, and a lone `-` is FATAL `Unknown option: -`.
+  - In a short cluster, the letters `f o h i I L p d D b` take a parameter: the rest of the cluster, or else the whole next argument, even one starting with `-`. Leading spaces of a parameter are dropped, and an empty one is FATAL `Missing parameter for "f" option`.
+  - Universal Ctags silently drops such a letter when it is the last argument. Here that is FATAL with the same message.
+- **OPT-2 [S] Lookup order.** `--fields-LANG` and `--extras-LANG` are tried first, then the exact names, case-sensitively, then the families: `--kinddef-LANG`, `--kinds-LANG` with the old `--LANG-kinds` and `--LANG-types` (whose language runs to the first `-`, so `--list-kinds`, an exact name, is never one), `--regex-LANG`, `--mline-regex-LANG`, `--map-LANG`, `--param-LANG.NAME`, `--roles-LANG.KIND`. Then `--__anything` is ignored, and the rest are FATAL `Unknown option: --NAME`.
+  - Without a language, `--kinddef-`, `--regex-`, `--mline-regex-`, `--map-` and `--param-` are unknown options; `--kinds-` warns `No language given in "kinds-" option` and `--roles-` warns `no language given in "roles-" option`; `--fields-` and `--extras-` are FATAL `No language given in "fields-" option`.
+- **OPT-3 [S][V] Language names** are matched ignoring case, with no aliases. Universal Ctags 6.2.1 knows 153: C, C++, Fortran, the 148 others `--list-languages` prints, and the hidden UniversalCtags and CTagsSelfTest. `--langdef=NAME` adds one.
+  - In `--regex-LANG`, `--map-LANG`, `--param-LANG.NAME` and the like, the language runs to the first `.` or `:`. A `:` warns `using `:' as a separator is obsolete; use `.' instead: --OPTION`.
+  - An unknown language is FATAL `Unknown language "X" in "OPTION" option` for `--kinddef-`, `--regex-`, `--mline-regex-`, `--map-`, `--param-`, `--language-force` and the listings, and a WARNING otherwise: the same text for `--kinds-LANG` and `--languages`, `Unknown language: X (ignoring "--OPTION")` for `--fields-LANG` and `--extras-LANG`, `unknown language "X" in --OPTION option` for `--roles-LANG`, and for `--langmap` the whole value as the language.
+- **OPT-4 Other languages** (here). An option naming a language Universal Ctags knows and this program does not parse is accepted and does nothing, without Universal Ctags' checks of that language's kinds, extras, fields or parameters (it warns `Unsupported kind: 'x' for --kinds-python option`, say). So option files written for Universal Ctags work unchanged.
+
+**What is refused, and what is not yet done**
+- **OPT-5 Refused** (here): options that would change which tags exist in C, C++ or Fortran, or write another output, are FATAL `OPTION: not supported`:
+  - `--regex-LANG`, `--mline-regex-LANG` and `--kinddef-LANG` for our languages; the Fortran extra `linkName` (`--extras-Fortran=+{linkName}`, also by `--extras-all=*`);
+  - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
+  - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, `--exclude`, `--exclude-exception`, `-L`, `--links=no`, `--languages` disabling one of ours, `--language-force` other than auto, `--langmap` and `--map-LANG` that may change our maps (OPT-12), `-h` other than default, and `-I` with `--param-CPreProcessor.ignore`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `--recurse=no` and `--output-format=u-ctags`.
+
+**Values**
+- **OPT-7 [S][V]**
+  - Booleans (`--append`, `--links`, `--quiet`, `--verbose`, `--if0`, `--line-directives`, `--recurse`, `--file-scope`, `--file-tags`): CLI-2, else FATAL `Invalid value for "NAME" option`.
+  - `--excmd`: only the first letter of `m`, `n` or `p` counts (`--excmd=numberwang` is number); otherwise exactly `combine`, else FATAL `Invalid value for "excmd" option: VALUE`, the value possibly empty.
+  - `--sort`: a boolean but for the empty value, or `f`, `fold` or `foldcase` ignoring case, else FATAL `Invalid value for "sort" option`. `-u` is `--sort=no`.
+  - `--tag-relative`: a boolean, empty for yes, `always` or `never`. `--totals`: a boolean, empty for yes, or `extra`. Both FATAL `Invalid value for "NAME" option` otherwise.
+  - `--format` is read as `scanf("%u")`: blanks, a sign, then decimal digits, ignoring what follows (`1x` is 1). No digits is FATAL `Invalid value for "format" option`; above 2, including a negative number, which wraps, is FATAL `Unsupported value for "format" option`.
+  - `--pattern-length-limit` is read as `strtoul` in base 0 with 32-bit longs: blanks, a sign, `0x` for hex and `0` for octal, all of it a number (`08` is invalid), a negative number wrapping. Empty is FATAL `A parameter is needed after "pattern-length-limit" option`, and otherwise invalid FATAL `-pattern-length-limit: Invalid pattern length limit`.
+  - `--output-format`: `u-ctags`, `e-ctags`, `etags` (as `-e`), `xref`, `json`, case-sensitive. Empty is FATAL `no output format name supplied for "output-format"`, another name FATAL `unknown output format name supplied for "output-format=NAME"`.
+  - `-e` and `--output-format=etags` also make the output unsorted and `--tag-relative=yes`; later options override them. The default output file is then `TAGS`.
+  - `--file-tags=BOOL` sets the `f` extra with WARNING `"--file-tags" option is obsolete; use "--extras=+f" instead`, as `--file-scope` does for `F` (EX-1).
+  - `-L FILE` given twice warns `-L option specified more than once, last value used`.
+  - `-h LIST` naming a file or directory that exists is FATAL `-h: Invalid list`.
+  - `-i`, `-p`, `-d` and `-b` (debug options not built) take their parameter, then are FATAL `Unknown option: -i`.
+
+**Kinds, extras, and fields**
+- **OPT-8 [S][V] Specifications.** `--kinds-LANG`, `--extras`, `--fields`, `--extras-LANG` and `--fields-LANG` share CLI-4's grammar, and differ thus:
+
+  | | kinds | extras | fields | extras-LANG, fields-LANG |
+  |---|---|---|---|---|
+  | first character not `+`, `-`, `*` | disables all | disables all | disables all | only `{` or empty disables all; else WARNING `Wrong per language field specification: SPEC` |
+  | a letter | its kind | its extra | its field | FATAL `only long name can be used in per language field spec: 'n'` |
+  | unknown letter | WARNING `Unsupported kind: 'Q' for --OPTION option` | WARNING `Unsupported parameter 'Q' for "extras" option` | the same, for `"fields"` | — |
+  | unknown `{name}` | the same warning, unbraced | the same warning, `'{name}'` | FATAL `no such field: 'name'` | FATAL `no such field: 'name'` (`no such extra`) |
+  | stray brace | FATAL `unexpected character in kind specification: '}'` | `... extra specification ...` | `... field specification ...` | as the common form |
+
+  In every form an unclosed `{name` at the end is ignored, and `--extra` is `--extras` with WARNING `--extra option is obsolete; use --extras instead` and its warnings name `"extra"`.
+- **OPT-9 [S][V] Fields** (`--list-fields`).
+  - Common fields, by letter: `N name`, `F input`, `P pattern` (fixed), `C compact`, `E extras`, `K` (no long name), `R` (none), `S signature`, `T epoch`, `Z scope`, `a access`, `e end`, `f file`, `i inherits`, `k` (none), `l language`, `m implementation`, `n line`, `o nth`, `p scopeKind`, `r roles`, `s` (none), `t typeref`, `x xpath`, `z kind`. On by default: `N F P T f k s t`, and here also `n` (P-1).
+  - Parser fields, by name only: C has `alias macrodef properties section`, C++ those and `captures name specialization template`, with `name` on; Fortran has none.
+  - Once all options are parsed (and before `--list-fields`), for the tags output: `z` without `k` or `K` warns `though z/kind field is enabled, neither k nor K field is not enabled` and `enable the K field to make the z/kind field printable`, and enables `K`; `Z` without `s` warns `though Z/scope field is enabled, s field is not enabled` and `enable the s field to make the Z/scope field printable`, and enables `s`; a disabled fixed field is enabled again with WARNING `Cannot disable fixed field: 'N'{name} in ctags output mode`, unless any `--fields` or `--fields-all` has disabled all fields, which silences these warnings for good.
+  - Here only the default fields are written for now: other common fields, or C++'s `name` off, are not yet supported (OPT-6). The other parser fields are accepted and do nothing.
+- **OPT-10 [S][V] `--kinds-all`** (and the obsolete `--all-kinds`, `--all-types`, which warn `"--all-kinds" option is obsolete; use "--kinds-all" instead`).
+  - The value may hold only `*`, `F` and `{file}`, each `F` or `{file}` perhaps after one `+` or `-`. Else FATAL: `don't repeat + (nor -) in --OPTION option`, `don't use '*' after + (nor -) in --OPTION option`, `no kind specification after + (or -) in --OPTION option`, or `only '*', 'F', "{file}" or their combination is acceptable as kind letter for --OPTION`.
+  - It then applies to every language: `*` enables every kind, an empty value or `F` disables every kind, `+F` changes only the file kinds.
+- **OPT-11 [S][V] `--extras-LANG` and `--fields-LANG`.**
+  - The language `all` (exact case) covers the common entries and every language's: `--extras-all=` disables all extras, and a name enables every entry of that name in any language (`--fields-all={name}` enables `N` and C++'s `name`).
+  - C and C++ have no extras of their own, and Fortran only `linkName` (OPT-5).
+
+**Languages**
+- **OPT-12 [S][V]**
+  - `--languages=[+|-]LIST`: comma-separated items, each perhaps starting with `+` (add) or `-` (remove), a mode that carries on to later items; before any, the mode is replace, which disables every language before each item until a non-empty one. `all` (exact case) means every language. Unknown names warn (OPT-3), so `--languages=ALL` disables everything.
+  - `--language-force=LANG|auto` (`auto` ignoring case), with `--lang` and `--language` warning `"--lang" option is obsolete; use "--language-force" instead` first.
+  - `--langmap=default` restores every map. Otherwise items `LANG:[+]MAPS` separated by `,`: the language runs to the first `:` in the rest of the value; without `+` its map is first cleared; `LANG:default` (ignoring case) restores one map; each map is `.ext` (up to `.`, `(`, `,` or the end) or `(pattern)` (`\)` does not end it), and is taken from every other language. An unknown language warns with the whole value and ends the option; a bad map is FATAL `Badly formed language map for C language` or `Unterminated file name pattern for C language`.
+  - `--map-LANG=[+|-]MAP` adds, removes, or replaces the map with one item, the rest ignored, without taking it from other languages. An empty value is FATAL `no parameter is given for map-C`.
+  - Until this program edits its own maps (here): a map for our languages, an extension of ours (or `in`) or any pattern added to another language, may change ours, and is not yet supported.
+  - `--langdef=NAME[{flags}]`: FATAL `No language specified for "langdef" option` when empty, `Language "X" already defined` for a known name, `"all" is reserved; don't use it as the name for defining a new language` (also `NONE`, exact case), and `don't use `_' in a language name (a_b)` for any character but a letter, digit, `+` or `#` (with `"'"` for a quote or backquote).
+
+**Parameters and roles**
+- **OPT-13 [S][V]**
+  - `--param-LANG.NAME=VALUE`: the separator after the language's name must be `.` or `:`, else FATAL `no separator(.) is given for param-C=1`; an empty value is FATAL `no value is given for param-C.x`. C, C++ and Fortran have no parameters: FATAL `no such parameter in C: x`. The C preprocessor's are `_expand` and `if0` (booleans, FATAL `Invalid value for "if0" parameter`), `define`, and `ignore`, which is `-I`'s.
+  - `--roles-LANG.KIND=[+|-]{role}...`: roles mark only reference tags, which this program does not write, so the option is checked and does nothing. Without `.KIND`, or with `.*`, the value must be empty or `*` (FATAL `only '*' or '' (empty string) is acceptable as an argument for --roles-C: x`); `--roles-all.KIND` is FATAL; the kind is a letter or `{name}`, and an unknown one or the file kind only warns; garbage after it, an unclosed brace, an empty `{}`, and a character other than `+`, `-`, `*` or `{role}` are FATAL; an unknown role warns `no such role: "bogus" in kind 'd' in language "C"`. C's roles: `d` condition, undef; `f` foreigndecl; `h` local, system; `s` foreigndecl. C++'s: `M` imported, partOwner; `P` imported; `d` condition, undef; `h` exported, imported, local, system.
+
+**Option files**
+- **OPT-14 [S][V] `--options=PATH`.**
+  - A file holds one argument per line, at LF, CR or CRLF, trimmed of whitespace. Empty lines and those whose first non-blank is `#` are skipped. Lines are arguments as on the command line, so `-f` may take the next line as its parameter.
+  - The first line that is not an option ends the file with WARNING `Ignoring non-option in PATH`. Universal Ctags adds an empty line after it, and also counts a line of only blanks as a non-option, and from then on refuses `-f` and other initOnly options as following a file name (CLI-6); none of that is ported.
+  - A directory reads its files ending in `.ctags`, but for names starting with `.` (so `.ctags` itself too), in byte order of their names, each path the directory, a `/` unless it ends in one, and the name. Subdirectories are skipped.
+  - A file already read is skipped silently, by path (Universal Ctags compares files), and here files nest at most 16 deep: FATAL `too many nested option files: "PATH"`.
+  - An empty path is FATAL `no option file supplied for "options"`, a missing one FATAL `cannot stat "PATH" : No such file or directory`, an unreadable one FATAL `cannot open option file "PATH" : REASON`.
+  - Universal Ctags looks for a path not starting with `/` or `.` in its option directories first, and takes `--options=NONE` only before other options (elsewhere it is a missing file). Here a path is used as given, and `NONE` reads nothing anywhere, as no default option files are read (CLI-8).
+
+**Listings**
+- **OPT-15 [S][V]** `--list-languages`, `--list-kinds[=LANG|all]`, `--list-kinds-full[=LANG|all]`, `--list-extras[=LANG|all|NONE]` and `--list-fields[=LANG|all|NONE]` print to stdout and exit 0 at once, reflecting the options before them; `all` and `NONE` ignore case, an unknown language is FATAL (OPT-3, though `NONE` is one for the kinds).
+  - `--list-languages`: one name per line, with ` [disabled]`. Here only C, C++ and Fortran; the categories `_libxml`, `_libyaml` and `_packcc` hold none of them.
+  - `--list-kinds=LANG`: per kind, `LETTER  DESCRIPTION`, with ` [off]` when disabled, in table order. Without a language, each language's name (with ` [disabled]`) and its kinds indented by four spaces. C's `m` is described `struct, and union members`, C++'s `class, struct, and union members`.
+  - The tables: columns padded to their widest cell (header included) and one space, but the last, and the first header cell marked `#`. `--list-kinds-full`: `LETTER NAME ENABLED REFONLY NROLES MASTER DESCRIPTION` by letter byte, with a first `LANGUAGE` column for all; only `h` is reference-only; the master is `C` for C's kinds and those C++ shares (CLI-5), else `NONE`. `--list-extras`: `LETTER NAME ENABLED LANGUAGE FIXED DESCRIPTION`, common ones by letter (`-` for none) then by language. `--list-fields`: `LETTER NAME ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION`, the fixed fields first, the common ones by letter, then by language and name.
+  - Here other languages list no kinds, extras or fields, and all-language tables hold only our rows, so their columns are narrower than Universal Ctags'.
+
+**Order of checks**
+- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here OPT-5's `linkName` check and OPT-6's checks follow.
+
 ---
 
 ## 2. Universal Ctags inaccuracies
@@ -710,11 +807,23 @@ Decided for this program, deliberately different from Universal Ctags.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
-- Options apply to every file wherever they appear on the command line.
-  Only `-R`, `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
-  `--LANG-types`), `--extras` (and `--extra`, `--file-scope`), `--jobs`,
-  `--version`, and `--help` are accepted. Of the extras, only
-  `anonymous`, `F`, `p` and `q` have effects (EX-6).
+- Options apply to every file wherever they appear on the command line
+  or in option files. Universal Ctags' options are parsed with its
+  grammar and messages (section 1.12). Those that act here are `-R`,
+  `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
+  `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
+  `--file-scope`, `--file-tags`), `--options`, the listings (OPT-15),
+  `--version`, `--help`, and this program's `--jobs`. The others are
+  accepted at their defaults and where they name other languages
+  (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
+  (OPT-6). Of the extras, only `anonymous`, `F`, `p` and `q` have
+  effects (EX-6).
+- Smaller departures in parsing options: a letter that takes a
+  parameter is FATAL as the last argument (OPT-1); option files skip
+  lines of only blanks, print no empty line after their warning, and do
+  not make later options follow a file (OPT-14); `--options=NONE` is
+  taken anywhere, and paths are not searched for (OPT-14); listings hold
+  only our languages (OPT-15).
 
 ### Lexing (built in from the start)
 
