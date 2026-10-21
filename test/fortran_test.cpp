@@ -728,22 +728,33 @@ static TagCase fortrancases[] = {
      "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:9\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
      ""},
-    {SHARED, "FTN-6 END of an unknown construct ends the unit", "x.f90", "",
+    {IMPROVED, "F4 END CRITICAL, END TEAM, and END FILE stay in the unit", "x.f90", "",
      "module m\n"
      "contains\n"
      "  subroutine s\n"
      "    critical\n"
      "    end critical\n"
      "10  continue\n"
+     "    change team (t)\n"
+     "    End Team\n"
+     "20  end file 7\n"
+     "30  continue\n"
      "  end subroutine\n"
      "  subroutine t\n"
      "  end subroutine\n"
      "end module\n",
      "10\tx.f90\t/^10  continue$/;\"\tl\tline:6\tsubroutine:s\tfile:\n"
+     "20\tx.f90\t/^20  end file 7$/;\"\tl\tline:9\tsubroutine:s\tfile:\n"
+     "30\tx.f90\t/^30  continue$/;\"\tl\tline:10\tsubroutine:s\tfile:\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
      "s\tx.f90\t/^  subroutine s$/;\"\ts\tline:3\tmodule:m\n"
-     "t\tx.f90\t/^  subroutine t$/;\"\ts\tline:8\n",
-     ""},
+     "t\tx.f90\t/^  subroutine t$/;\"\ts\tline:12\tmodule:m\n",
+     "10\tx.f90\t/^10  continue$/;\"\tl\tline:6\tsubroutine:s\tfile:\n"
+     "20\tx.f90\t/^20  end file 7$/;\"\tl\tline:9\tmodule:m\tfile:\n"
+     "30\tx.f90\t/^30  continue$/;\"\tl\tline:10\tfile:\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "s\tx.f90\t/^  subroutine s$/;\"\ts\tline:3\tmodule:m\n"
+     "t\tx.f90\t/^  subroutine t$/;\"\ts\tline:12\n"},
 };
 
 static void test_fortran(Test *t)

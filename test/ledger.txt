@@ -748,3 +748,22 @@
 - assigned	flang/test/Parser/keyword-optional-spaces.f90	/^  integer assigned$/;"	v	line:19
 - e2	flang/test/Parser/keyword-optional-spaces.f90	/^    enumerator :: e2=/;"	N	line:16	enum:__anonfa7f6f280103
 - p	flang/test/Parser/keyword-optional-spaces.f90	/^  class(*), pointer :: p$/;"	v	line:18
+
+@ corpus/llvm/flang: F4, END CRITICAL, END TEAM, and END FILE no longer end the unit, so later labels keep its scope, and the units after it (test3, s13, s14) are tagged and scoped again.
++ 10	flang/test/Parser/keyword-optional-spaces.f90	/^10 go to 20$/;"	l	line:72	subroutine:one	file:
++ 10	flang/test/Semantics/critical03.f90	/^    10 i = i + 1$/;"	l	line:32	subroutine:test3	file:
++ 10	flang/test/Semantics/critical05.f90	/^    10 continue$/;"	l	line:34	program:testcriticalconstruct	file:
++ 20	flang/test/Parser/keyword-optional-spaces.f90	/^20 goto assigned$/;"	l	line:74	subroutine:one	file:
++ 20	flang/test/Semantics/critical03.f90	/^20 i = i - 1$/;"	l	line:34	subroutine:test3	file:
++ 5	flang/test/Semantics/label19.f90	/^5 end$/;"	l	line:19	program:main	file:
++ s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201	module:m
++ s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205	module:m
++ test3	flang/test/Semantics/critical03.f90	/^subroutine test3(/;"	s	line:27
+- 10	flang/test/Parser/keyword-optional-spaces.f90	/^10 go to 20$/;"	l	line:72	file:
+- 10	flang/test/Semantics/critical03.f90	/^    10 i = i + 1$/;"	l	line:32	file:
+- 10	flang/test/Semantics/critical05.f90	/^    10 continue$/;"	l	line:34	file:
+- 20	flang/test/Parser/keyword-optional-spaces.f90	/^20 goto assigned$/;"	l	line:74	file:
+- 20	flang/test/Semantics/critical03.f90	/^20 i = i - 1$/;"	l	line:34	file:
+- 5	flang/test/Semantics/label19.f90	/^5 end$/;"	l	line:19	file:
+- s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201
+- s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205

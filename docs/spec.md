@@ -398,7 +398,7 @@ depends on how far the walk had read when the label was seen. Our
 - **FTN-17 DEC structures.** STRUCTURE `[/name/] [field names]`: a type `t`, named or anonymous (with the kind index of components, 06), and its field names on that line as components `k`. Fields: type declarations, nested structures, and UNION blocks of MAP blocks of fields, each up to its END. RECORD `/s/ name` declares `name`.
 - **FTN-18 COMMON and NAMELIST.** Each `/name/` with an identifier is tagged `c` or `n`, and each identifier member is a local `L`, in any unit; array bounds are skipped. A blank common `//` or a COMMON without slashes tags only the members.
 - **FTN-19 Subprograms and main programs.** PROGRAM, FUNCTION or SUBROUTINE, then a name (identifier or keyword) tagged `p`, `f` or `s`, or `P` when any enclosing unit is an interface. A subroutine's or prototype's argument list is read before the tag is made and the unit entered, so the line end after it is read, and a label on the next line tagged, in the enclosing scope; a function's arguments are read after. Without a name, the unit is entered with no tag (entities in it are `v`). Then the specification part, the execution part, a CONTAINS part, and the END statement.
-- **FTN-20 Execution part.** Statements are skipped one by one; ENTRY is tagged and prefix words are skipped. It ends at CONTAINS, FUNCTION or SUBROUTINE starting a statement, and at END unless the word after END is ASSOCIATE, BLOCK, DO, ENUM, FORALL, IF, SELECT or WHERE: **any other END (`end critical`, `end team`, `end file`) ends the unit**.
+- **FTN-20 Execution part.** Statements are skipped one by one; ENTRY is tagged and prefix words are skipped. It ends at CONTAINS, FUNCTION or SUBROUTINE starting a statement, and at END unless the word after END is ASSOCIATE, BLOCK, DO, ENUM, FORALL, IF, SELECT or WHERE: **any other END (`end critical`, `end team`, `end file`) ends the unit** (we depart, F4).
 - **FTN-21 CONTAINS part** (internal and module subprograms). Read token by token, not by statement: FUNCTION or SUBROUTINE anywhere starts a subprogram, a type specifier is skipped as one (so TYPE not followed by `(` starts a type definition), END stops, and any other token is skipped. Unknown prefixes such as `impure` or `module` are thus harmless here.
 - **FTN-22 Modules.** MODULE then a name (identifier or keyword), tagged `m`. SUBMODULE then `(parent)`, which must be identifiers and colons with at least one of them, or the statement is skipped; then the name, tagged `S`. Then the specification part, a CONTAINS part, then every statement up to the first END, which ends the module. Since MODULE always starts a module at the top level, a stray `module function f` makes a module named `function`.
 - **FTN-23 Block data.** BLOCK, then DATA and a name (an identifier) tagged `b`; the unit is entered with or without it. Then the specification part, and statements up to END. `blockdata` joined is an identifier.
@@ -709,6 +709,9 @@ Fortran (section 1.6 marks where each departs):
 
 - **F3** A name may start with `_` (FTN-4), as flang's runtime modules
   do (`module __fortran_builtins`), so they are tagged and give scope.
+- **F4** END CRITICAL, END TEAM, and END FILE (the ENDFILE statement),
+  whose words are not keywords, close a construct in an execution part
+  instead of ending the unit (FTN-20). The word is matched ignoring case.
 - **F5** A joined END ignores case (`ENDSUBROUTINE`, FTN-4), and it ends
   a specification part (FTN-12) instead of being skipped as a statement
   function together with the next unit's header (`endmodule` after a

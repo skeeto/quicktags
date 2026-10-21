@@ -78,6 +78,7 @@ struct FtnTok {
     b32 hassub;   // a secondary token follows: see ftnsub
     i32 subtype;
     i32 subword;
+    Str subtext;
 };
 
 // An entity about to be tagged, or an enclosing unit
@@ -559,6 +560,7 @@ static void ftnlex(Ftn *p, FtnTok *t)
                     t->hassub  = 1;
                     t->subtype = FT_KEYWORD;
                     t->subword = word;
+                    t->subtext = cuthead(text, 3);
                 }
             }
         } else if (ftndigit(c)) {
@@ -716,6 +718,7 @@ static void ftnsub(Ftn *p)
         p->tok.hassub  = 1;
         p->tok.subtype = p->aux.type;
         p->tok.subword = p->aux.word;
+        p->tok.subtext = finish(&p->aux.text);
     }
 }
 
@@ -1496,18 +1499,22 @@ static void ftnmodule(Ftn *p, b32 sub)
     ftnpop(p);
 }
 
-// An END that closes a construct inside an execution part.
+// An END that closes a construct inside an execution part. Unlike
+// Universal Ctags, that includes END CRITICAL, END TEAM, and END FILE
+// (ENDFILE), whose words are not keywords (F4).
 static b32 ftnendsconstruct(Ftn *p)
 {
-    if (!p->tok.hassub) {
+    FtnTok *t = &p->tok;
+    if (!t->hassub) {
         return 0;
     }
-    switch (p->tok.subword) {
+    switch (t->subword) {
     case FW_ASSOCIATE: case FW_BLOCK: case FW_DO: case FW_ENUM:
     case FW_FORALL: case FW_IF: case FW_SELECT: case FW_WHERE:
         return 1;
     }
-    return 0;
+    return t->subtype==FT_IDENT && (equalsfold(t->subtext, "critical") ||
+           equalsfold(t->subtext, "team") || equalsfold(t->subtext, "file"));
 }
 
 // The execution part, statement by statement, tagging entries, up to
