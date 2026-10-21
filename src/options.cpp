@@ -364,9 +364,8 @@ static i32 macrosopt(Parse *p, Str list)
     if (path) {
         Str name = cuthead(list, c=='@');
         if (!name.len) {
-            Str why = p->opt->windows ? Str("Invalid argument")
-                                      : errstr(OSERR_NOENT);
-            return fatal(p, "cannot open \"\" : ", why);
+            i32 why = p->opt->windows ? OSERR_INVAL : OSERR_NOENT;
+            return fatal(p, "cannot open \"\" : ", errstr(why));
         }
         Read r = os_read(p->os, p->perm, name, (iz)1<<30);
         if (r.err) {

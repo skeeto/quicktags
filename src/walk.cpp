@@ -233,6 +233,7 @@ static Str errstr(i32 err)
     case OSERR_ACCES: return "Permission denied";
     case OSERR_EXIST: return "File exists";
     case OSERR_ISDIR: return "Is a directory";
+    case OSERR_INVAL: return "Invalid argument";
     }
     return "Input/output error";
 }
