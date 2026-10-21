@@ -440,13 +440,14 @@ depends on how far the walk had read when the label was seen. Our
   - Scope name and the typeref value: same as the name.
   - Typeref prefix: as-is.
 - **FLD-3 [V]** The C++ `name:` field is never seen by default; it appears only on `A` tags.
-- **FLD-4 [S][V]** Order of all fields (`writer-ctags.c`), with `;"` before the first one written:
+- **FLD-4 [S][V]** Order of all fields (`writer-ctags.c`):
   - the kind: its letter (`k`) or long name (`K`), after `kind:` with `z`;
   - `line:`, `language:`, the scope (`KIND:NAME`, or `scope:KIND:NAME` with `Z`), `typeref:`, `file:`;
   - `inherits:`, `access:`, `implementation:`, `signature:`, `roles:`, `extras:`, `end:`, `epoch:`, `nth:`;
   - then the parser's own fields.
+  - `;"` comes before the first built-in field written (any of the above but the parser's own). The parser's fields are appended without it, so a line with only those has none: `--fields= --fields-C++=+{properties}` writes `st\ta.cpp\t/^static int st;$/\tproperties:static`. That is malformed; the planned departure D10 writes `;"` before whichever field comes first.
   - `extras:` lists a tag's extras by commas in their table's order: `fileScope`, `inputFile`, `pseudo`, `qualified`, `reference`, `guest`, `subparser`, `anonymous`.
-  - A tags file has a `!_TAG_FIELD_DESCRIPTION` pseudo-tag for each enabled field that has a description: `file` goes with `--fields=-f`, and `extras` comes with `+E`.
+  - A tags file has a `!_TAG_FIELD_DESCRIPTION` pseudo-tag for each enabled field that has a long name (in `--list-fields`), so none for `k`, `s`, `K` or `R`: `file` goes with `--fields=-f`, `line` comes with `+n`, and `extras` with `+E`. A parser's own enabled fields get `!_TAG_FIELD_DESCRIPTION!LANG` lines, such as C++'s `name`.
 
 ### 1.8 Output format
 
