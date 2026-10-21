@@ -97,37 +97,6 @@ static Str joinpath(Arena *a, Str dir, Str name, b32 windows)
     return concat(a, r, name);
 }
 
-static b32 globchar(u8 p, u8 c, b32 fold)
-{
-    return p=='?' || p==c || (fold && lowercase(p)==lowercase(c));
-}
-
-// Match a glob of literal bytes, '?', and '*', which also matches '/',
-// like fnmatch() without flags. Optionally ignores ASCII case.
-static b32 globmatch(Str pat, Str s, b32 fold)
-{
-    iz p    = 0;
-    iz i    = 0;
-    iz star = -1;
-    iz mark = 0;
-    while (i < s.len) {
-        if (p<pat.len && pat[p]=='*') {
-            star = p++;
-            mark = i;
-        } else if (p<pat.len && globchar(pat[p], s[i], fold)) {
-            p++;
-            i++;
-        } else if (star >= 0) {
-            p = star + 1;
-            i = ++mark;
-        } else {
-            return 0;
-        }
-    }
-    for (; p<pat.len && pat[p]=='*'; p++) {}
-    return p == pat.len;
-}
-
 // Universal Ctags' built-in exclusions, tried against the base name
 // and then the whole path, ignoring case on Windows.
 static b32 excluded(Str path, b32 windows)

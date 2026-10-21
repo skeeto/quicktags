@@ -24,6 +24,131 @@ static void test_walk(Test *t)
     expect(t, "posix backslash", outpath(&a, joinpath(&a, "a\\b", "c.c", 0), 0),
            "a\\\\b/c.c");
 
+    // Patterns as fnmatch() without flags matches them (DISC-8). The
+    // Windows rows are Universal Ctags' results, from patterns in an
+    // --exclude=@FILE list, which keeps '\' an escape there
+    struct { Str pat, name; b32 windows, want; } globs[] = {
+        {"*.c",           "a.c",       0, 1},
+        {"*.C",           "a.c",       0, 0},
+        {"*.C",           "a.c",       1, 1},
+        {"a?c",           "a.c",       0, 1},
+        {"*",             "",          0, 1},
+        {"?",             "",          0, 0},
+        {"*?",            "",          0, 0},
+        {"dir*c",         "dir/a.c",   0, 1},
+        {".*",            ".",         0, 1},
+        {".*",            "./sub",     0, 1},
+        {"*/a.c",         "dir\\a.c",  1, 1},
+        {"*/a.c",         "dir\\a.c",  0, 0},
+        {"*a*b*c",        "xaybzc",    0, 1},
+        {"*a*b*c",        "xaybzcb",   0, 0},
+        {"[ab].c",        "a.c",       1, 1},
+        {"[ab].c",        "c.c",       1, 0},
+        {"[!ab].c",       "c.c",       1, 1},
+        {"[!ab].c",       "b.c",       1, 0},
+        {"[^ab].c",       "[.c",       1, 1},
+        {"[^ab].c",       "a.c",       1, 0},
+        {"[a-c].c",       "b.c",       1, 1},
+        {"[a-c].c",       "d.c",       1, 0},
+        {"[A-C].c",       "b.c",       0, 0},
+        {"[A-C].c",       "b.c",       1, 1},
+        {"[]a].c",        "].c",       1, 1},
+        {"[!]].c",        "].c",       1, 0},
+        {"[!]].c",        "^.c",       1, 1},
+        {"[a-].c",        "-.c",       0, 1},
+        {"[a-].c",        "a.c",       1, 1},
+        {"[a-].c",        "b.c",       1, 0},
+        {"[a-",           "[a-",       0, 0},
+        {"[a-",           "a",         0, 0},
+        {"[ab.c",         "[ab.c",     1, 1},
+        {"[ab.c",         "a.c",       1, 0},
+        {"[[a",           "[[a",       0, 0},
+        {"[!a",           "[!a",       0, 1},
+        {"*[ab",          "x[ab",      0, 1},
+        {"[[:digit:]].c", "5.c",       0, 1},
+        {"[[:digit:]].c", "x.c",       0, 0},
+        {"[[:digit:]].c", "5.c",       1, 0},
+        {"[[:alpha:]].c", "x.c",       0, 1},
+        {"[[:alpha:]].c", "\xe9.c",    0, 0},
+        {"[[:alpha:]].c", "x.c",       1, 0},
+        {"[[:alpha:]].c", "a].c",      1, 1},
+        {"[[:alpha:]].c", "P].c",      1, 1},
+        {"[[:alpha:]].c", "x].c",      1, 0},
+        {"[[:punct:]x]",  "!",         0, 1},
+        {"[[:space:]]",   "\v",        0, 1},
+        {"[[:xdigit:]]",  "F",         0, 1},
+        {"[[:xdigit:]]",  "g",         0, 0},
+        {"[[:bogus:]].c", "x.c",       0, 0},
+        {"[[::]]",        ":",         0, 0},
+        {"[[:digit:]-z]", "-",         0, 1},
+        {"[[:digit:]-z]", "y",         0, 0},
+        {"[[:].c",        "[.c",       1, 1},
+        {"[[:-].c",       "[.c",       1, 1},
+        {"[\\]].c",       "].c",       1, 1},
+        {"[a\\-c].c",     "c.c",       1, 1},
+        {"[a\\-c].c",     "b.c",       1, 0},
+        {"[\\a-c].c",     "b.c",       0, 1},
+        {"[a-\\c].c",     "b.c",       0, 1},
+        {"[a-\\",         "b",         0, 0},
+        {"[\\",           "[",         0, 0},
+        {"\\a.c",         "a.c",       1, 1},
+        {"a\\.c",         "a.c",       1, 1},
+        {"\\*.c",         "*.c",       0, 1},
+        {"\\*.c",         "a.c",       0, 0},
+        {"a\\",           "a",         0, 0},
+        {"a\\",           "a\\",       0, 0},
+        {"[x[=a=]].c",    "a].c",      1, 1},
+        {"[x[=a=]].c",    "x.c",       1, 1},
+        {"[x[=a=]].c",    "x].c",      1, 0},
+        {"[x[=a].c",      "x.c",       0, 0},
+        {"[x[.y.]].c",    "x.c",       1, 1},
+        {"[x[.y.]].c",    "y].c",      1, 1},
+        {"[x[.y",         "x",         1, 0},
+        {"[x[:a].c",      "x.c",       0, 1},
+        {"[[:x",          "[",         1, 0},
+    };
+    for (iz i = 0; i < countof(globs); i++) {
+        Str name = concat(&a, concat(&a, globs[i].pat, " "), globs[i].name);
+        expect(t, name, num(&a, globmatch(globs[i].pat, globs[i].name,
+                                          globs[i].windows)),
+               num(&a, globs[i].want));
+    }
+
+    // Classified patterns match as the general matcher does
+    {
+        Str pats[] = {"a.c", "*.c", "a*", "x*y", "*", "", ".*.swp", "?",
+                      "CVS", "{arch}", "*~", "a*b*"};
+        Str names[] = {"a.c", "A.C", "b.c", "a", "", "xy", "xzzy", "x\\y",
+                       ".x.swp", "cvs", "{ARCH}", "~", "a\\b"};
+        for (iz i = 0; i < countof(pats); i++) {
+            Slice<Glob> one = {};
+            one = push(&a, one, newglob(pats[i]));
+            for (iz j = 0; j < countof(names); j++) {
+                for (b32 w = 0; w < 2; w++) {
+                    Str name = concat(&a, concat(&a, pats[i], " "), names[j]);
+                    expect(t, name, num(&a, globsmatch(one, names[j], w)),
+                           num(&a, globmatch(pats[i], names[j], w)));
+                }
+            }
+        }
+        struct { Str pat; i32 kind; } kinds[] = {
+            {"CVS",     GLOB_EXACT},
+            {"*.o",     GLOB_STAR},
+            {".*.swp",  GLOB_STAR},
+            {"*/x/*",   GLOB_ANY},
+            {"x?",      GLOB_ANY},
+            {"[x]",     GLOB_ANY},
+            {"\\x",     GLOB_ANY},
+        };
+        for (iz i = 0; i < countof(kinds); i++) {
+            expect(t, kinds[i].pat, num(&a, newglob(kinds[i].pat).kind),
+                   num(&a, kinds[i].kind));
+        }
+        // A pattern ends at a NUL, as a C string does
+        Glob g = newglob({(u8 *)"a\0*", 3});
+        expect(t, "NUL", g.pat, "a");
+    }
+
     struct { Str path; b32 windows, want; } excl[] = {
         {".git",          0, 1},
         {"src/.git",      0, 1},

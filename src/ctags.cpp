@@ -119,6 +119,7 @@ static Arena carve(Arena *a, iz len)
 
 
 #include "kinds.cpp"
+#include "glob.cpp"
 #include "options.cpp"
 #include "tags.cpp"
 
