@@ -1878,4 +1878,208 @@ static void test_walk(Test *t)
         };
         runquirks(t, os, cwd16, countof(cwd16));
     }
+
+    {
+        // Emacs tags (OPT-21): a section for each file tagged, in the
+        // walk's order, those of no language too, which are not read;
+        // offsets in bytes of the file, a BOM and CRs counted
+        Os *os = newos(&a);
+        os->cwd = "/w";
+        vfsfile(os, "a.c", "int x;\r\n#define FOO 1\r\nint y;\r\n");
+        vfsfile(os, "README", "x\n");
+        vfsfile(os, "bom.c", "\xef\xbb\xbfint a;\nint b;\n");
+        vfsunreadable(os, "notes.txt");
+        vfsfile(os, "sub/c.f90", "program p\nend\n");
+        vfsfile(os, "sub/empty.c", "");
+        Str sa = "\f\na.c,48\n"
+                 "int x;\x7fx\x01" "1,0\n"
+                 "#define FOO \x7f" "FOO\x01" "2,8\n"
+                 "int y;\x7fy\x01" "3,23\n";
+        Str sr = "\f\nREADME,0\n";
+        Str sb = "\f\nbom.c,27\n"
+                 "int a;\x7f" "a\x01" "1,3\n"
+                 "int b;\x7f" "b\x01" "2,10\n";
+        Str sn = "\f\nnotes.txt,0\n";
+        Str sc = "\f\nsub/c.f90,16\n"
+                 "program p\x7fp\x01" "1,0\n";
+        Str sf = "\f\nsub/c.f90,0\n";  // Fortran disabled: Unknown
+        Str se = "\f\nsub/empty.c,0\n";
+        Str all[] = {sa, sr, sb, sn, sc, se};
+        Str want = {};
+        for (iz i = 0; i < countof(all); i++) {
+            want = concat(&a, want, all[i]);
+        }
+
+        struct { Str args; Str want; } runs[] = {
+            {"-e -f - -R",                       want},
+            {"--output-format=etags -f - -R",    want},
+            {"-e --jobs=1 -f - .",               want},
+            {"-e --languages=C -f - -R",
+             concat(&a, concat(&a, sa, sb), se)},
+            {"--languages=C -e -f - -R",
+             concat(&a, concat(&a, concat(&a, concat(&a, concat(&a, sa, sr),
+                    sb), sn), sf), se)},
+            {"-e --languages=-Unknown -f - -R",
+             concat(&a, concat(&a, concat(&a, sa, sb), sc), se)},
+            {"-e --language-force=Python -f - a.c README",
+             "\f\na.c,0\n\f\nREADME,0\n"},
+            {"-e -f - a.c sub/c.f90 a.c", concat(&a, concat(&a, sa, sc), sa)},
+            {"-e --extras=+f -f - README sub/c.f90",
+             "\f\nREADME,12\n\x7fREADME\x01" "1,0\n"
+             "\f\nsub/c.f90,27\nprogram p\x7fp\x01" "1,0\n"
+             "\x7f" "c.f90\x01" "1,0\n"},
+            {"-e -f sub/TAGS sub/c.f90 README",
+             "\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n\f\n../README,0\n"},
+            {"-e --tag-relative=never -f - README",
+             "\f\n/w/README,0\n"},
+        };
+        for (iz i = 0; i < countof(runs); i++) {
+            Run    r = run(os, a, runs[i].args);
+            VNode *f = vfsfind(os, "sub/TAGS", 0);
+            expect(t, runs[i].args, num(&a, r.status), "0");
+            expect(t, runs[i].args, r.err, "");
+            expect(t, runs[i].args, f ? f->data : r.out, runs[i].want);
+            if (f) {
+                vfsunlink(os, "sub/TAGS");
+            }
+        }
+
+        // The TAGS file, created before the walk, has a section of its
+        // own, and no pseudo-tags whatever the extras say
+        for (i32 again = 0; again < 2; again++) {
+            Run r = run(os, a, "--extras=+p -e -R");
+            expect(t, "-e -R", num(&a, r.status), "0");
+            expect(t, "-e -R", vfsfind(os, "TAGS", 0)->data,
+                   concat(&a, want, "\f\nTAGS,0\n"));
+            expect(t, "-e -R", num(&a, !!vfsfind(os, "TAGS.tmp0", 0)), "0");
+        }
+        vfsunlink(os, "TAGS");
+
+        // D19: a file that cannot be read gets no section, where Universal
+        // Ctags writes an empty one, named as given
+        vfsunreadable(os, "sub/bad.c");
+        Run r = run(os, a, "-e -f sub/TAGS sub/bad.c sub/c.f90");
+        Str uctags19 = "\f\nsub/bad.c,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n";
+        Str want19   = "\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n";
+        expect(t, "D19", num(&a, r.status), "0");
+        expect(t, "D19", r.err, "ctags: Warning: cannot open input file "
+                                "\"sub/bad.c\" : Permission denied\n");
+        expect(t, "D19", vfsfind(os, "sub/TAGS", 0)->data, want19);
+        expect(t, "D19 departs", num(&a, want19!=uctags19), "1");
+        vfsunlink(os, "sub/TAGS");
+        vfsunlink(os, "sub/bad.c");
+
+        // On Windows, a path as given, with its '\', unless made relative
+        os->windows = 1;
+        r = run(os, a, "-e --tag-relative=no -f - sub\\c.f90");
+        expect(t, "etags windows", r.out,
+               "\f\nsub\\c.f90,16\nprogram p\x7fp\x01" "1,0\n");
+        r = run(os, a, "-e -f - sub\\c.f90");
+        expect(t, "etags windows relative", r.out, sc);
+        os->windows = 0;
+
+        // -a adds the new sections after the old file's bytes, whatever
+        // they are, as long as it is a tags file
+        struct { Str old; Str want; } appends[] = {
+            {"\f\nold.c,13\nint o;\x7fo\x01" "1,0\n",
+             concat(&a, "\f\nold.c,13\nint o;\x7fo\x01" "1,0\n", sa)},
+            {"\f\r\nold.c,14\r\nint o;\x7fo\x01" "1,0\r\n",
+             concat(&a, "\f\r\nold.c,14\r\nint o;\x7fo\x01" "1,0\r\n", sa)},
+            {"x\ta.c\t1;\"\n", concat(&a, "x\ta.c\t1;\"\n", sa)},
+            {"", sa},
+            {{}, sa},
+        };
+        for (iz i = 0; i < countof(appends); i++) {
+            if (appends[i].old.data) {
+                vfsfile(os, "TAGS", appends[i].old);
+            }
+            Str name = concat(&a, "-a -e: case ", num(&a, i));
+            r = run(os, a, "-a -e a.c");
+            expect(t, name, num(&a, r.status), "0");
+            expect(t, name, r.err, "");
+            expect(t, name, vfsfind(os, "TAGS", 0)->data, appends[i].want);
+            vfsunlink(os, "TAGS");
+        }
+        vfsfile(os, "TAGS", "int x;\n");
+        r = run(os, a, "-a -e a.c");
+        expect(t, "-a -e refused", num(&a, r.status), "1");
+        expect(t, "-a -e refused", vfsfind(os, "TAGS", 0)->data, "int x;\n");
+
+        // D9: the old sections of the files tagged again go, by their
+        // heads, a file of no language and one with no entries included,
+        // and an LF ends the old bytes, where Universal Ctags keeps them
+        // all as they are
+        Str olda = "\f\na.c,13\nint q;\x7fq\x01" "1,0\n";
+        Str oldo = "\f\nold.c,13\nint o;\x7fo\x01" "1,0\n";
+        struct { Str old, args, want, uctags; } d9[] = {
+            {concat(&a, concat(&a, oldo, olda), oldo), "-a -e a.c",
+             concat(&a, concat(&a, oldo, oldo), sa),
+             concat(&a, concat(&a, concat(&a, oldo, olda), oldo), sa)},
+            {"\f\r\na.c,14\r\nint q;\x7fq\x01" "1,0\r\n", "-a -e a.c", sa,
+             concat(&a, "\f\r\na.c,14\r\nint q;\x7fq\x01" "1,0\r\n", sa)},
+            {concat(&a, sr, olda), "-a -e README sub/empty.c",
+             concat(&a, concat(&a, olda, sr), se),
+             concat(&a, concat(&a, concat(&a, sr, olda), sr), se)},
+            {"\f\nsub/empty.c,13\nint q;\x7fq\x01" "1,0\n",
+             "-a -e sub/empty.c", se,
+             concat(&a, "\f\nsub/empty.c,13\nint q;\x7fq\x01" "1,0\n", se)},
+            {"\f\nold.c,13\nint o;\x7fo\x01" "1,0", "-a -e a.c",
+             concat(&a, oldo, sa),
+             concat(&a, "\f\nold.c,13\nint o;\x7fo\x01" "1,0", sa)},
+            {"x\ta.c\t1;\"\n\f\na.c,0\n", "-a -e a.c",
+             concat(&a, "x\ta.c\t1;\"\n", sa),
+             concat(&a, "x\ta.c\t1;\"\n\f\na.c,0\n", sa)},
+            {"\f\nsub/c.f90,0\n", "-a -e -f sub/TAGS sub/c.f90",
+             "\f\nsub/c.f90,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n",
+             "\f\nsub/c.f90,0\n\f\nc.f90,16\nprogram p\x7fp\x01" "1,0\n"},
+        };
+        for (iz i = 0; i < countof(d9); i++) {
+            Str out = find(d9[i].args, "sub/TAGS")>=0 ? Str("sub/TAGS")
+                                                      : Str("TAGS");
+            vfsfile(os, out, d9[i].old);
+            Str name = concat(&a, "D9 -e: case ", num(&a, i));
+            r = run(os, a, d9[i].args);
+            expect(t, name, num(&a, r.status), "0");
+            expect(t, name, vfsfind(os, out, 0)->data, d9[i].want);
+            b32 departs = i < countof(d9)-1;  // the last as there
+            expect(t, name, num(&a, d9[i].want!=d9[i].uctags),
+                   num(&a, departs));
+            vfsunlink(os, out);
+        }
+
+        // So appending a tree to its own TAGS file changes nothing
+        run(os, a, "-e -R");
+        Str once = vfsfind(os, "TAGS", 0)->data;
+        for (i32 i = 0; i < 2; i++) {
+            r = run(os, a, "-a -e -R");
+            expect(t, "-a -e -R", num(&a, r.status), "0");
+            expect(t, "-a -e -R", vfsfind(os, "TAGS", 0)->data, once);
+        }
+        vfsunlink(os, "TAGS");
+    }
+
+    {
+        // D18: an order asked for after -e changes nothing, where Universal
+        // Ctags sorts the TAGS file's lines as a tags file's, merging the
+        // sections, and here losing z.c's
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", "int b;\nint a;\n");
+        vfsfile(os, "z.c", "int z;\n");
+        Str want   = "\f\na.c,26\n"
+                     "int b;\x7f" "b\x01" "1,0\n"
+                     "int a;\x7f" "a\x01" "2,7\n"
+                     "\f\nz.c,13\n"
+                     "int z;\x7fz\x01" "1,0\n";
+        Str uctags = "\f\na.c,26\n"
+                     "int a;\x7f" "a\x01" "2,7\n"
+                     "int b;\x7f" "b\x01" "1,0\n";
+        Str sorts[] = {"--sort=yes", "--sort=foldcase", "-u", "--sort=no"};
+        for (iz i = 0; i < countof(sorts); i++) {
+            Str args = concat(&a, concat(&a, "-e ", sorts[i]), " -f - a.c z.c");
+            Run r    = run(os, a, args);
+            expect(t, args, num(&a, r.status), "0");
+            expect(t, args, r.out, want);
+        }
+        expect(t, "D18 departs", num(&a, want!=uctags), "1");
+    }
 }

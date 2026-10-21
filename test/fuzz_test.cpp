@@ -118,6 +118,7 @@ struct Lint {
     b32 strip;     // the default output once stripped (fuzzstrip)
     i32 order = ORDER_BYTES;
     b32 filetag = 0;  // one file tag (EX-7), last if unsorted
+    b32 etags   = 0;  // Emacs tags, checked by etagslint
 };
 
 static Lint lints[] = {
@@ -147,6 +148,11 @@ static Lint lints[] = {
      ORDER_NONE, 1},
     {"--sort=foldcase --fields=+iaSm ",                 EXCMD_MIXED,   0, 1, 1,
      ORDER_FOLD},
+    // Emacs tags, of the default tags
+    {"-e ",                                             EXCMD_MIXED,   0, 0, 0,
+     ORDER_NONE, 0, 1},
+    {"-e --pattern-length-limit=7 ",                    EXCMD_MIXED,   0, 0, 0,
+     ORDER_NONE, 0, 1},
 };
 
 // Do the lines come in this order, each once? Folded, struppercmp()
@@ -427,7 +433,8 @@ static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
         print(&cmd, "-f - ");
         print(&cmd, file);
         Run got = runcap(os, a, finish(&cmd), (iz)8<<20);
-        r.bad  = fuzzlint(got.out, file, src, runs[o]);
+        r.bad  = runs[o]->etags ? etagslint(a, got.out, file, src, deflt)
+                                : fuzzlint(got.out, file, src, runs[o]);
         r.lint = runs[o];
         if (!o) {
             deflt = got.out;

@@ -332,8 +332,7 @@ static void test_cli(Test *t)
     }
 
     // Every option's grammar, with the messages of Universal Ctags 6.2.1,
-    // ours for what it accepts and this program refuses, and "not yet
-    // supported" for what this program will do
+    // and ours for what it accepts and this program refuses
     i32 OK    = ARGS_OK;
     i32 FATAL = ARGS_FATAL;
     i32 EXIT  = ARGS_EXIT;
@@ -361,7 +360,10 @@ static void test_cli(Test *t)
         {"-a a",          OK,    ""},
         {"-a -f - a",     FATAL, "ctags: append mode is not compatible with "
                                  "tags to stdout\n"},
-        {"-e a",          FATAL, "ctags: -e: not yet supported\n"},
+        {"-e a",          OK,    ""},
+        {"-e --sort=yes a", OK,  ""},
+        {"-e --sort=foldcase a", OK, ""},
+        {"--sort=yes -e a", OK,  ""},
         {"-n a",          OK,    ""},
         {"-N a",          OK,    ""},
         {"-u a",          OK,    ""},
@@ -448,11 +450,10 @@ static void test_cli(Test *t)
         {"--pattern-length-limit=99999999999 a", FATAL,
          "ctags: -pattern-length-limit: Invalid pattern length limit\n"},
         {"--output-format=u-ctags a", OK, ""},
-        {"-e --output-format=u-ctags a", FATAL,
-         "ctags: -e: not yet supported\n"},
+        {"-e --output-format=u-ctags a", OK, ""},
         {"--output-format=e-ctags --output-format=u-ctags a", OK, ""},
         {"--output-format=e-ctags a", OK, ""},
-        {"--output-format=etags a",   FATAL, "ctags: -e: not yet supported\n"},
+        {"--output-format=etags a",   OK,    ""},
         {"--output-format=xref a",    FATAL,
          "ctags: --output-format=xref: not supported\n"},
         {"--output-format=json a",    FATAL,
@@ -1026,6 +1027,29 @@ static void test_cli(Test *t)
         Parsed r   = parsecmd(&tmp, trs[i].args);
         expect(t, trs[i].args, num(&tmp, r.opt.tagrelative),
                num(&tmp, trs[i].mode));
+    }
+
+    // The Unknown language, which -e enables, and --languages sets as it
+    // does any other (OPT-12, OPT-21)
+    struct { Str args; b32 on; } unknowns[] = {
+        {"a",                              0},
+        {"-e a",                           1},
+        {"--output-format=etags a",        1},
+        {"-e --languages=C a",             0},
+        {"--languages=C -e a",             1},
+        {"-e --languages=+C a",            1},
+        {"-e --languages=-unknown a",      0},
+        {"--languages=+UNKNOWN a",         1},
+        {"--languages=all a",              1},
+        {"--languages=all,-Unknown a",     0},
+        {"-e --languages=-all a",          0},
+        {"-e --output-format=e-ctags a",   1},
+    };
+    for (iz i = 0; i < countof(unknowns); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, unknowns[i].args);
+        expect(t, unknowns[i].args, num(&tmp, r.opt.unknown),
+               num(&tmp, unknowns[i].on));
     }
     {
         // The placeholder kind's letter, a space, which words() splits

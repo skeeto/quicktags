@@ -6,6 +6,7 @@ struct Source {
     Str  path;      // as constructed, the input to anonymous names
     Str  outpath;   // the file field: '\' as '/', escaped
     Str  text;      // contents after any UTF-8 BOM
+    iz   bom;       // its length, before text, for etags offsets
     i64  mtime;     // for the file tag's epoch: field
     u32  anonhash;
     i32  lang;
@@ -19,8 +20,9 @@ struct Format {
     u64 fields;    // FIELD_* bits
     iz  patmax;    // the pattern length limit, a huge one for none
     i32 excmd;     // EXCMD_*
-    b32 nofields;  // --format=0 or 1: no ;" and no fields
+    b32 nofields;  // --format=0 or 1, or etags: no ;" and no fields
     b32 ectags;    // --output-format=e-ctags
+    b32 etags;     // Emacs TAGS entries instead of lines
 };
 
 // One parse of one file. A failed first pass discards its lines but
@@ -235,7 +237,8 @@ static Format *newformat(Options *opt, Arena *a)
     f->patmax   = !opt->patmax || (u64)opt->patmax>(u64)huge ? huge
                                                              : (iz)opt->patmax;
     f->excmd    = opt->excmd;
-    f->nofields = opt->format < 2;
+    f->etags    = opt->writer == WRITER_ETAGS;
+    f->nofields = opt->format<2 || f->etags;
     f->ectags   = opt->writer == WRITER_ECTAGS;
     return f;
 }
@@ -403,11 +406,60 @@ static void tagline(File *f, Tag *t)
     f->ntags++;
 }
 
+// Append a tag as an Emacs TAGS entry (OPT-21): its line as read raw,
+// with a CR before the LF dropped, cut after the name as a pattern is,
+// or kept with its LF when the name is not in it, then cut to the length
+// limit; DEL, the name, SOH, the line number, and where the line starts
+// in the file, the BOM counted.
+static void etagsline(File *f, Tag *t)
+{
+    Source *src  = f->src;
+    Buf    *b    = f->out;
+    Str     text = src->text;
+    if (t->linepos >= text.len) {
+        return;  // no line to show
+    }
+
+    Cut l      = cut(cuthead(text, t->linepos), '\n');
+    Str line   = l.head;
+    b32 keeplf = 0;
+    if (l.ok && line.len && line[line.len-1]=='\r') {
+        line.len--;
+    }
+    if (t->truncate) {
+        iz at = findlast(line, t->name);
+        if (at < 0) {
+            keeplf = l.ok;
+        } else {
+            iz end = at + t->name.len;
+            line = takehead(line, end + (end<line.len));
+        }
+    }
+    iz max = f->fmt->patmax;
+    if (line.len+keeplf > max) {
+        iz end = max;  // and up to 3 UTF-8 continuation bytes
+        for (; end<line.len && end-max<3 && (line[end]&0xc0)==0x80; end++) {}
+        line   = takehead(line, end);
+        keeplf = 0;
+    }
+
+    print(b, line);
+    print(b, keeplf ? Str("\n\x7f") : Str("\x7f"));
+    print(b, t->name);
+    putbyte(b, 0x01);
+    print(b, (i64)t->line);
+    putbyte(b, ',');
+    print(b, (i64)(src->bom + t->linepos));
+    putbyte(b, '\n');
+    f->ntags++;
+}
+
 // Append the file's own tag, of the file kind, which the inputFile extra
 // adds after its other tags (EX-7): the name given, the address line 1
 // whatever the excmd, and of the fields only the kind, line, language,
 // roles, extras, and epoch. E-ctags writes the name and path as they
-// are, so drops the tag if either would break the line (FLD-6).
+// are, so drops the tag if either would break the line (FLD-6). Etags
+// has only the name and line, at offset 0 (OPT-21).
 static void filetag(File *f, Str name)
 {
     Source *src = f->src;
@@ -415,7 +467,13 @@ static void filetag(File *f, Str name)
     Buf    *b   = f->out;
     u64     on  = fmt ? fmt->fields : defaultfields();
     b32     raw = fmt && fmt->ectags;
-    if (raw && (hasbreak(name) || hasbreak(src->path))) {
+    if (fmt && fmt->etags) {
+        putbyte(b, 0x7f);
+        print(b, name);
+        print(b, "\x01" "1,0\n");
+        f->ntags++;
+        return;
+    } else if (raw && (hasbreak(name) || hasbreak(src->path))) {
         return;
     }
 
@@ -463,8 +521,8 @@ static void filetag(File *f, Str name)
 // Append a finished tag to its file's output as one tags-file line:
 // name, file, address, then the kind, line, scope, typeref, and file:
 // fields in the order Universal Ctags writes them with --fields=+n, or
-// as other options ask (tagline). File-scoped and anonymous tags are
-// dropped without their extras.
+// as other options ask (tagline, etagsline). File-scoped and anonymous
+// tags are dropped without their extras.
 static void tagemit(File *f, Tag *t)
 {
     Source *src = f->src;
@@ -475,7 +533,11 @@ static void tagemit(File *f, Tag *t)
         return;
     }
     if (f->fmt) {
-        tagline(f, t);
+        if (f->fmt->etags) {
+            etagsline(f, t);
+        } else {
+            tagline(f, t);
+        }
         return;
     }
 

@@ -208,10 +208,19 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         return 1;
     }
 
+    // Universal Ctags opens a TAGS file before tagging, so that the walk
+    // finds it, of no language, and gives it a section (OPT-21)
+    b32 etags = opt.writer == WRITER_ETAGS;
+    if (etags && opt.output!="-" &&
+        os_stat(os, g, opt.output).type==STAT_NONE &&
+        !os_create(os, g, opt.output)) {
+        os_close(os, 3);
+    }
+
     Ctx ctx = {};
     ctx.os      = os;
     ctx.opt     = &opt;
-    ctx.ordered = opt.sort == SORT_NO;
+    ctx.ordered = opt.sort==SORT_NO || etags;
     ctx.chunked = ctx.ordered || old.text.data;
     if (opt.tagrelative != TREL_NO) {
         // Paths are made relative to the tags file's directory (OPT-18)

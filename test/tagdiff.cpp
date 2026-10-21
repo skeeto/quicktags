@@ -53,8 +53,10 @@
 //
 // With --etags, each section "\f\n<path>,<size>\n" becomes a line
 // "\t<path>\t0\t", and each of its entries, "<text>\x7f<name>\x01<line>,
-// <offset>\n", a line "<name>\t<path>\t<line>\t<text>,<offset>". A size
-// must count its section's bytes. Base files may be in either format.
+// <offset>\n", a line "<name>\t<path>\t<line>\t<text>,<offset>". A text
+// may end in its line's LF, written "\n" there: a line without a DEL
+// begins the next entry. A size must count its section's bytes. Base
+// files may be in either format.
 //
 // This is free and unencumbered software released into the public domain.
 #include <stdio.h>
@@ -333,14 +335,17 @@ struct Lines {
 // An Emacs TAGS file's sections and entries as lines (see above).
 static Lines etagslines(Arena *a, Str text, Str only)
 {
-    Lines r    = {};
-    Str   path = {};
-    iz    size = -1;  // the open section's, and the bytes it has
-    iz    have = 0;
+    Lines r       = {};
+    Str   path    = {};
+    Str   pending = {};  // a line without DEL, which begins the next entry
+    iz    size    = -1;  // the open section's, and the bytes it has
+    iz    have    = 0;
     for (Cut c = cut(text, '\n'); c.head.len || c.ok; c = cut(c.tail, '\n')) {
         Str l = c.head;
         if (l == "\f") {
             r.bad += size>=0 && size!=have;
+            r.bad += pending.data != 0;
+            pending = {};
             c = cut(c.tail, '\n');
             iz comma = c.head.len - 1;
             for (; comma>=0 && c.head[comma]!=','; comma--) {}
@@ -372,14 +377,22 @@ static Lines etagslines(Arena *a, Str text, Str only)
         have += l.len + c.ok;
         iz del = l.len - 1;
         for (; del>=0 && l[del]!=0x7f; del--) {}
-        if (!path.data || del<0) {
+        if (path.data && del<0 && !pending.data && c.ok) {
+            pending = l;  // text kept with its LF, before the DEL
+            continue;
+        } else if (!path.data || del<0) {
             r.bad++;
+            pending = {};
             continue;
         }
         Cut name = cut(cuthead(l, del+1), 0x01);
         Str tag  = name.ok ? name.head : Str{};
         Cut pos  = cut(name.ok ? name.tail : name.head, ',');
         Str src  = takehead(l, del);
+        if (pending.data) {
+            src     = concat(a, concat(a, pending, "\\n"), src);
+            pending = {};
+        }
         iz  len  = tag.len + path.len + pos.head.len + src.len + pos.tail.len;
         Buf b(a, len+4);
         print(&b, tag);
@@ -396,6 +409,7 @@ static Lines etagslines(Arena *a, Str text, Str only)
         }
     }
     r.bad += size>=0 && size!=have;
+    r.bad += pending.data != 0;
     return r;
 }
 
