@@ -1,7 +1,12 @@
 // Discovery: walking the inputs in parallel and tagging each file
 // This is free and unencumbered software released into the public domain.
 
-enum : i32 { ITEM_DIR, ITEM_FILE };
+enum : i32 {
+    ITEM_DIR,
+    ITEM_FILE,
+    ITEM_ARG,   // an argument, to examine
+    ITEM_NONE,  // an argument with nothing to do
+};
 
 enum : iz { FILEMAX = (iz)64<<20 };  // larger files are skipped
 
@@ -12,6 +17,7 @@ struct Item {
     i32   type;
     i32   lang;
     b32   header;
+    i32   err;     // an argument that cannot be examined: OSERR_*
 };
 
 // A lock-free stack of items (Treiber). Each item is pushed exactly
@@ -330,6 +336,22 @@ static void visitfile(Worker *w, Item *it)
     w->scratch.end = tmp.end>w->scratch.end ? tmp.end : w->scratch.end;
 }
 
+// Examine an argument, making it a directory to list, a file to tag, or
+// nothing to do. One that is missing records why, for a warning given
+// in the arguments' order.
+static void examine(Ctx *c, Item *it, Arena scratch)
+{
+    Stat s = os_stat(c->os, scratch, it->path);
+    it->type = ITEM_NONE;
+    if (s.type == STAT_NONE) {
+        it->err = s.err;
+    } else if (s.type == STAT_DIR) {
+        it->type = ITEM_DIR;
+    } else if (s.type==STAT_FILE && it->lang) {
+        it->type = ITEM_FILE;
+    }
+}
+
 enum : i32 { STEP_DONE, STEP_DID, STEP_WAIT };
 
 // Pop and process one item: STEP_WAIT when the stack is empty but other
@@ -342,9 +364,12 @@ static i32 workstep(Worker *w)
         b32 done = !__atomic_load_n(&q->pending, __ATOMIC_ACQUIRE);
         return done ? STEP_DONE : STEP_WAIT;
     }
+    if (it->type == ITEM_ARG) {
+        examine(w->ctx, it, w->scratch);
+    }
     if (it->type == ITEM_DIR) {
         visitdir(w, it);
-    } else {
+    } else if (it->type == ITEM_FILE) {
         visitfile(w, it);
     }
     __atomic_fetch_sub(&q->pending, 1, __ATOMIC_RELEASE);

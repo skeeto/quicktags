@@ -196,52 +196,57 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 
     // The arguments are the roots of the work, or with none, "." itself,
     // which is not checked for exclusion (DISC-1)
-    iz    nroots = 0;
-    b32   anydir = 0;
-    Item *first  = 0;
-    Item *last   = 0;
-    b32   dot    = !opt.files.len && !opt.listfile.data;
-    for (iz i = 0; i < opt.files.len+dot; i++) {
+    b32   dot     = !opt.files.len && !opt.listfile.data;
+    iz    ninputs = dot ? 1 : opt.files.len;
+    Item *roots   = alloc<Item>(&g, ninputs);
+    iz    nroots  = 0;
+    for (iz i = 0; i < ninputs; i++) {
         Str path = dot ? Str(".") : opt.files[i];
         Str base = basename(path, opt.windows);
-        if (!dot && excluded(&opt, path, base)) {
-            continue;
+        if (dot || !excluded(&opt, path, base)) {
+            Lang  lang = detectlang(path, opt.windows);
+            Item *it   = roots + nroots++;
+            it->path   = path;
+            it->type   = ITEM_ARG;
+            it->lang   = lang.lang;
+            it->header = lang.header;
         }
-        Stat  s  = os_stat(os, g, path);
-        Item *it = 0;
-        if (s.type == STAT_NONE) {
-            warn(&log, "cannot open input file", path, s.err);
-        } else if (s.type == STAT_DIR) {
-            it = newitem(&g, path, ITEM_DIR, {});
-            anydir = 1;
-        } else if (s.type == STAT_FILE) {
-            Lang lang = detectlang(path, opt.windows);
-            if (lang.lang) {
-                it = newitem(&g, path, ITEM_FILE, lang);
-            }
+    }
+
+    // Workers, as many as asked or as there are processors, but no more
+    // than there are files if there are no directories to walk, and
+    // only as many as can each have a generous share of memory. Only
+    // when there are fewer roots than that are they examined here
+    i32 n = opt.jobs ? opt.jobs : os_ncpu(os);
+    n = n<1 ? 1 : n>32 ? 32 : n;
+    if (nroots <= n) {
+        b32 anydir = 0;
+        for (iz i = 0; i < nroots; i++) {
+            examine(&ctx, roots+i, g);
+            anydir |= roots[i].type == ITEM_DIR;
         }
-        if (it) {
+        if (!anydir) {
+            n = nroots<n ? (i32)(nroots>1 ? nroots : 1) : n;
+        }
+    }
+    Item *first = 0;
+    Item *last  = 0;
+    iz    count = 0;
+    for (iz i = 0; i < nroots; i++) {
+        Item *it = roots + i;
+        if (it->type != ITEM_NONE) {
             if (last) {
                 last->next = it;
             } else {
                 first = it;
             }
             last = it;
-            nroots++;
+            count++;
         }
     }
     if (first) {
-        ctx.queue.pending = nroots;
+        ctx.queue.pending = count;
         pushitems(&ctx.queue, first, last);
-    }
-
-    // Workers, as many as asked or as there are processors, but no more
-    // than there are files if there are no directories to walk, and
-    // only as many as can each have a generous share of memory
-    i32 n = opt.jobs ? opt.jobs : os_ncpu(os);
-    n = n<1 ? 1 : n>32 ? 32 : n;
-    if (!anydir) {
-        n = nroots<n ? (i32)(nroots>1 ? nroots : 1) : n;
     }
     iz slotmin = !mem.lim ? (iz)1<<20 : sizeof(void *)==8 ? (iz)1<<30 : (iz)128<<20;
     iz slot    = arenasize(mem) / n;
@@ -263,6 +268,13 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     i64 t0 = opt.stats ? os_clock(os) : 0;
     os_parallel(os, ws, n, work);
     i64 t1 = opt.stats ? os_clock(os) : 0;
+
+    // Arguments that do not exist, in their order
+    for (iz i = 0; i < nroots; i++) {
+        if (roots[i].err) {
+            warn(&log, "cannot open input file", roots[i].path, roots[i].err);
+        }
+    }
 
     // Warnings in a stable order, whatever the scheduling
     {
