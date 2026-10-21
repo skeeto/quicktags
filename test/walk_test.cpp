@@ -80,6 +80,11 @@ static void test_walk(Test *t)
     Str header =
         "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
         "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+        "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\n"
+        "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/\n"
+        "!_TAG_OUTPUT_MODE\tu-ctags\t/u-ctags or e-ctags/\n"
+        "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
+        "!_TAG_PROC_CWD\t/work/\t//\n"
         "!_TAG_PROGRAM_NAME\tctags\t//\n"
         "!_TAG_PROGRAM_VERSION\t0.1\t//\n"
         "x\ta.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n"
@@ -121,6 +126,85 @@ static void test_walk(Test *t)
             expect(t, dirs[i].args, num(&a, r.status), "0");
             expect(t, dirs[i].args, r.err, "");
             expect(t, dirs[i].args, r.out, dirs[i].out);
+        }
+    }
+    {
+        // The header follows the options (PT-4)
+        struct { Str args, cwd; b32 windows; Str header, err; } heads[] = {
+            {"--format=1 --fields=+E --excmd=combine --pattern-length-limit=0x10",
+             "/work", 0,
+             "!_TAG_FILE_FORMAT\t1\t/original ctags format/\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+             "!_TAG_OUTPUT_EXCMD\tcombineV2\t/number, pattern, mixed, or combineV2/\n"
+             "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/\n"
+             "!_TAG_OUTPUT_MODE\tu-ctags\t/u-ctags or e-ctags/\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t16\t/0 for no limit/\n"
+             "!_TAG_PROC_CWD\t/work/\t//\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//\n", ""},
+            {"--fields=+E --output-format=e-ctags -n --format=0", "C:\\w\\x", 1,
+             "!_TAG_FILE_FORMAT\t0\t/unknown format/\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+             "!_TAG_OUTPUT_EXCMD\tnumber\t/number, pattern, mixed, or combineV2/\n"
+             "!_TAG_OUTPUT_FILESEP\tbackslash\t/slash or backslash/\n"
+             "!_TAG_OUTPUT_MODE\te-ctags\t/u-ctags or e-ctags/\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
+             "!_TAG_PROC_CWD\tC:/w/x/\t//\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//\n", ""},
+            {"--fields=+E -N --pattern-length-limit=0", "C:\\", 1,
+             "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/;\"\textras:pseudo\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/;\"\textras:pseudo\n"
+             "!_TAG_OUTPUT_EXCMD\tpattern\t/number, pattern, mixed, or combineV2/;\"\textras:pseudo\n"
+             "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/;\"\textras:pseudo\n"
+             "!_TAG_OUTPUT_MODE\tu-ctags\t/u-ctags or e-ctags/;\"\textras:pseudo\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t0\t/0 for no limit/;\"\textras:pseudo\n"
+             "!_TAG_PROC_CWD\tC:/\t//;\"\textras:pseudo\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//;\"\textras:pseudo\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//;\"\textras:pseudo\n", ""},
+            {"--excmd=m", "/a\\b\x01", 0,
+             "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+             "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\n"
+             "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/\n"
+             "!_TAG_OUTPUT_MODE\tu-ctags\t/u-ctags or e-ctags/\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
+             "!_TAG_PROC_CWD\t/a\\\\b\\x01/\t//\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//\n", ""},
+            {"--output-format=e-ctags", "/a\\b\x01", 0,
+             "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+             "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\n"
+             "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/\n"
+             "!_TAG_OUTPUT_MODE\te-ctags\t/u-ctags or e-ctags/\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
+             "!_TAG_PROC_CWD\t/a\\b\x01/\t//\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//\n", ""},
+            {"--output-format=e-ctags", "/a\nb\tc", 0,
+             "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
+             "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
+             "!_TAG_OUTPUT_EXCMD\tmixed\t/number, pattern, mixed, or combineV2/\n"
+             "!_TAG_OUTPUT_FILESEP\tslash\t/slash or backslash/\n"
+             "!_TAG_OUTPUT_MODE\te-ctags\t/u-ctags or e-ctags/\n"
+             "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
+             "!_TAG_PROGRAM_NAME\tctags\t//\n"
+             "!_TAG_PROGRAM_VERSION\t0.1\t//\n",
+             "ctags: Warning: skip priting !_TAG_PROC_CWD pseudo tag; the "
+             "input field of the pseudo tag includes a tab character: "
+             "/a\nb\tc/\n"},
+        };
+        for (iz i = 0; i < countof(heads); i++) {
+            Os *os = newos(&a);
+            os->cwd     = heads[i].cwd;
+            os->windows = heads[i].windows;
+            vfsfile(os, "a.c", "");
+            Str args = concat(&a, heads[i].args, " -f tags a.c");
+            Run r    = run(os, a, args);
+            expect(t, args, r.err, heads[i].err);
+            Str got = vfsfind(os, "tags", 0)->data;
+            expect(t, args, got, heads[i].header);
         }
     }
     {

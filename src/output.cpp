@@ -160,10 +160,93 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
 
 // The tags file
 
-static Str pseudotags =
-"!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
-"!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
-"!_TAG_PROGRAM_NAME\tctags\t//\n";
+// The working directory as PROC_CWD has it (PT-4), or null to skip it.
+static Str proccwd(Os *os, Options *opt, Arena *a, Buf *log)
+{
+    Str cwd = os_cwd(os, a);
+    if (!cwd.data) {
+        return {};
+    }
+    b32 windows = opt->windows;
+    Buf b(a, cwd.len+2);
+    for (iz i = 0; i < cwd.len; i++) {
+        u8 c = cwd[i];
+        putbyte(&b, windows && c=='\\' ? '/' : c);
+    }
+    u8 last = cwd.len ? cwd[cwd.len-1] : 0;
+    if (last!='/' && !(windows && (last=='\\' || last==':'))) {
+        putbyte(&b, '/');
+    }
+    cwd = finish(&b);
+
+    if (opt->writer != WRITER_ECTAGS) {
+        Buf e(a, cwd.len+8);
+        printescaped(&e, cwd, 0);
+        return finish(&e);
+    }
+    iz tab     = find(cwd, "\t");
+    iz newline = find(cwd, "\n");
+    if (tab>=0 || newline>=0) {
+        print(log, "ctags: Warning: skip priting !_TAG_PROC_CWD pseudo tag; "
+                   "the input field of the pseudo tag includes a ");
+        print(log, tab>=0 ? Str("tab") : Str("newline"));
+        print(log, " character: ");
+        print(log, cwd);
+        putbyte(log, '\n');
+        return {};
+    }
+    return cwd;
+}
+
+// The pseudo-tags at the head of a new tags file (PT-4), in order.
+static Str pseudotags(Os *os, Options *opt, Arena *a, Buf *log)
+{
+    static Str digits[]  = {"0", "1", "2"};
+    static Str formats[] = {
+        "unknown format", "original ctags format",
+        "extended format; --format=1 will not append ;\" to lines",
+    };
+    static Str excmds[] = {"mixed", "number", "pattern", "combineV2"};
+
+    b32 ectags = opt->writer == WRITER_ECTAGS;
+    b32 extras = opt->format>1 && fieldon(opt->fields, FIELD_EXTRAS);
+    Buf limit(a, 16);
+    print(&limit, (i64)opt->patmax);
+    Str cwd = proccwd(os, opt, a, log);
+
+    struct { Str name, value, desc; } tags[] = {
+        {"FILE_FORMAT",          digits[opt->format], formats[opt->format]},
+        {"FILE_SORTED",          digits[opt->sort],
+                                 "0=unsorted, 1=sorted, 2=foldcase"},
+        {"OUTPUT_EXCMD",         excmds[opt->excmd],
+                                 "number, pattern, mixed, or combineV2"},
+        {"OUTPUT_FILESEP",       ectags && opt->windows ? Str("backslash")
+                                                        : Str("slash"),
+                                 "slash or backslash"},
+        {"OUTPUT_MODE",          ectags ? Str("e-ctags") : Str("u-ctags"),
+                                 "u-ctags or e-ctags"},
+        {"PATTERN_LENGTH_LIMIT", finish(&limit), "0 for no limit"},
+        {"PROC_CWD",             cwd, ""},
+        {"PROGRAM_NAME",         "ctags", ""},
+        {"PROGRAM_VERSION",      version, ""},
+    };
+    Buf b(a, 1024);
+    for (iz i = 0; i < countof(tags); i++) {
+        if (!tags[i].value.data) {
+            continue;
+        }
+        print(&b, "!_TAG_");
+        print(&b, tags[i].name);
+        putbyte(&b, '\t');
+        print(&b, tags[i].value);
+        print(&b, "\t/");
+        print(&b, tags[i].desc);
+        putbyte(&b, '/');
+        print(&b, extras ? Str(";\"\textras:pseudo") : Str(""));
+        putbyte(&b, '\n');
+    }
+    return finish(&b);
+}
 
 // Universal Ctags' test for an existing tags file it may overwrite: its
 // first line has a name, a file, and an address, separated by tabs.
@@ -258,10 +341,7 @@ static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
 
     Out *o = newout(os, &scratch, 3);
     if (opt->extras & EXTRA_PSEUDO) {
-        print(o, pseudotags);
-        print(o, "!_TAG_PROGRAM_VERSION\t");
-        print(o, version);
-        print(o, "\t//\n");
+        print(o, pseudotags(os, opt, &scratch, log));
     }
     *count = mergelines(o, s, n, scratch);
     flush(o);
