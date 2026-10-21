@@ -136,13 +136,13 @@ apply.
   | Fortran | `f for ftn f77 f90 f95 f03 f08 f15` |
 
   - Where file names have case, C++ also has `C H CPP CXX` and Fortran the uppercase of its own. This build has `CASE_INSENSITIVE_FILENAMES` and not them, and compares extensions ignoring case, so `foo.C` is **C** (on Unix it would be C++), and `.H`, `.CPP`, `.F90`, `.F` map as in lowercase.
-  - Here the maps are those of this build, but for C++'s `C`, which comes last (D1).
+  - Here the maps are those of this build, and C++'s also holds a `C` of its own (D1).
 - **LANG-2 [S][V] Matching** (`parse.c getFileLanguageForRequestInternal`), on the base name, among the enabled languages:
   1. their patterns, matched as excludes are (DISC-8; on Windows, uppercased);
   2. their extensions, against the text after the last `.` of the name, which is empty without one, so the empty extension (mapped by `.`) takes the names without a `.` [V].
 
   The first step that matches any language decides, and of several languages, the first by name ignoring case: C, C++, Fortran (or, with ObjectiveC enabled, a `.h` it claims, LANG-4). If neither step matches and the name ends in `.in`, exactly, they are tried again on the name without it: `config.h.in` is C++, but `--map-C++=+.in` makes `x.c.in` C++.
-  - Here extensions are compared exactly, across all the languages, before they are compared ignoring case, which those with capitals, like C++'s `C`, never are; so `.C` is C++ and `.c` C, and with C disabled, `.c` is no language (D1). A name ends in `.in` ignoring case (D2).
+  - Here, when no pattern takes a name, C++'s own `C` (LANG-1) takes it if its extension is exactly `C`, before the extensions are compared ignoring case, which that `C` never is: so `.C` is C++, while `.c` is C, and with C disabled, no language (D1). The `C` is removed as an item would be, and before any other item equal to it: by `--map-C++=-.C` or `-.c`, by a `--langmap` item `.c` or `.C` for any language, and with the whole map when it is replaced; restoring the map restores it. A name ends in `.in` ignoring case (D2).
 - **LANG-3 [V]** There is no content sniffing without `-G`. Extension-less files, including libc++'s `vector`, and `.inc .def .ipp .tcc .cppm .ixx .cuf .fpp .f18` are not tagged.
 - **LANG-4 [V]** Under the parity target, every `.h` is C++, never C or ObjC. [I] Every `.f` is Fortran.
   - Under default languages:
@@ -843,13 +843,15 @@ Decided for this program, deliberately different from Universal Ctags.
   and not with `--extras=-p` (EX-5).
 - **The tags file is replaced atomically** (written to `NAME.tmpN`, then
   renamed), so Vim never sees a partial file, and no temporary files leak.
-- **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). Here an
-  extension is compared exactly, for every language, before it is
-  compared ignoring case, which a map's extensions with capitals never
-  are, and C++'s map ends with `C` (LANG-1, LANG-2), as where file names
-  have case. So with `--map-C=+.H`, `.H` is C but `.h` stays C++, and
-  `--langmap=c:.X` takes `.X` but not `.x`, where Universal Ctags on
-  Windows makes both C.
+- **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). C++'s
+  map holds a `C` of its own, which takes only names whose extension is
+  exactly `C`, and takes them before any extension is compared ignoring
+  case (LANG-1, LANG-2), as where file names have case. Nothing else
+  departs: extensions given in options match ignoring case, capitals
+  or not, so `--langmap=c:.X` takes `.x` too, and the `C` goes as an
+  item equal to it would, so `--map-C++=-.C` makes `.C` C again. With C
+  disabled or without its `c`, `.C` stays C++, where Universal Ctags
+  tags it as nothing.
 - **D2** `.inl` and `.hp` are headers, and `X.h.in` is tested by the
   extension of `X.h` (no spurious `file:` fields), whatever the
   language, forced or not. A final `.in` is recognized ignoring case, so

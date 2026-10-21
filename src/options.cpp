@@ -12,6 +12,7 @@ enum : i32 { TREL_NO, TREL_YES, TREL_ALWAYS, TREL_NEVER };
 struct LangMap {
     Slice<Str> exts[LANG_FOREIGN];
     Slice<Str> globs[LANG_FOREIGN];
+    b32        upperc;  // C++'s own "C", before its extensions (D1)
 };
 
 // Every option is parsed into its value here. Some are not acted on yet,
@@ -351,14 +352,22 @@ static i32 unknownlang(Parse *p, Str lang, Str option)
                  "\" option");
 }
 
-// Restore a language's map to its defaults (LANG-1): this build's, but
-// with C++'s "C" last (D1).
+// Empty a language's map.
+static void clearmap(LangMap *m, i32 lang)
+{
+    m->exts[lang]  = {};
+    m->globs[lang] = {};
+    m->upperc     &= lang != LANG_CXX;
+}
+
+// Restore a language's map to its defaults (LANG-1): this build's, and
+// for C++ also its own "C" (D1).
 static void defaultmap(LangMap *m, i32 lang, Arena *perm)
 {
     static Str c[]   = {"c"};
     static Str cxx[] = {
         "c++", "cc", "cp", "cpp", "cxx", "h", "h++", "hh", "hp", "hpp", "hxx",
-        "inl", "C",
+        "inl",
     };
     static Str ftn[] = {
         "f", "for", "ftn", "f77", "f90", "f95", "f03", "f08", "f15",
@@ -366,11 +375,11 @@ static void defaultmap(LangMap *m, i32 lang, Arena *perm)
     struct { Str *exts; iz len; } maps[] = {
         {0, 0}, {c, countof(c)}, {cxx, countof(cxx)}, {ftn, countof(ftn)},
     };
-    m->exts[lang]  = {};
-    m->globs[lang] = {};
+    clearmap(m, lang);
     for (iz i = 0; i < maps[lang].len; i++) {
         m->exts[lang] = push(perm, m->exts[lang], maps[lang].exts[i]);
     }
+    m->upperc |= lang == LANG_CXX;
 }
 
 // The header extensions by default (LANG-5), with "inl" and "hp" (D2).
@@ -397,6 +406,17 @@ static void removeitem(Slice<Str> *list, Str item)
             list->len--;
             return;
         }
+    }
+}
+
+// Remove an item from one of our languages' maps, as removeitem does,
+// where C++'s own "C" comes before any other item equal to it (D1).
+static void unmap(LangMap *m, i32 lang, Str item, b32 pattern)
+{
+    if (!pattern && lang==LANG_CXX && m->upperc && equalsfold(item, "c")) {
+        m->upperc = 0;
+    } else {
+        removeitem((pattern ? m->globs : m->exts) + lang, item);
     }
 }
 
@@ -476,8 +496,7 @@ static i32 langmapopt(Parse *p, Str name, Str value)
             list = cuthead(list, first.len);
         } else {
             if (ours && !add) {
-                m->exts[ours]  = {};
-                m->globs[ours] = {};
+                clearmap(m, ours);
             }
             while (list.len && list[0]!=',') {
                 MapItem it = mapitem(list);
@@ -486,7 +505,7 @@ static i32 langmapopt(Parse *p, Str name, Str value)
                 }
                 Slice<Str> *lists = it.pattern ? m->globs : m->exts;
                 for (i32 i = LANG_C; i <= LANG_FORTRAN; i++) {
-                    removeitem(lists+i, it.item);
+                    unmap(m, i, it.item, it.pattern);
                 }
                 if (ours) {
                     lists[ours] = push(p->perm, lists[ours], it.item);
@@ -520,11 +539,10 @@ static i32 mapopt(Parse *p, Str name, Str value)
     LangMap    *m    = &p->opt->map;
     Slice<Str> *list = (it.pattern ? m->globs : m->exts) + lang.lang;
     if (!op) {
-        m->exts[lang.lang]  = {};
-        m->globs[lang.lang] = {};
+        clearmap(m, lang.lang);
     }
     if (op == '-') {
-        removeitem(list, it.item);
+        unmap(m, lang.lang, it.item, it.pattern);
     } else {
         *list = push(p->perm, *list, it.item);
     }

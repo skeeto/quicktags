@@ -134,36 +134,11 @@ static Str extension(Str name)
     return dot ? cuthead(name, dot) : Str("");
 }
 
-// Whether a list holds a string, ignoring case or not.
-static b32 inlist(Slice<Str> list, Str s, b32 fold)
+// Whether a list holds a string, ignoring case.
+static b32 inlist(Slice<Str> list, Str s)
 {
     for (iz i = 0; i < list.len; i++) {
-        if (fold ? equalsfold(list[i], s) : list[i]==s) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-static b32 hascapital(Str s)
-{
-    for (iz i = 0; i < s.len; i++) {
-        if (s[i]>='A' && s[i]<='Z') {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-// Whether a map's extensions take one: exactly, or in a second pass,
-// ignoring case, but for those with capitals, like C++'s "C" (D1).
-static b32 mapext(Slice<Str> exts, Str ext, b32 fold)
-{
-    if (!fold) {
-        return inlist(exts, ext, 0);
-    }
-    for (iz i = 0; i < exts.len; i++) {
-        if (equalsfold(exts[i], ext) && !hascapital(exts[i])) {
+        if (equalsfold(list[i], s)) {
             return 1;
         }
     }
@@ -171,8 +146,8 @@ static b32 mapext(Slice<Str> exts, Str ext, b32 fold)
 }
 
 // The first enabled language in name order whose map takes a base name:
-// by a pattern, else by its extension, exactly before ignoring case,
-// so that ".C" is C++ (LANG-2, D1).
+// by a pattern, else by its extension, ignoring case, but for C++'s own
+// "C", which takes only ".C", and first (LANG-2, D1).
 static i32 matchlang(Options *opt, Str name)
 {
     LangMap *m = &opt->map;
@@ -186,11 +161,12 @@ static i32 matchlang(Options *opt, Str name)
         }
     }
     Str ext = extension(name);
-    for (b32 fold = 0; fold < 2; fold++) {
-        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
-            if (opt->langs>>lang&1 && mapext(m->exts[lang], ext, fold)) {
-                return lang;
-            }
+    if (ext=="C" && m->upperc && opt->langs>>LANG_CXX&1) {
+        return LANG_CXX;
+    }
+    for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+        if (opt->langs>>lang&1 && inlist(m->exts[lang], ext)) {
+            return lang;
         }
     }
     return LANG_NONE;
@@ -211,7 +187,7 @@ static Lang detectlang(Options *opt, Str path)
         r.lang = matchlang(opt, base);
         r.lang = !r.lang && in ? matchlang(opt, bare) : r.lang;
     }
-    r.header = r.lang && inlist(opt->headers, extension(bare), 1);
+    r.header = r.lang && inlist(opt->headers, extension(bare));
     return r;
 }
 

@@ -242,7 +242,7 @@ static void test_walk(Test *t)
         {"--map-C=.xyz",                        "a.c",    NO,  0, 1},
         {"--map-C=.xyz",                        "x.xyz",  C,   0, 1},
         {"--map-C=+.H",                         "b.H",    C,   1, 1},
-        {"--map-C=+.H",                         "b.h",    CXX, 1, 1},  // D1, u-ctags: C
+        {"--map-C=+.H",                         "b.h",    C,   1, 1},
         {"--map-C=+(*.h)",                      "z.h",    C,   1, 1},
         {"--map-C=+(*.H)",                      "z.h",    C,   1, 1},
         {"--map-C=+(*.H)",                      "z.h",    CXX, 1, 0},
@@ -251,7 +251,20 @@ static void test_walk(Test *t)
         {"--map-Fortran=+.x --map-c++=+.x",     "p.x",    CXX, 0, 1},
         {"--map-Fortran=+(*.x) --map-c++=+.x",  "p.x",    FTN, 0, 1},
         {"--langmap=C:.X",                      "q.X",    C,   0, 1},
-        {"--langmap=C:.X",                      "p.x",    NO,  0, 1},  // D1, u-ctags: C
+        {"--langmap=C:.X",                      "p.x",    C,   0, 1},
+        {"--langmap=c:+.HH",                    "u.hh",   C,   1, 1},
+        {"--map-C=-.c",                         "a.c",    NO,  0, 1},
+        {"--map-C=-.c",                         "a.C",    CXX, 0, 1},  // D1, u-ctags: none
+        {"--languages=-C",                      "a.C",    CXX, 0, 1},  // D1, u-ctags: none
+        {"--map-C++=+.x",                       "a.C",    CXX, 0, 1},  // D1, u-ctags: C
+        {"--map-C++=-.C",                       "a.C",    C,   0, 1},
+        {"--map-C++=-.c",                       "a.C",    C,   0, 1},
+        {"--map-C++=+.c --map-C++=-.c",         "a.C",    C,   0, 1},
+        {"--map-C++=-.C --langmap=c++:default", "a.C",    CXX, 0, 1},  // D1, u-ctags: C
+        {"--map-C++=.cpp",                      "a.C",    C,   0, 1},
+        {"--langmap=c++:.C",                    "a.c",    CXX, 0, 1},
+        {"--langmap=c++:+.c",                   "a.C",    CXX, 0, 1},
+        {"--langmap=c:+.c",                     "a.C",    C,   0, 1},
         {"--langmap=c++:+.in",                  "y.c.in", CXX, 0, 1},
         {"--langmap=c++:+.in",                  "r.in",   CXX, 0, 1},
         {"--langmap=c:(*.c.in)",                "y.c.in", C,   0, 1},

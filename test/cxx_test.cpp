@@ -676,18 +676,25 @@ static TagCase cxxcases[] = {
      "M\ts.h\t/^#define M /;\"\td\tline:2\tfile:\n"
      "s\ts.h\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\tfile:\n",
      ""},
-    {IMPROVED, "D1 an exact extension first", "k.h", "--map-C=+.H",
+    {SHARED, "an extension in capitals shared, C first", "k.h", "--map-C=+.H",
      "class Thing { int v; };\n"
      "int Thing::get() { return v; }\n",
-     "Thing\tk.h\t/^class Thing { int v; };$/;\"\tc\tline:1\n"
-     "get\tk.h\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
-     "v\tk.h\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\n",
      "get\tk.h\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
-     "v\tk.h\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n"},
-    {IMPROVED, "D1 capitals in a map", "k.x", "--langmap=c:.X",
+     "v\tk.h\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "an extension in capitals, ignoring case", "k.x", "--langmap=c:.X",
      "int v;\n",
-     "",
-     "v\tk.x\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+     "v\tk.x\t/^int v;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {IMPROVED, "D1 C++'s own C without C's", "k.C", "--map-C=-.c",
+     "class Thing { int v; };\n",
+     "Thing\tk.C\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "C++'s own C removed", "k.C", "--map-C++=-.C",
+     "class Thing { int v; };\n",
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
     {IMPROVED, "D2 a forced header template", "k.x.in", "-h .x --language-force=C",
      "static int s;\n",
      "s\tk.x.in\t/^static int s;$/;\"\tv\tline:1\ttyperef:typename:int\n",
