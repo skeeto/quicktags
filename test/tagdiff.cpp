@@ -6,7 +6,8 @@
 // ours, lines only in OURS are "extra". A ledger explains deliberate
 // differences: each entry starts "@ SCOPE: reason" (SCOPE a glob, as
 // fnmatch without flags), followed by its lines, "- LINE" for a missing
-// line, "+ LINE" for an extra one, with literal tabs. The comparison
+// line, "+ LINE" for an extra one, with literal tabs, or "= N PATH" for
+// exactly N differences, either kind, in the file PATH. The comparison
 // passes when every difference is in a ledger entry whose scope matches,
 // and every such entry's lines all occurred.
 //
@@ -208,6 +209,7 @@ struct Entry {
     Str    head;    // the "@ ..." line
     Str    scope;
     Str    lines;   // "- " and "+ " lines, each ending in a newline
+    Str    files;   // paths explained whole, each ending in a newline
     iz     used;
     iz     count;
 };
@@ -236,6 +238,15 @@ static Entry *readledger(Arena *a, Str text, Str scope)
             cur->lines = concat(a, cur->lines, l);
             cur->lines = concat(a, cur->lines, "\n");
             cur->count++;
+        } else if (cur && startswith(l, "= ")) {
+            Cut n     = cut(cuthead(l, 2), ' ');
+            iz  count = 0;
+            for (iz i = 0; i < n.head.len; i++) {
+                count = count*10 + n.head[i] - '0';
+            }
+            cur->count += count;
+            cur->files = concat(a, cur->files, n.tail);
+            cur->files = concat(a, cur->files, "\n");
         }
         if (!c.ok) {
             break;
@@ -250,6 +261,13 @@ static b32 explained(Entry *ledger, u8 sign, Str line)
     for (Entry *e = ledger; e; e = e->next) {
         for (Cut c = cut(e->lines, '\n'); c.ok; c = cut(c.tail, '\n')) {
             if (c.head.len>=2 && c.head[0]==sign && cuthead(c.head, 2)==line) {
+                e->used++;
+                return 1;
+            }
+        }
+        Str file = cut(cut(line, '\t').tail, '\t').head;
+        for (Cut c = cut(e->files, '\n'); c.ok; c = cut(c.tail, '\n')) {
+            if (c.head == file) {
                 e->used++;
                 return 1;
             }
@@ -272,8 +290,7 @@ static i32 usage()
 
 int main(int argc, char **argv)
 {
-    iz    cap = (iz)1<<32;
-    if (sizeof(void *) < 8) cap = (iz)1<<29;
+    iz    cap = (iz)1 << (sizeof(void *)<8 ? 29 : 32);
     byte *mem = (byte *)malloc((uz)cap);
     if (!mem) {
         os_oom();

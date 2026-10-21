@@ -35,6 +35,7 @@ struct Tag {
     b32 filescope;
     b32 truncate;   // cut the pattern just after the name
     b32 lineaddr;   // address by line number instead of a pattern
+    Str aliased;    // C++ namespace aliases: the "name:" field
 };
 
 // A finished tags-file line, keyed for sorting by its first bytes.
@@ -229,6 +230,10 @@ static void tagemit(File *f, Tag *t)
     }
     if (t->filescope) {
         print(b, "\tfile:");
+    }
+    if (t->aliased.data) {
+        print(b, "\tname:");
+        printescaped(b, t->aliased, 0);
     }
     putbyte(b, '\n');
     f->ntags++;

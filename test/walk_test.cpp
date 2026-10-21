@@ -75,12 +75,15 @@ static void test_walk(Test *t)
         expect(t, langs[i].path, num(&a, l.header), num(&a, langs[i].header));
     }
 
-    // Whole runs, which tag nothing until the parsers arrive
+    // Whole runs
+    Str x = "x\ta.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n";
     Str header =
         "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
         "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
         "!_TAG_PROGRAM_NAME\tctags\t//\n"
-        "!_TAG_PROGRAM_VERSION\t0.1\t//\n";
+        "!_TAG_PROGRAM_VERSION\t0.1\t//\n"
+        "x\ta.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+        "y\tsub/b.cpp\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n";
     {
         Os *os = newos(&a);
         vfsfile(os, "a.c", "int x;\n");
@@ -101,7 +104,7 @@ static void test_walk(Test *t)
         vfsfile(os, "a.c", "int x;\n");
         Run r = run(os, a, "-R -f -");
         expect(t, "stdout status", num(&a, r.status), "0");
-        expect(t, "stdout out", r.out, "");
+        expect(t, "stdout out", r.out, x);
     }
     {
         Os *os = newos(&a);

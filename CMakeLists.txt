@@ -74,7 +74,7 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
   enable_testing()
 
   add_executable(ctags_test main_test.cpp)
-  set(CTAGS_TEST_GROUPS wide output cli walk fortran)
+  set(CTAGS_TEST_GROUPS wide output cli walk c cxx fortran)
   foreach(group IN LISTS CTAGS_TEST_GROUPS)
     add_test(NAME unit/${group} COMMAND ctags_test ${group})
     set_tests_properties(unit/${group} PROPERTIES LABELS unit)

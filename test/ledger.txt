@@ -3,5 +3,85 @@
 # "@ SCOPE: reason" starts an entry, where SCOPE is a glob over test
 # names (units/CATEGORY/CASE/MODE, corpus/NAME). Its lines follow:
 # "- LINE" for a tag Universal Ctags writes and we do not, "+ LINE" for
-# one we write and it does not, with literal tabs. Every line of an
-# entry whose scope matches must occur, or the entry is stale.
+# one we write and it does not, with literal tabs. "= N PATH" explains
+# exactly N such lines in the file PATH, for wholesale differences.
+# Every line of an entry whose scope matches must occur, or the entry is
+# stale.
+
+@ corpus/llama: D2, a .h.in file is a header, so its tags are not file:
+= 4 ggml/src/ggml-et/cmake/ggml-et-uberkernel-kernel-map.h.in
+= 4 ggml/src/ggml-version.h.in
+= 4 src/llama-version.h.in
+= 12 tools/ui/ui.h.in
+
+@ corpus/llama: X6, __pragma(...) is dropped, so it no longer hides return types
+= 1372 build/CMakeFiles/4.3.1-msvc1/CompilerIdCUDA/tmp/CMakeCUDACompilerId.cudafe1.cpp
+
+@ corpus/llvm/clang: X2, a string ends at an unescaped newline
+= 1 clang/test/Lexer/rdar-8914293.c
+= 3 clang/test/OpenMP/parallel_message_messages.cpp
+= 1 clang/test/Preprocessor/embed___has_embed_parsing_errors.c
+= 3 clang/test/Preprocessor/has_include.c
+
+@ corpus/llvm/clang: X3, u8'x' is a character literal, not a digit separator
+= 90 clang/test/AST/ByteCode/builtin-functions.cpp
+= 1 clang/test/CXX/lex/lex.literal/lex.ext/p13.cpp
+= 1 clang/test/CodeGenCXX/char8_t.cpp
+= 4 clang/test/Lexer/utf8-char-literal.cpp
+= 1 clang/test/Sema/pre-c2x-compat.c
+= 66 clang/test/SemaCXX/constexpr-string.cpp
+= 7 clang/test/SemaCXX/warn-implicit-unicode-conversions.cpp
+
+@ corpus/llvm/clang: X4, NUL is data
+= 1 clang/test/Format/dont-crash-on-nul.cpp
+= 4 clang/test/Lexer/null-character-in-literal.c
+= 1 clang/test/Misc/diag-null-bytes-in-line.cpp
+
+@ corpus/llvm/clang: X5, bytes 0x80 and above are identifier characters
+= 1 clang/test/CXX/drs/cwg6xx.cpp
+= 2 clang/test/Lexer/dollar-idents.cpp
+= 9 clang/test/Lexer/unicode.c
+= 1 clang/test/Sema/ms_predefined_expr.cpp
+
+@ corpus/llvm/clang: X5 and X6, so extern "C++"_x {} becomes an initializer that hides f
+= 12 clang/test/Parser/cxx11-user-defined-literals.cpp
+
+@ corpus/llvm/clang: X6, _Pragma(...) and __pragma(...) are dropped
+= 2 clang/test/CXX/drs/cwg2947.cpp
+= 2 clang/test/CodeGen/PowerPC/pragma-comment.c
+= 4 clang/test/CodeGenCXX/optnone-pragma-optimize-off.cpp
+= 2 clang/test/Preprocessor/_Pragma-location.c
+= 1 clang/test/Preprocessor/minimize-whitespace.c
+= 2 clang/test/Preprocessor/pragma_microsoft.c
+= 1 clang/test/SemaOpenACC/declare-construct-ast.cpp
+
+@ corpus/llvm/clang-tools-extra: X4, NUL is data
+= 1 clang-tools-extra/test/clang-tidy/checkers/misc/misleading-bidirectional.cpp
+
+@ corpus/llvm/clang-tools-extra: X5, bytes 0x80 and above are identifier characters
+= 2 clang-tools-extra/test/clang-tidy/checkers/misc/confusable-identifiers.cpp
+= 2 clang-tools-extra/test/clang-tidy/checkers/misc/misleading-identifier.cpp
+
+@ corpus/llvm/compiler-rt: D1, .C is C++
+= 12 compiler-rt/test/BlocksRuntime/copyconstructor.C
+= 14 compiler-rt/test/BlocksRuntime/reference.C
+
+@ corpus/llvm/libcxx: X3, u8'x' is a character literal, not a digit separator
+= 1 libcxx/test/std/ranges/range.adaptors/range.lazy.split/general.pass.cpp
+= 2 libcxx/test/std/ranges/range.adaptors/range.split/general.pass.cpp
+
+@ corpus/llvm/libsycl: D2, .inl and X.h.in files are headers, so their tags are not file:
+= 8 libsycl/src/version.hpp.in
+
+@ corpus/llvm/lldb: D2, .inl and X.h.in files are headers, so their tags are not file:
+= 4 lldb/source/Plugins/Highlighter/TreeSitter/Rust/HighlightQuery.h.in
+= 4 lldb/source/Plugins/Highlighter/TreeSitter/Swift/HighlightQuery.h.in
+
+@ corpus/llvm/openmp: D2, .inl and X.h.in files are headers, so their tags are not file:
+= 18 openmp/runtime/src/kmp_itt.inl
+
+@ corpus/llvm/orc-rt: D2, .inl and X.h.in files are headers, so their tags are not file:
+= 24 orc-rt/include/orc-rt-c/config.h.in
+
+@ corpus/llvm/polly: D2, .inl and X.h.in files are headers, so their tags are not file:
+= 2 polly/lib/External/isl/interface/include/isl-interface/config.h.in

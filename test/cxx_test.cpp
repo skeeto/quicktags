@@ -1,0 +1,329 @@
+// C and C++: tag cases
+// This is free and unencumbered software released into the public domain.
+
+static TagCase ccases[] = {
+    {SHARED, "macros", "m.c", "--kinds-C=+D",
+     "#define LIMIT 10\n"
+     "#define MAX(a, b) ((a) > (b) ? (a) : (b))\n"
+     "#define VA(fmt, args...) printf(fmt, args)\n",
+     "LIMIT\tm.c\t/^#define LIMIT /;\"\td\tline:1\tfile:\n"
+     "MAX\tm.c\t/^#define MAX(/;\"\td\tline:2\tfile:\n"
+     "VA\tm.c\t/^#define VA(/;\"\td\tline:3\tfile:\n"
+     "a\tm.c\t/^#define MAX(a, b) ((a) > (b) ? (a) : (b))$/;\"\tD\tline:2\tmacro:MAX\n"
+     "args\tm.c\t/^#define VA(fmt, args...) printf(fmt, args)$/;\"\tD\tline:3\tmacro:VA\n"
+     "b\tm.c\t/^#define MAX(a, b) ((a) > (b) ? (a) : (b))$/;\"\tD\tline:2\tmacro:MAX\n"
+     "fmt\tm.c\t/^#define VA(fmt, args...) printf(fmt, args)$/;\"\tD\tline:3\tmacro:VA\n",
+     ""},
+    {SHARED, "struct typedef", "s.c", "",
+     "typedef struct node {\n"
+     "    int value;\n"
+     "    struct node *next;\n"
+     "} node, *nodeptr;\n",
+     "next\ts.c\t/^    struct node *next;$/;\"\tm\tline:3\tstruct:node\ttyperef:struct:node *\tfile:\n"
+     "node\ts.c\t/^typedef struct node {$/;\"\ts\tline:1\tfile:\n"
+     "node\ts.c\t/^} node, *nodeptr;$/;\"\tt\tline:4\ttyperef:struct:node\tfile:\n"
+     "nodeptr\ts.c\t/^} node, *nodeptr;$/;\"\tt\tline:4\ttyperef:struct:node *\tfile:\n"
+     "value\ts.c\t/^    int value;$/;\"\tm\tline:2\tstruct:node\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "enum variable", "e.c", "",
+     "enum color { RED, GREEN = 2, BLUE } favorite;\n",
+     "BLUE\te.c\t/^enum color { RED, GREEN = 2, BLUE } favorite;$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "GREEN\te.c\t/^enum color { RED, GREEN = 2, BLUE } favorite;$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "RED\te.c\t/^enum color { RED, GREEN = 2, BLUE } favorite;$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "color\te.c\t/^enum color { RED, GREEN = 2, BLUE } favorite;$/;\"\tg\tline:1\tfile:\n"
+     "favorite\te.c\t/^enum color { RED, GREEN = 2, BLUE } favorite;$/;\"\tv\tline:1\ttyperef:enum:color\n",
+     ""},
+    {SHARED, "functions and locals", "f.c", "--kinds-C=+lpz",
+     "static int helper(void);\n"
+     "static int helper(void) { return 0; }\n"
+     "int api(int x, char *name)\n"
+     "{\n"
+     "    int local = x, other[4];\n"
+     "    return local + helper();\n"
+     "}\n",
+     "api\tf.c\t/^int api(int x, char *name)$/;\"\tf\tline:3\ttyperef:typename:int\n"
+     "helper\tf.c\t/^static int helper(void) { return 0; }$/;\"\tf\tline:2\ttyperef:typename:int\tfile:\n"
+     "helper\tf.c\t/^static int helper(void);$/;\"\tp\tline:1\ttyperef:typename:int\tfile:\n"
+     "local\tf.c\t/^    int local = x, other[4];$/;\"\tl\tline:5\tfunction:api\ttyperef:typename:int\tfile:\n"
+     "name\tf.c\t/^int api(int x, char *name)$/;\"\tz\tline:3\tfunction:api\ttyperef:typename:char *\tfile:\n"
+     "other\tf.c\t/^    int local = x, other[4];$/;\"\tl\tline:5\tfunction:api\ttyperef:typename:int[4]\tfile:\n"
+     "x\tf.c\t/^int api(int x, char *name)$/;\"\tz\tline:3\tfunction:api\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "K&R definition", "k.c", "--kinds-C=+z",
+     "int add(a, b)\n"
+     "    int a;\n"
+     "    int b;\n"
+     "{\n"
+     "    return a + b;\n"
+     "}\n",
+     "a\tk.c\t/^    int a;$/;\"\tz\tline:2\tfunction:add\ttyperef:typename:int\tfile:\n"
+     "add\tk.c\t/^int add(a, b)$/;\"\tf\tline:1\n"
+     "b\tk.c\t/^    int b;$/;\"\tz\tline:3\tfunction:add\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "anonymous struct", "a.c", "",
+     "struct { int x; } s;\n"
+     "union { int i; float f; } u;\n",
+     "__anon0b8855d70108\ta.c\t/^struct { int x; } s;$/;\"\ts\tline:1\tfile:\n"
+     "__anon0b8855d7020a\ta.c\t/^union { int i; float f; } u;$/;\"\tu\tline:2\tfile:\n"
+     "f\ta.c\t/^union { int i; float f; } u;$/;\"\tm\tline:2\tunion:__anon0b8855d7020a\ttyperef:typename:float\tfile:\n"
+     "i\ta.c\t/^union { int i; float f; } u;$/;\"\tm\tline:2\tunion:__anon0b8855d7020a\ttyperef:typename:int\tfile:\n"
+     "s\ta.c\t/^struct { int x; } s;$/;\"\tv\tline:1\ttyperef:struct:__anon0b8855d70108\n"
+     "u\ta.c\t/^union { int i; float f; } u;$/;\"\tv\tline:2\ttyperef:union:__anon0b8855d7020a\n"
+     "x\ta.c\t/^struct { int x; } s;$/;\"\tm\tline:1\tstruct:__anon0b8855d70108\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "bit fields", "b.c", "",
+     "struct flags {\n"
+     "    unsigned a : 1, b : 2;\n"
+     "    int c : 3;\n"
+     "};\n",
+     "a\tb.c\t/^    unsigned a : 1, b : 2;$/;\"\tm\tline:2\tstruct:flags\ttyperef:typename:unsigned:1\tfile:\n"
+     "b\tb.c\t/^    unsigned a : 1, b : 2;$/;\"\tm\tline:2\tstruct:flags\ttyperef:typename:unsigned:2\tfile:\n"
+     "c\tb.c\t/^    int c : 3;$/;\"\tm\tline:3\tstruct:flags\ttyperef:typename:int:3\tfile:\n"
+     "flags\tb.c\t/^struct flags {$/;\"\ts\tline:1\tfile:\n",
+     ""},
+    {SHARED, "conditional branches", "c.c", "",
+     "#if 0\n"
+     "int dead;\n"
+     "#else\n"
+     "int live;\n"
+     "#endif\n"
+     "#ifdef X\n"
+     "int first;\n"
+     "#else\n"
+     "int second;\n"
+     "#endif\n",
+     "first\tc.c\t/^int first;$/;\"\tv\tline:7\ttyperef:typename:int\n"
+     "live\tc.c\t/^int live;$/;\"\tv\tline:4\ttyperef:typename:int\n"
+     "second\tc.c\t/^int second;$/;\"\tv\tline:9\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "labels", "l.c", "--kinds-C=+L",
+     "void spin(void)\n"
+     "{\n"
+     "again:\n"
+     "    goto again;\n"
+     "}\n",
+     "again\tl.c\t/^again:$/;\"\tL\tline:3\tfunction:spin\tfile:\n"
+     "spin\tl.c\t/^void spin(void)$/;\"\tf\tline:1\ttyperef:typename:void\n",
+     ""},
+    {SHARED, "header scope", "h.h", "--kinds-C=+px",
+     "static int counter;\n"
+     "extern int shared;\n"
+     "int compute(int);\n"
+     "#define H_H\n",
+     "H_H\th.h\t/^#define H_H$/;\"\td\tline:4\n"
+     "compute\th.h\t/^int compute(int);$/;\"\tp\tline:3\ttyperef:typename:int\n"
+     "counter\th.h\t/^static int counter;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "shared\th.h\t/^extern int shared;$/;\"\tx\tline:2\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "function pointers", "p.c", "",
+     "typedef int (*handler)(int, char **);\n"
+     "void (*callback)(void);\n"
+     "int (*table[4])(int);\n",
+     "callback\tp.c\t/^void (*callback)(void);$/;\"\tv\tline:2\ttyperef:typename:void (*)(void)\n"
+     "handler\tp.c\t/^typedef int (*handler)(int, char **);$/;\"\tt\tline:1\ttyperef:typename:int (*)(int,char **)\tfile:\n"
+     "table\tp.c\t/^int (*table[4])(int);$/;\"\tv\tline:3\ttyperef:typename:int (* [4])(int)\n",
+     ""},
+    {SHARED, "long pattern", "w.c", "",
+     "int a_variable_with_a_rather_long_name_that_goes_on = 1; /* and a comment that pushes the line past the limit */\n",
+     "a_variable_with_a_rather_long_name_that_goes_on\tw.c\t/^int a_variable_with_a_rather_long_name_that_goes_on = 1; \\/* and a comment that pushes the line /;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "escapes in patterns", "x.c", "",
+     "char *path = \"a/b\\\\c\";\n"
+     "int end$;\n",
+     "end$\tx.c\t/^int end$;$/;\"\tv\tline:2\ttyperef:typename:int\n"
+     "path\tx.c\t/^char *path = \"a\\/b\\\\\\\\c\";$/;\"\tv\tline:1\ttyperef:typename:char *\n",
+     ""},
+};
+
+static TagCase cxxcases[] = {
+    {SHARED, "class members", "c.cpp", "--kinds-C++=+p",
+     "namespace geo {\n"
+     "class Point {\n"
+     "public:\n"
+     "    Point(int x, int y);\n"
+     "    int x() const { return x_; }\n"
+     "private:\n"
+     "    int x_, y_;\n"
+     "};\n"
+     "}\n",
+     "Point\tc.cpp\t/^    Point(int x, int y);$/;\"\tp\tline:4\tclass:geo::Point\tfile:\n"
+     "Point\tc.cpp\t/^class Point {$/;\"\tc\tline:2\tnamespace:geo\tfile:\n"
+     "geo\tc.cpp\t/^namespace geo {$/;\"\tn\tline:1\tfile:\n"
+     "x\tc.cpp\t/^    int x() const { return x_; }$/;\"\tf\tline:5\tclass:geo::Point\ttyperef:typename:int\tfile:\n"
+     "x_\tc.cpp\t/^    int x_, y_;$/;\"\tm\tline:7\tclass:geo::Point\ttyperef:typename:int\tfile:\n"
+     "y_\tc.cpp\t/^    int x_, y_;$/;\"\tm\tline:7\tclass:geo::Point\ttyperef:typename:int\tfile:\n",
+     ""},
+    {SHARED, "qualified definitions", "q.cpp", "",
+     "geo::Point::Point(int x, int y) : x_(x), y_(y) {}\n"
+     "int geo::Point::area() const { return 0; }\n"
+     "int geo::counter = 0;\n",
+     "Point\tq.cpp\t/^geo::Point::Point(int x, int y) : x_(x), y_(y) {}$/;\"\tf\tline:1\tclass:geo::Point\n"
+     "area\tq.cpp\t/^int geo::Point::area() const { return 0; }$/;\"\tf\tline:2\tclass:geo::Point\ttyperef:typename:int\n"
+     "counter\tq.cpp\t/^int geo::counter = 0;$/;\"\tm\tline:3\tclass:geo\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "templates", "t.cpp", "--kinds-C++=+Z",
+     "template<typename T, int N>\n"
+     "struct Array {\n"
+     "    T data[N];\n"
+     "    T &at(int i) { return data[i]; }\n"
+     "};\n"
+     "template<class T> T max(T a, T b) { return a < b ? b : a; }\n",
+     "Array\tt.cpp\t/^struct Array {$/;\"\ts\tline:2\tfile:\n"
+     "N\tt.cpp\t/^template<typename T, int N>$/;\"\tZ\tline:1\tstruct:Array\ttyperef:typename:int\n"
+     "T\tt.cpp\t/^template<class T> T max(T a, T b) { return a < b ? b : a; }$/;\"\tZ\tline:6\tfunction:max\ttyperef:meta:class\n"
+     "T\tt.cpp\t/^template<typename T, int N>$/;\"\tZ\tline:1\tstruct:Array\ttyperef:meta:typename\n"
+     "at\tt.cpp\t/^    T &at(int i) { return data[i]; }$/;\"\tf\tline:4\tstruct:Array\ttyperef:typename:T &\tfile:\n"
+     "data\tt.cpp\t/^    T data[N];$/;\"\tm\tline:3\tstruct:Array\ttyperef:typename:T[]\tfile:\n"
+     "max\tt.cpp\t/^template<class T> T max(T a, T b) { return a < b ? b : a; }$/;\"\tf\tline:6\ttyperef:typename:T\n",
+     ""},
+    {SHARED, "lambdas", "l.cpp", "",
+     "auto twice = [](int a) { return 2*a; };\n"
+     "void run() {\n"
+     "    auto inner = [&](int b) -> int { return b; };\n"
+     "}\n",
+     "__anon0fbc44020102\tl.cpp\t/^auto twice = [](int a) { return 2*a; };$/;\"\tf\tline:1\tfile:\n"
+     "__anon0fbc44020202\tl.cpp\t/^    auto inner = [&](int b) -> int { return b; };$/;\"\tf\tline:3\tfunction:run\ttyperef:typename:int\tfile:\n"
+     "run\tl.cpp\t/^void run() {$/;\"\tf\tline:2\ttyperef:typename:void\n"
+     "twice\tl.cpp\t/^auto twice = [](int a) { return 2*a; };$/;\"\tv\tline:1\ttyperef:typename:auto\n",
+     ""},
+    {SHARED, "operators", "o.cpp", "--kinds-C++=+p",
+     "struct V {\n"
+     "    V operator+(const V &o) const;\n"
+     "    bool operator==(const V &) const;\n"
+     "    int operator()(int) { return 0; }\n"
+     "    explicit operator bool() const;\n"
+     "};\n",
+     "V\to.cpp\t/^struct V {$/;\"\ts\tline:1\tfile:\n"
+     "operator ()\to.cpp\t/^    int operator()(int) { return 0; }$/;\"\tf\tline:4\tstruct:V\ttyperef:typename:int\tfile:\n"
+     "operator +\to.cpp\t/^    V operator+(const V &o) const;$/;\"\tp\tline:2\tstruct:V\ttyperef:typename:V\tfile:\n"
+     "operator ==\to.cpp\t/^    bool operator==(const V &) const;$/;\"\tp\tline:3\tstruct:V\ttyperef:typename:bool\tfile:\n"
+     "operator bool\to.cpp\t/^    explicit operator bool() const;$/;\"\tp\tline:5\tstruct:V\tfile:\n",
+     ""},
+    {SHARED, "using and aliases", "u.cpp", "--kinds-C++=+ANU",
+     "using Int = int;\n"
+     "namespace a { namespace b { int v; } }\n"
+     "namespace c = a::b;\n"
+     "using namespace a;\n"
+     "using a::b::v;\n",
+     "Int\tu.cpp\t/^using Int = int;$/;\"\tt\tline:1\ttyperef:typename:int\tfile:\n"
+     "a\tu.cpp\t/^namespace a { namespace b { int v; } }$/;\"\tn\tline:2\tfile:\n"
+     "a\tu.cpp\t/^using namespace a;$/;\"\tU\tline:4\tfile:\n"
+     "b\tu.cpp\t/^namespace a { namespace b { int v; } }$/;\"\tn\tline:2\tnamespace:a\tfile:\n"
+     "c\tu.cpp\t/^namespace c = a::b;$/;\"\tA\tline:3\tfile:\tname:a::b\n"
+     "v\tu.cpp\t/^namespace a { namespace b { int v; } }$/;\"\tv\tline:2\tnamespace:a::b\ttyperef:typename:int\n"
+     "v\tu.cpp\t/^using a::b::v;$/;\"\tN\tline:5\tfile:\n",
+     ""},
+    {SHARED, "enums", "e.cpp", "",
+     "enum class Mode : unsigned char { Off, On };\n"
+     "enum { Anonymous };\n"
+     "typedef enum { X, Y } Axis;\n",
+     "Anonymous\te.cpp\t/^enum { Anonymous };$/;\"\te\tline:2\tenum:__anon0f3d987b0103\tfile:\n"
+     "Axis\te.cpp\t/^typedef enum { X, Y } Axis;$/;\"\tt\tline:3\ttyperef:enum:__anon0f3d987b0203\tfile:\n"
+     "Mode\te.cpp\t/^enum class Mode : unsigned char { Off, On };$/;\"\tg\tline:1\ttyperef:typename:unsigned char\tfile:\n"
+     "Off\te.cpp\t/^enum class Mode : unsigned char { Off, On };$/;\"\te\tline:1\tenum:Mode\tfile:\n"
+     "On\te.cpp\t/^enum class Mode : unsigned char { Off, On };$/;\"\te\tline:1\tenum:Mode\tfile:\n"
+     "X\te.cpp\t/^typedef enum { X, Y } Axis;$/;\"\te\tline:3\tenum:__anon0f3d987b0203\tfile:\n"
+     "Y\te.cpp\t/^typedef enum { X, Y } Axis;$/;\"\te\tline:3\tenum:__anon0f3d987b0203\tfile:\n"
+     "__anon0f3d987b0103\te.cpp\t/^enum { Anonymous };$/;\"\tg\tline:2\tfile:\n"
+     "__anon0f3d987b0203\te.cpp\t/^typedef enum { X, Y } Axis;$/;\"\tg\tline:3\tfile:\n",
+     ""},
+    {SHARED, "anonymous namespace", "n.cpp", "",
+     "namespace {\n"
+     "int hidden;\n"
+     "void helper() {}\n"
+     "}\n",
+     "__anon0fe075040111\tn.cpp\t/^namespace {$/;\"\tn\tline:1\tfile:\n"
+     "helper\tn.cpp\t/^void helper() {}$/;\"\tf\tline:3\tnamespace:__anon0fe075040111\ttyperef:typename:void\n"
+     "hidden\tn.cpp\t/^int hidden;$/;\"\tv\tline:2\tnamespace:__anon0fe075040111\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "header access", "h.hpp", "",
+     "struct S {\n"
+     "    int a;\n"
+     "    static int count;\n"
+     "    void method();\n"
+     "};\n"
+     "inline int twice(int x) { return 2*x; }\n",
+     "S\th.hpp\t/^struct S {$/;\"\ts\tline:1\n"
+     "a\th.hpp\t/^    int a;$/;\"\tm\tline:2\tstruct:S\ttyperef:typename:int\n"
+     "count\th.hpp\t/^    static int count;$/;\"\tm\tline:3\tstruct:S\ttyperef:typename:int\n"
+     "twice\th.hpp\t/^inline int twice(int x) { return 2*x; }$/;\"\tf\tline:6\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "modules", "m.cpp", "",
+     "module;\n"
+     "export module m:part;\n"
+     "export int f();\n",
+     "__gmod_0fce5c830116\tm.cpp\t/^module;$/;\"\tM\tline:1\n"
+     "part\tm.cpp\t/^export module m:part;$/;\"\tP\tline:2\tmodule:m\n",
+     ""},
+    {SHARED, "function try block", "y.cpp", "--kinds-C++=+l",
+     "int f() try { int a = 1; return a; } catch (int e) { int b = e; return b; }\n",
+     "a\ty.cpp\t/^int f() try { int a = 1; return a; } catch (int e) { int b = e; return b; }$/;\"\tl\tline:1\tfunction:f\ttyperef:typename:int\tfile:\n"
+     "b\ty.cpp\t/^int f() try { int a = 1; return a; } catch (int e) { int b = e; return b; }$/;\"\tl\tline:1\tfunction:f\ttyperef:typename:int\tfile:\n"
+     "e\ty.cpp\t/^int f() try { int a = 1; return a; } catch (int e) { int b = e; return b; }$/;\"\tl\tline:1\tfunction:f\ttyperef:typename:int\tfile:\n"
+     "f\ty.cpp\t/^int f() try { int a = 1; return a; } catch (int e) { int b = e; return b; }$/;\"\tf\tline:1\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "friends", "fr.cpp", "",
+     "class K {\n"
+     "    friend void touch(K &k) {}\n"
+     "    friend class Other;\n"
+     "};\n",
+     "K\tfr.cpp\t/^class K {$/;\"\tc\tline:1\tfile:\n"
+     "touch\tfr.cpp\t/^    friend void touch(K &k) {}$/;\"\tf\tline:2\ttyperef:typename:void\tfile:\n",
+     ""},
+    {IMPROVED, "pragma operators", "p.cpp", "",
+     "__pragma(warning(push))\n"
+     "static __inline void f(unsigned id)\n"
+     "__pragma(warning(pop))\n"
+     "{}\n"
+     "_Pragma(\"once\") int g;\n",
+     "f\tp.cpp\t/^static __inline void f(unsigned id)$/;\"\tf\tline:2\ttyperef:typename:void\tfile:\n"
+     "g\tp.cpp\t/^_Pragma(\"once\") int g;$/;\"\tv\tline:5\ttyperef:typename:int\n",
+     "__pragma\tp.cpp\t/^__pragma(warning(push))$/;\"\tf\tline:1\tfile:\n"},
+    {IMPROVED, "u8 character literals", "u.cpp", "",
+     "char a = u8'x';\n"
+     "struct After { int b; };\n",
+     "After\tu.cpp\t/^struct After { int b; };$/;\"\ts\tline:2\tfile:\n"
+     "a\tu.cpp\t/^char a = u8'x';$/;\"\tv\tline:1\ttyperef:typename:char\n"
+     "b\tu.cpp\t/^struct After { int b; };$/;\"\tm\tline:2\tstruct:After\ttyperef:typename:int\tfile:\n",
+     "After\tu.cpp\t/^struct After { int b; };$/;\"\ts\tline:2\tfile:\n"
+     "b\tu.cpp\t/^struct After { int b; };$/;\"\tm\tline:2\tstruct:After\ttyperef:typename:int\tfile:\n"},
+    {IMPROVED, "unterminated strings", "s.c", "",
+     "#define BAD \"open\n"
+     "int after;\n",
+     "BAD\ts.c\t/^#define BAD /;\"\td\tline:1\tfile:\n"
+     "after\ts.c\t/^int after;$/;\"\tv\tline:2\ttyperef:typename:int\n",
+     "BAD\ts.c\t/^#define BAD /;\"\td\tline:1\tfile:\n"},
+    {IMPROVED, "identifiers beyond ASCII", "i.cpp", "",
+     "int café = 1;\n"
+     "int λ(int x) { return x; }\n",
+     "café\ti.cpp\t/^int café = 1;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "λ\ti.cpp\t/^int λ(int x) { return x; }$/;\"\tf\tline:2\ttyperef:typename:int\n",
+     ""},
+    {IMPROVED, "header templates", "config.h.in", "",
+     "#define VERSION \"@VERSION@\"\n"
+     "struct Config { int level; };\n",
+     "Config\tconfig.h.in\t/^struct Config { int level; };$/;\"\ts\tline:2\n"
+     "VERSION\tconfig.h.in\t/^#define VERSION \"@VERSION@/;\"\td\tline:1\n"
+     "level\tconfig.h.in\t/^struct Config { int level; };$/;\"\tm\tline:2\tstruct:Config\ttyperef:typename:int\n",
+     "Config\tconfig.h.in\t/^struct Config { int level; };$/;\"\ts\tline:2\tfile:\n"
+     "VERSION\tconfig.h.in\t/^#define VERSION \"@VERSION@/;\"\td\tline:1\tfile:\n"
+     "level\tconfig.h.in\t/^struct Config { int level; };$/;\"\tm\tline:2\tstruct:Config\ttyperef:typename:int\tfile:\n"},
+    {IMPROVED, "upper-case C extension", "k.C", "",
+     "class Thing { int v; };\n"
+     "int Thing::get() { return v; }\n",
+     "Thing\tk.C\t/^class Thing { int v; };$/;\"\tc\tline:1\tfile:\n"
+     "get\tk.C\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\tclass:Thing\ttyperef:typename:int\n"
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tm\tline:1\tclass:Thing\ttyperef:typename:int\tfile:\n",
+     "get\tk.C\t/^int Thing::get() { return v; }$/;\"\tf\tline:2\ttyperef:typename:int Thing::\n"
+     "v\tk.C\t/^class Thing { int v; };$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+};
+
+static void test_c(Test *t)
+{
+    runcases(t, ccases, countof(ccases));
+}
+
+static void test_cxx(Test *t)
+{
+    runcases(t, cxxcases, countof(cxxcases));
+}

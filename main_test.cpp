@@ -179,6 +179,7 @@ static void runcases(Test *t, TagCase *cases, iz n)
 #include "test/output_test.cpp"
 #include "test/cli_test.cpp"
 #include "test/walk_test.cpp"
+#include "test/cxx_test.cpp"
 #include "test/fortran_test.cpp"
 
 int main(int argc, char **argv)
@@ -197,6 +198,8 @@ int main(int argc, char **argv)
         {"output",  test_output,  0},
         {"cli",     test_cli,     0},
         {"walk",    test_walk,    0},
+        {"c",       test_c,       1},
+        {"cxx",     test_cxx,     1},
         {"fortran", test_fortran, 1},
     };
 

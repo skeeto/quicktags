@@ -3,6 +3,7 @@
 #   $ cmake -DUCTAGS=... -DTEST=ctags_test -DTAGDIFF=... -DWORK=dir -P cases.cmake
 
 file(REMOVE_RECURSE ${WORK})
+file(MAKE_DIRECTORY ${WORK})
 execute_process(COMMAND ${TEST} --export ${WORK} RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "cannot export cases")

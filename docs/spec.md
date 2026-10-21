@@ -656,7 +656,9 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X4** NUL is ordinary data, not the end of a line, and ends a pattern
   without the `$` anchor.
 - **X5** Bytes 0x80 and above are identifier characters.
-- **X6** `_Pragma(...)` is dropped like `__attribute__(...)`.
+- **X6** `_Pragma(...)` and MSVC's `__pragma(...)` are dropped like
+  `__attribute__(...)`, so pragmas between a declaration's parts do not
+  hide its type.
 - **X7** `#elifdef` and `#elifndef` act as `#elif`.
 - **X8** Conditionals nest 64 deep, and push and pop stay in step beyond.
 - **X9** A `??` that is not a trigraph is pushed back in order.
