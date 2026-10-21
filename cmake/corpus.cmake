@@ -22,7 +22,7 @@ option(CTAGS_CORPUS_REUSE_REF
 #   set(ctags_fmt_sortno --sort=no)
 #   set(ctags_fmt_sortno_diff --ordered)
 #   list(APPEND ctags_fmt_sets sortno)
-set(ctags_fmt_fields --fields=+iaSlKzZEr)  # 1
+set(ctags_fmt_fields --fields=+iaSmlKzZEr)  # 1
 set(ctags_fmt_combine --excmd=combine)   # 2
 set(ctags_fmt_sets fields combine)
 set(ctags_fmt_llvm fields combine)

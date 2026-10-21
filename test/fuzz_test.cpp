@@ -40,6 +40,9 @@ static Str fuzzf[] = {
     "common", "block", "data", "entry", "enum", "enumerator", "namelist",
     "procedure", "generic", "abstract", "pure", "elemental", "recursive",
     "impure", "use", "only", "result", "bind(c)", "kind=8", "len=*",
+    "extends(t)", "deferred", "non_overridable", "type, extends(t) ::",
+    "type, abstract ::", "procedure(p), deferred ::",
+    "procedure, non_overridable ::", "submodule (m)",
     "a", "b", "x", "_u", "100", "1.5d0", "'s'", "\"t\"", "::", ",", "=",
     "(", ")", "(/", "/)", "%", "&", "&\n", "!c", "\n", "\n", "\n", ";",
     "\nC comment\n", "\n      ", "\n     &", "\n100   ", "*", "\0", "\x80",
@@ -340,19 +343,22 @@ static Str fuzzstrip(Arena *a, Str out)
 }
 
 // The checks of one input: the first problem found, if any, with the
-// options that showed it.
+// options that showed it, and what the outputs held.
 struct Fuzzed {
-    Str   bad;    // null for none
+    Str   bad;       // null for none
     Lint *lint;
     iz    ntags;
+    iz    inherits;  // Fortran's inherits: fields
+    iz    impl;      // Fortran's implementation: fields
 };
 
 // Tag the file with each option set in turn, the first the default
 // options, checking each output, and stopping at the first problem.
 static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
 {
-    Fuzzed r  = {};
-    Os    *os = newos(&a);
+    Fuzzed r   = {};
+    Os    *os  = newos(&a);
+    b32    ftn = endswith(file, ".f90") || endswith(file, ".f");
     vfsfile(os, file, src);
     Str deflt = {};
     for (iz o = 0; o<nruns && !r.bad.data; o++) {
@@ -368,8 +374,12 @@ static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
         } else if (runs[o]->strip && !(fuzzstrip(&a, got.out) == deflt)) {
             r.bad = "not the default output once stripped";
         }
-        for (iz j = 0; j < got.out.len; j++) {
-            r.ntags += got.out[j] == '\n';
+        for (Cut c = cut(got.out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+            r.ntags++;
+            if (ftn) {
+                r.inherits += find(c.head, "\tinherits:") >= 0;
+                r.impl     += find(c.head, "\timplementation:") >= 0;
+            }
         }
         if (got.status) {
             r.bad = "nonzero exit status";
@@ -429,8 +439,10 @@ static void test_fuzz(Test *t)
     // GCC 16 places u64 locals below their alignof (8) on i686 Windows,
     // which UBSan traps through the pointer: a regression w64devkit
     // patched in 0de8f07, explicit here for unpatched compilers
-    alignas(8) u64 rng   = 1;
-    iz             ntags = 0;
+    alignas(8) u64 rng      = 1;
+    iz             ntags    = 0;
+    iz             inherits = 0;
+    iz             impl     = 0;
     for (i32 i = 0; i < FUZZRUNS; i++) {
         Arena a   = t->perm;
         i32   ext = (i32)(rand32(&rng) % countof(fuzzexts));
@@ -451,10 +463,16 @@ static void test_fuzz(Test *t)
         // Default options, all kinds, and a format option set in turn
         Lint  *runs[] = {lints, lints+1, lints + 2 + i%(countof(lints)-2)};
         Fuzzed r      = fuzzcheck(a, file, src, runs, countof(runs));
-        ntags += r.ntags;
+        ntags    += r.ntags;
+        inherits += r.inherits;
+        impl     += r.impl;
         if (!fuzzexpect(t, r, "input", i, file, src)) {
             return;
         }
     }
     expect(t, "fuzz found tags", num(&t->perm, ntags > FUZZRUNS), "1");
+    expect(t, "fuzz found Fortran's inherits:",
+           num(&t->perm, inherits > FUZZRUNS/200), "1");
+    expect(t, "fuzz found Fortran's implementation:",
+           num(&t->perm, impl > FUZZRUNS/200), "1");
 }
