@@ -386,10 +386,10 @@ depends on how far the walk had read when the label was seen. Our
   - Type declarations (FTN-13) start with `byte integer real double complex character logical record type procedure final generic class enumerator`.
   - A statement that starts with an identifier is skipped; the part goes on only if it is a statement function, `name(...) =`. That includes a joined END, so after a body of declarations only, `endmodule` is skipped with the next statement, the next unit's header (we depart, F5).
   - COMMON and NAMELIST (FTN-18), STRUCTURE (FTN-17); `allocatable data dimension equivalence external intent intrinsic optional pointer private protected public save target` statements are skipped.
-  - Anything else ends the part, unread.
+  - Anything else ends the part, unread, including the attribute statements `bind(…) ::`, `codimension`, `asynchronous` and `contiguous` (we depart, F8).
 - **FTN-13 Type declarations.** A type specifier, then `, attributes` and `::`, then a list of entities, each tagged with the kind of FTN-6.
   - Specifiers: CHARACTER `[*] (…)` or `[*] N`; BYTE, INTEGER, REAL, COMPLEX, LOGICAL, PROCEDURE and CLASS with `(…)`, `*N` or `*(…)`; DOUBLE PRECISION and DOUBLE COMPLEX (DOUBLE followed by anything else skips to the statement end); RECORD `/s/`; TYPE `(…)`, while TYPE followed by anything else defines a derived type (FTN-14); FINAL, GENERIC and ENUMERATOR are just the word.
-  - Attributes: `parameter allocatable external intrinsic kind len optional private pointer protected public save target nopass abstract deferred non_overridable` alone, `dimension intent bind extends` with `(…)`, `pass` with an optional `(…)`, `codimension` with `[…]`. **Any other attribute skips to the end of the statement, losing its entities.**
+  - Attributes: `parameter allocatable external intrinsic kind len optional private pointer protected public save target nopass abstract deferred non_overridable` alone, `dimension intent bind extends` with `(…)`, `pass` with an optional `(…)`, `codimension` with `[…]`. **Any other attribute skips to the end of the statement, losing its entities** (we depart, F8).
   - Entities are identifiers, or keywords other than FUNCTION and SUBROUTINE. After each, `(…)`, `[…]`, `*len` or `*(…)`, a DEC `/initial value/`, and an initializer after `=` or `=>` (to the next comma outside brackets) are skipped. A list that starts with `%` (DEC `%FILL`) skips the statement.
   - So a module-level `generic :: g => a, b` tags `g` and `b` as variables (we depart, F7).
 - **FTN-14 Derived types.** TYPE `[, attributes] [::] name`: the name, an identifier or keyword, is tagged `t` and becomes the scope; one PRIVATE or SEQUENCE statement after it is skipped. Then statements that start with a type specifier declare components `k`, or methods `M` if they start with PROCEDURE, FINAL or GENERIC (which includes procedure pointer components); GENERIC tags its generic name, or the operator of `operator(op)` or `assignment(=)`; other statements are skipped, up to END. The walk then returns to the statement that held TYPE with the END statement's first token current: after `end type …` that is the end of the statement, but **a bare `end` closing a type is taken as the first entity** of the declaration, so `end` (and words after it) are tagged as variables of the enclosing unit.
@@ -737,3 +737,10 @@ Fortran (section 1.6 marks where each departs):
   `operator(op)` or `assignment(=)`, is tagged `i` in the enclosing
   scope, as `interface name` would be, instead of the name, a variable
   `operator`, and the specific procedures, all as variables.
+- **F8** An unknown attribute in a list (FTN-13), a name with an optional
+  `(…)` such as `contiguous`, `volatile`, `device` or `rank(2)`, is
+  skipped instead of losing the statement's entities. The attribute
+  statements BIND, CODIMENSION, and ASYNCHRONOUS or CONTIGUOUS before
+  `::` or a name are skipped without ending the specification part
+  (FTN-12), which made the unit skip its later declarations and the
+  subprograms it contains, up to the first END.

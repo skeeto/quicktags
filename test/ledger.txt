@@ -1145,3 +1145,141 @@
 - s4	flang/test/Semantics/resolve53.f90	/^  generic :: g3 => s1, s4 /;"	v	line:164	module:m12
 - spec1	flang/test/Semantics/bug2381.f90	/^  generic :: gen => spec2, spec1$/;"	v	line:3	module:m
 - xIntercept	flang/test/Semantics/generic06.f90	/^  generic :: xIntercept /;"	v	line:10	module:m
+
+@ corpus/llvm/flang: F8, an unknown attribute in a list (contiguous, volatile, device, ...) is skipped instead of losing the statement's entities, and the attribute statements BIND, CODIMENSION, ASYNCHRONOUS, and CONTIGUOUS no longer end the specification part, which made the unit skip its later declarations and its contained subprograms up to the first END.
++ MONDAY	flang/test/Semantics/bind-c02.f90	/^    enumerator :: SUNDAY, MONDAY$/;"	N	line:33	enum:__anon56dcc2ad0203
++ SUNDAY	flang/test/Semantics/bind-c02.f90	/^    enumerator :: SUNDAY,/;"	N	line:33	enum:__anon56dcc2ad0203
++ __anon4f336e000305	flang/test/Semantics/resolve20.f90	/^  abstract interface$/;"	i	line:76	module:m
++ __anon56dcc2ad0203	flang/test/Semantics/bind-c02.f90	/^  enum, bind(c) ! no error$/;"	E	line:32	module:m
++ __anoncea4a8b00105	flang/test/Semantics/maxrank.f90	/^  interface$/;"	i	line:22	module:m
++ a	flang/test/Fir/CUDA/cuda-register-allocator-0.f90	/^  integer, device, allocatable :: a(/;"	v	line:4	module:m0
++ a	flang/test/Lower/volatile-openmp1.f90	/^integer,volatile::a$/;"	v	line:4	program:main
++ a	flang/test/Semantics/resolve14.f90	/^  real, target :: a(/;"	v	line:30	program:p2
++ aaa	flang/test/Semantics/declarations03.f90	/^  integer aaa /;"	v	line:81	module:c
++ ahost	flang/test/Fir/CUDA/cuda-constructor.f90	/^  real, allocatable, device :: ahost(/;"	v	line:10	program:main
++ allocatable	flang/test/Semantics/contiguous01.f90	/^  real, contiguous, allocatable :: allocatable$/;"	v	line:17	module:m
++ arr	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1/;"	v	line:16	program:dataptrvolatile
++ arr	flang/test/Lower/volatile1.f90	/^  integer,volatile::i,arr(/;"	v	line:4	program:p
++ arr	flang/test/Lower/volatile4.f90	/^  integer,volatile::i,arr(/;"	v	line:4	program:p
++ arr1	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1(/;"	v	line:16	program:dataptrvolatile
++ array1	flang/test/Lower/volatile-openmp.f90	/^integer, volatile, pointer :: array1(/;"	v	line:5
++ asynchVar	flang/test/Semantics/resolve81.f90	/^  real, asynchronous, public, asynchronous :: asynchVar$/;"	v	line:21	module:m
++ b	flang/test/Lower/CUDA/cuda-gpu-pinned.f90	/^integer, allocatable, device :: b(/;"	v	line:4
++ b	flang/test/Semantics/modfile21.f90	13;"	c	line:13	module:m
++ badContigField	flang/test/Semantics/resolve90.f90	/^    real, dimension(:), contiguous, allocatable :: badContigField$/;"	k	line:16	type:derivedType
++ bar	flang/test/Semantics/maxrank.f90	/^  function bar(/;"	f	line:29	module:m
++ bar	flang/test/Semantics/resolve20.f90	/^  subroutine bar$/;"	s	line:82	module:m
++ baz	flang/test/Semantics/resolve20.f90	/^  subroutine baz(/;"	s	line:92	module:m
++ bindVar	flang/test/Semantics/resolve81.f90	/^  integer, bind(c), volatile, bind(c) :: bindVar$/;"	v	line:35	module:m
++ blk	flang/test/Semantics/bind-c02.f90	37;"	c	line:37	module:m
++ blk	flang/test/Semantics/bind-c18.f90	4;"	c	line:4
++ blk3	flang/test/Semantics/declarations03.f90	14;"	c	line:14	module:m
++ blk4	flang/test/Semantics/declarations03.f90	19;"	c	line:19	module:m
++ blk5	flang/test/Semantics/declarations03.f90	23;"	c	line:23	module:m
++ blk6	flang/test/Semantics/declarations03.f90	28;"	c	line:28	module:m
++ blk7	flang/test/Semantics/declarations03.f90	28;"	c	line:28	module:m
++ c	flang/test/Semantics/equivalence01.f90	56;"	c	line:56	subroutine:s5
++ c2	flang/test/Semantics/call08.f90	/^  real, volatile :: c2[/;"	v	line:7	module:m
++ cb	flang/test/Semantics/modfile21.f90	6;"	c	line:6	module:m
++ cb	flang/test/Semantics/modfile21.f90	7;"	c	line:7	module:m
++ cb2	flang/test/Semantics/modfile21.f90	6;"	c	line:6	module:m
++ coarr1	flang/test/Semantics/coarrays02.f90	/^  real :: coarr1[/;"	v	line:13	program:main
++ container	flang/test/Lower/volatile-openmp.f90	/^type(t), volatile :: container$/;"	v	line:6
++ contigVar	flang/test/Semantics/resolve81.f90	/^  real, contiguous, pointer, contiguous :: contigVar(/;"	v	line:25	module:m
++ d	flang/test/Semantics/modfile85.f90	/^  real, device :: d$/;"	v	line:11	module:modfile84m
++ dp	flang/test/Semantics/modfile85.f90	/^    real, device, pointer :: dp$/;"	k	line:27	type:dt
++ dvar	flang/test/Driver/cuda-option.f90	/^  integer, device :: dvar$/;"	v	line:8	program:main
++ e	flang/test/Semantics/contiguous01.f90	/^    entry e() res/;"	e	line:32	function:func
++ e	flang/test/Semantics/modfile24.f90	/^  real :: e$/;"	v	line:12	module:m1
++ event	flang/test/Semantics/coarrays02.f90	/^  type(event_type) event$/;"	v	line:16	program:main
++ f	flang/test/Lower/volatile-derived-type.f90	/^  type(t), volatile :: f$/;"	v	line:6
++ f10	flang/test/Semantics/OpenMP/declare-target-resolve.f90	/^subroutine f10$/;"	s	line:90	module:f09
++ field6	flang/test/Semantics/resolve78.f90	/^    real, public, contiguous, pointer, contiguous, dimension(:) :: field6$/;"	k	line:25	type:derived
++ fp	flang/test/Semantics/contiguous01.f90	/^  function fp(/;"	f	line:35	module:m
++ func	flang/test/Semantics/contiguous01.f90	/^  function func(/;"	f	line:20	module:m
++ goodContigField	flang/test/Semantics/resolve90.f90	/^    real, dimension(:), contiguous, pointer :: goodContigField$/;"	k	line:14	type:derivedType
++ i	flang/test/Lower/call-copy-in-out.f90	/^    character(:), pointer, contiguous :: i(/;"	k	line:246	type:t
++ i	flang/test/Lower/call-copy-in-out.f90	/^    integer, pointer, contiguous :: i(/;"	k	line:233	type:t
++ i	flang/test/Lower/volatile1.f90	/^  integer,volatile::i,/;"	v	line:4	program:p
++ i	flang/test/Lower/volatile4.f90	/^  integer,volatile::i,/;"	v	line:4	program:p
++ i	flang/test/Semantics/bind-c02.f90	/^    integer :: i$/;"	k	line:27	type:my_type
++ i	flang/test/Semantics/resolve20.f90	/^    integer :: i$/;"	k	line:69	type:t1
++ local	flang/test/Semantics/coarrays02.f90	/^  integer :: local[/;"	v	line:21	program:main
++ lock	flang/test/Semantics/coarrays02.f90	/^  type(lock_type) lock$/;"	v	line:18	program:main
++ modsub	flang/test/Semantics/resolve119.f90	/^  subroutine modsub$/;"	s	line:14	module:m
++ my_type	flang/test/Semantics/bind-c02.f90	/^  type my_type$/;"	t	line:26	module:m
++ my_type1	flang/test/Semantics/declarations02.f90	/^  type :: my_type1$/;"	t	line:27	module:m
++ my_type2	flang/test/Semantics/declarations02.f90	/^  type, bind(c) :: my_type2$/;"	t	line:30	module:m
++ notify	flang/test/Semantics/coarrays02.f90	/^  type(notify_type) notify$/;"	v	line:20	program:main
++ p	flang/test/Semantics/maxrank.f90	/^  integer, parameter :: p(/;"	v	line:21	module:m
++ p	flang/test/Semantics/resolve14.f90	/^  real, contiguous, pointer :: p(/;"	v	line:31	program:p2
++ p1	flang/test/Semantics/contiguous01.f90	/^  real, pointer, contiguous :: p1(/;"	v	line:3	module:m0
++ p1	flang/test/Semantics/resolve20.f90	/^    procedure(proc), deferred :: p1$/;"	M	line:73	type:t1
++ p_contiguous	flang/test/Lower/HLFIR/allocatable-and-pointer-components.f90	/^    real, pointer, contiguous :: p_contiguous(/;"	k	line:12	type:t3
++ pinned_real	flang/test/Lower/OpenACC/acc-host-data-cuda-device.f90	/^real, allocatable, pinned :: pinned_real(/;"	v	line:6	module:m
++ ptr	flang/test/Lower/volatile-derived-type-pointer.f90	/^  class(dt), volatile , pointer :: ptr(/;"	v	line:17	program:dataptrvolatile
++ ptr	flang/test/Lower/volatile4.f90	/^  integer,volatile,pointer,dimension(:)::ptr$/;"	v	line:6	program:p
++ s1	flang/test/Semantics/declarations03.f90	/^  integer :: s1$/;"	v	line:33	module:m
++ s2	flang/test/Semantics/declarations03.f90	/^  integer :: s2,/;"	v	line:39	module:m
++ s3	flang/test/Semantics/declarations03.f90	/^  integer :: s2, s3$/;"	v	line:39	module:m
++ s4	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="ss1") :: s4$/;"	v	line:44	module:m
++ s5	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="ss2") :: s5$/;"	v	line:51	module:m
++ s6	flang/test/Semantics/declarations03.f90	/^  integer, bind(c, name="s6explicit") :: s6$/;"	v	line:53	module:m
++ scalar	flang/test/Semantics/contiguous01.f90	/^  real, contiguous, pointer :: scalar$/;"	v	line:15	module:m
++ string	flang/test/Lower/volatile-string.f90	/^  character(3), volatile :: string /;"	v	line:3	program:p
++ sub	flang/test/Semantics/bind-c02.f90	/^  subroutine sub(/;"	s	line:47	module:m
++ t	flang/test/Lower/volatile-derived-type-pointer.f90	/^  type(dt),  volatile , target  :: arr(100, 100), arr1(10000), t(/;"	v	line:16	program:dataptrvolatile
++ t	flang/test/Semantics/declarations03.f90	/^  integer :: t$/;"	v	line:12	module:m
++ t1	flang/test/Semantics/declarations02.f90	/^  type(my_type1), bind(c), parameter :: t1 /;"	v	line:36	module:m
++ t1	flang/test/Semantics/resolve20.f90	/^  type, abstract :: t1$/;"	t	line:68	module:m
++ t2	flang/test/Semantics/declarations02.f90	/^  type(my_type2), bind(c), parameter :: t2 /;"	v	line:38	module:m
++ t2	flang/test/Semantics/declarations03.f90	/^  integer :: t2$/;"	v	line:17	module:m
++ t3	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t3 /;"	v	line:40	module:m
++ t4	flang/test/Semantics/declarations02.f90	/^  type(my_type1), parameter :: t4 /;"	v	line:43	module:m
++ t5	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t5 /;"	v	line:45	module:m
++ test	flang/test/Semantics/resolve20.f90	/^  subroutine test$/;"	s	line:85	module:m
++ tgt	flang/test/Lower/volatile4.f90	/^  integer,volatile,target::tgt(/;"	v	line:5	program:p
++ use_asynchronous_x	flang/test/Lower/split-sum-expression-tree-lowering.f90	/^  real(8), asynchronous :: use_asynchronous_x$/;"	v	line:1191	module:split_sum_guard_mod
++ use_volatile_x	flang/test/Lower/split-sum-expression-tree-lowering.f90	/^  real(8), volatile :: use_volatile_x$/;"	v	line:1190	module:split_sum_guard_mod
++ v	flang/test/Lower/volatile-openmp2.f03	/^class(x),allocatable,volatile,asynchronous::v(/;"	v	line:5
++ volatile	flang/test/Semantics/call10.f90	/^  real, volatile, target :: volatile$/;"	v	line:18	module:m
++ volatileVar	flang/test/Semantics/resolve81.f90	/^  real, volatile, volatile :: volatileVar$/;"	v	line:47	module:m
++ volatile_array	flang/test/Lower/volatile3.f90	/^   integer, volatile              :: volatile_integer, volatile_array(/;"	v	line:7	program:p
++ volatile_array_2d	flang/test/Lower/volatile3.f90	/^                                     volatile_array_2d(/;"	v	line:8	program:p
++ volatile_array_pointer	flang/test/Lower/volatile3.f90	/^            pointer, dimension(:) :: volatile_array_pointer$/;"	v	line:14	program:p
++ volatile_array_target	flang/test/Lower/volatile3.f90	/^   integer, volatile, target      :: volatile_integer_target, volatile_array_target(/;"	v	line:11	program:p
++ volatile_integer	flang/test/Lower/volatile3.f90	/^   integer, volatile              :: volatile_integer,/;"	v	line:7	program:p
++ volatile_integer_pointer	flang/test/Lower/volatile3.f90	/^   integer, volatile, pointer      :: volatile_integer_pointer$/;"	v	line:9	program:p
++ volatile_integer_target	flang/test/Lower/volatile3.f90	/^   integer, volatile, target      :: volatile_integer_target,/;"	v	line:11	program:p
++ w	flang/test/Semantics/modfile21.f90	/^  complex w$/;"	v	line:10	module:m
++ x	flang/test/Semantics/bind-c02.f90	/^  integer :: x,/;"	v	line:36	module:m
++ x	flang/test/Semantics/bind-c18.f90	/^integer, pointer :: x$/;"	v	line:6
++ x	flang/test/Semantics/contiguous01.f90	/^  real, contiguous :: x$/;"	v	line:13	module:m
++ x4	flang/test/Semantics/declarations02.f90	/^    integer :: x4$/;"	k	line:28	type:my_type1
++ x4	flang/test/Semantics/declarations02.f90	/^  integer, parameter :: x4 /;"	v	line:20	module:m
++ y	flang/test/Semantics/bind-c02.f90	/^  integer :: x, y,/;"	v	line:36	module:m
++ z	flang/test/Semantics/bind-c02.f90	/^  integer :: x, y, z /;"	v	line:36	module:m
++ z	flang/test/Semantics/resolve14.f90	/^  integer z$/;"	v	line:29	program:p2
+- __anon4f336e000305	flang/test/Semantics/resolve20.f90	/^  abstract interface$/;"	i	line:76
+- bar	flang/test/Semantics/maxrank.f90	/^  function bar(/;"	f	line:29
+- bar	flang/test/Semantics/resolve20.f90	/^  subroutine bar$/;"	s	line:82
+- baz	flang/test/Semantics/resolve20.f90	/^  subroutine baz(/;"	s	line:92
+- fp	flang/test/Semantics/contiguous01.f90	/^  function fp(/;"	f	line:35
+- my_type2	flang/test/Semantics/declarations02.f90	/^  type, bind(c) :: my_type2$/;"	t	line:30
+- sub	flang/test/Semantics/bind-c02.f90	/^  subroutine sub(/;"	s	line:47
+- t1	flang/test/Semantics/declarations02.f90	/^  type(my_type1), bind(c), parameter :: t1 /;"	v	line:36
+- t2	flang/test/Semantics/declarations02.f90	/^  type(my_type2), bind(c), parameter :: t2 /;"	v	line:38
+- t3	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t3 /;"	v	line:40
+- t4	flang/test/Semantics/declarations02.f90	/^  type(my_type1), parameter :: t4 /;"	v	line:43
+- t5	flang/test/Semantics/declarations02.f90	/^  type(my_type2), parameter :: t5 /;"	v	line:45
+- test	flang/test/Semantics/resolve20.f90	/^  subroutine test$/;"	s	line:85
+
+@ corpus/llvm/flang-rt: F8, an unknown attribute in a list (contiguous, volatile, device, ...) is skipped instead of losing the statement's entities, and the attribute statements BIND, CODIMENSION, ASYNCHRONOUS, and CONTIGUOUS no longer end the specification part, which made the unit skip its later declarations and its contained subprograms up to the first END.
++ binding	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Binding), pointer, contiguous :: binding(/;"	k	line:31	type:DerivedType
++ bounds	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Value), pointer, contiguous :: bounds(/;"	k	line:104	type:Component
++ component	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Component), pointer, contiguous :: component(:) ! data components/;"	k	line:43	type:DerivedType
++ kindParameter	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(kind=int64), pointer, contiguous :: kindParameter(/;"	k	line:38	type:DerivedType
++ lenParameterKind	flang-rt/lib/runtime/__fortran_type_info.f90	/^    integer(1), pointer, contiguous :: lenParameterKind(/;"	k	line:40	type:DerivedType
++ lenValue	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(Value), pointer, contiguous :: lenValue(/;"	k	line:103	type:Component
++ procptr	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(ProcPtrComponent), pointer, contiguous :: procptr(/;"	k	line:45	type:DerivedType
++ special	flang-rt/lib/runtime/__fortran_type_info.f90	/^    type(SpecialBinding), pointer, contiguous :: special(/;"	k	line:48	type:DerivedType

@@ -314,10 +314,9 @@ static TagCase fortrancases[] = {
      "  type(point), target :: pt\n"
      "  logical*1, save :: flag\n"
      "  integer, intent(in), optional :: io\n"
-     "  integer, volatile :: lost1, lost2\n"
      "  integer :: after\n"
      "end module\n",
-     "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:12\tmodule:m\n"
+     "after\tx.f90\t/^  integer :: after$/;\"\tv\tline:11\tmodule:m\n"
      "anything\tx.f90\t/^  class(*), allocatable :: anything$/;\"\tv\tline:7\tmodule:m\n"
      "arr\tx.f90\t/^  real(kind=8), dimension(3) :: arr = [1, 2, 3], arr2/;\"\tv\tline:5\tmodule:m\n"
      "arr2\tx.f90\t/^  real(kind=8), dimension(3) :: arr = [1, 2, 3], arr2(/;\"\tv\tline:5\tmodule:m\n"
@@ -699,19 +698,31 @@ static TagCase fortrancases[] = {
      "t\tx.f90\t/^  type t$/;\"\tt\tline:6\tmodule:m\n"
      "tg\tx.f90\t/^    generic :: tg /;\"\tM\tline:8\ttype:t\n"
      "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:5\tmodule:m\n"},
-    {SHARED, "FTN-6 unknown attributes and attribute statements", "x.f90", "",
+    {IMPROVED, "F8 unknown attributes and attribute statements", "x.f90", "",
      "module m\n"
      "  real, contiguous :: a(:)\n"
-     "  integer :: b\n"
+     "  integer, volatile, device :: b\n"
+     "  real, rank(2), allocatable :: r\n"
      "  asynchronous :: c\n"
      "  integer :: d\n"
+     "  common /blk/ d\n"
+     "  bind(c, name=\"x\") :: /blk/\n"
+     "  contiguous e\n"
+     "  codimension f[*]\n"
+     "  integer :: g\n"
      "contains\n"
      "  subroutine s\n"
      "  end subroutine\n"
      "end module\n",
-     "b\tx.f90\t/^  integer :: b$/;\"\tv\tline:3\tmodule:m\n"
-     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n",
-     ""},
+     "a\tx.f90\t/^  real, contiguous :: a(/;\"\tv\tline:2\tmodule:m\n"
+     "b\tx.f90\t/^  integer, volatile, device :: b$/;\"\tv\tline:3\tmodule:m\n"
+     "blk\tx.f90\t7;\"\tc\tline:7\tmodule:m\n"
+     "d\tx.f90\t/^  integer :: d$/;\"\tv\tline:6\tmodule:m\n"
+     "g\tx.f90\t/^  integer :: g$/;\"\tv\tline:11\tmodule:m\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "r\tx.f90\t/^  real, rank(2), allocatable :: r$/;\"\tv\tline:4\tmodule:m\n"
+     "s\tx.f90\t/^  subroutine s$/;\"\ts\tline:13\tmodule:m\n",
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"},
     {IMPROVED, "F1 IMPURE, NON_RECURSIVE, and SIMPLE are prefixes", "x.f90", "",
      "module m\n"
      "contains\n"

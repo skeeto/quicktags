@@ -950,7 +950,9 @@ static void ftntypespec(Ftn *p)
 }
 
 // Skip a list of attributes, from the comma before the first, through
-// the "::" after them. An unknown attribute ends the statement.
+// the "::" after them. An unknown attribute ends the statement in
+// Universal Ctags, losing the entities. Instead, skip an unknown name
+// and a parenthesized list after it (F8).
 static void ftnattrs(Ftn *p)
 {
     do {
@@ -979,7 +981,14 @@ static void ftnattrs(Ftn *p)
             ftnskipsquares(p);
             break;
         default:
-            ftnskipto(p, FT_EOS);
+            if (ftnis(p, FT_IDENT) || ftnis(p, FT_KEYWORD)) {
+                ftnnext(p);
+                if (ftnis(p, FT_LPAREN)) {
+                    ftnskipparens(p);
+                }
+            } else {
+                ftnskipto(p, FT_EOS);
+            }
         }
     } while (ftnis(p, FT_COMMA));
     if (!ftnis(p, FT_COLONS)) {
@@ -1376,6 +1385,24 @@ static b32 ftnstmtfunc(Ftn *p)
     return r;
 }
 
+// An attribute statement Universal Ctags does not know, which would end
+// the specification part: BIND, CODIMENSION, and ASYNCHRONOUS or
+// CONTIGUOUS (identifiers) before "::" or a name (F8).
+static b32 ftnisattrstmt(Ftn *p)
+{
+    FtnTok *t = &p->tok;
+    if (t->word==FW_BIND || t->word==FW_CODIMENSION) {
+        return 1;
+    }
+    Str s = finish(&t->text);
+    if (t->type!=FT_IDENT || t->word>=0 ||
+        (!equalsfold(s, "asynchronous") && !equalsfold(s, "contiguous"))) {
+        return 0;
+    }
+    FtnTok *next = ftnpeek(p, 1);
+    return next->type==FT_COLONS || next->type==FT_IDENT;
+}
+
 // Declarations skipped without a tag.
 static b32 ftnisignored(i32 word)
 {
@@ -1436,7 +1463,7 @@ static b32 ftndeclaration(Ftn *p)
         }
         return 1;
     }
-    if (ftnisignored(p->tok.word)) {
+    if (ftnisignored(p->tok.word) || ftnisattrstmt(p)) {
         ftnskipstmt(p);
         return 1;
     }
