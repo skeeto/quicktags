@@ -232,10 +232,11 @@ static b32 globmatch(Str pat, Str s, b32 windows)
 
 // Lists of patterns
 
-enum : i32 { GLOB_EXACT, GLOB_STAR, GLOB_ANY };
+enum : i32 { GLOB_EXACT, GLOB_STAR, GLOB_INFIX, GLOB_ANY };
 
 // A pattern, classified so that most need no general matching: a name
-// alone, or with one '*' (a suffix like "*.o").
+// alone, with one '*' (a suffix like "*.o"), or between two that begin
+// and end it (a directory like "*/build/*").
 struct Glob {
     Str pat;
     iz  star;  // GLOB_STAR: where its '*' is
@@ -258,8 +259,15 @@ static Glob newglob(Str pat)
         }
         special |= c=='?' || c=='[' || c=='\\';
     }
-    r.pat  = takehead(pat, len);
-    r.kind = special || stars>1 ? GLOB_ANY : stars ? GLOB_STAR : GLOB_EXACT;
+    r.pat = takehead(pat, len);
+    if (special || stars>2) {
+        r.kind = GLOB_ANY;
+    } else if (stars == 2) {
+        b32 infix = len>2 && r.pat[0]=='*' && r.pat[len-1]=='*';
+        r.kind = infix ? GLOB_INFIX : GLOB_ANY;
+    } else {
+        r.kind = stars ? GLOB_STAR : GLOB_EXACT;
+    }
     return r;
 }
 
@@ -275,6 +283,19 @@ static b32 samename(Str pat, Str s, b32 windows)
         }
     }
     return 1;
+}
+
+// Whether a name holds a fixed part of a pattern anywhere.
+static b32 holdsname(Str s, Str pat, b32 windows)
+{
+    u8 first = windows ? uppercase(pat[0]) : pat[0];
+    for (iz i = 0; i+pat.len <= s.len; i++) {
+        if (namebyte(s[i], windows)==first &&
+            samename(pat, span(s.data+i, s.data+i+pat.len), windows)) {
+            return 1;
+        }
+    }
+    return 0;
 }
 
 static b32 globsmatch(Slice<Glob> globs, Str s, b32 windows)
@@ -297,6 +318,11 @@ static b32 globsmatch(Slice<Glob> globs, Str s, b32 windows)
             }
             break;
         }
+        case GLOB_INFIX:
+            if (holdsname(s, cuttail(cuthead(g->pat, 1), 1), windows)) {
+                return 1;
+            }
+            break;
         case GLOB_ANY:
             if (globmatch(g->pat, s, windows)) {
                 return 1;

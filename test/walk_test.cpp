@@ -128,8 +128,10 @@ static void test_walk(Test *t)
     // Classified patterns match as the general matcher does
     {
         Str pats[] = {"a.c", "*.c", "a*", "x*y", "*", "", ".*.swp", "?",
-                      "CVS", "{arch}", "*~", "a*b*"};
+                      "CVS", "{arch}", "*~", "a*b*", "*a*", "*/*", "*.C*",
+                      "**", "*X\\*"};
         Str names[] = {"a.c", "A.C", "b.c", "a", "", "xy", "xzzy", "x\\y",
+                       "d/a/x.c", "x.cpp", "X*", "d\\e",
                        ".x.swp", "cvs", "{ARCH}", "~", "a\\b"};
         for (iz i = 0; i < countof(pats); i++) {
             Slice<Glob> one = {};
@@ -146,7 +148,10 @@ static void test_walk(Test *t)
             {"CVS",     GLOB_EXACT},
             {"*.o",     GLOB_STAR},
             {".*.swp",  GLOB_STAR},
-            {"*/x/*",   GLOB_ANY},
+            {"*/x/*",   GLOB_INFIX},
+            {"**",      GLOB_ANY},
+            {"*x*y*",   GLOB_ANY},
+            {"x*y*",    GLOB_ANY},
             {"x?",      GLOB_ANY},
             {"[x]",     GLOB_ANY},
             {"\\x",     GLOB_ANY},
