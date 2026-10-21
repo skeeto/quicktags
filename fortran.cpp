@@ -1196,9 +1196,9 @@ static b32 ftnspecstmt(Ftn *p)
     return 0;
 }
 
-// The generic spec of a type-bound GENERIC: a name, or the operator of
-// OPERATOR(op) or ASSIGNMENT(=), tagged as a method.
-static void ftngeneric(Ftn *p)
+// The generic spec of a GENERIC statement: a name, or the operator of
+// OPERATOR(op) or ASSIGNMENT(=), tagged with the kind.
+static void ftngeneric(Ftn *p, i32 kind)
 {
     i32 word = p->tok.word;
     if (word==FW_ASSIGNMENT || word==FW_OPERATOR) {
@@ -1207,10 +1207,10 @@ static void ftngeneric(Ftn *p)
             ftnnext(p);
         }
         if (ftnis(p, FT_OP)) {
-            ftntagtok(p, F_METHOD);
+            ftntagtok(p, kind);
         }
     } else {
-        ftntagtok(p, F_METHOD);
+        ftntagtok(p, kind);
     }
     ftnskipstmt(p);
 }
@@ -1229,7 +1229,7 @@ static void ftncomponent(Ftn *p)
         ftnnext(p);
     }
     if (word == FW_GENERIC) {
-        ftngeneric(p);
+        ftngeneric(p, F_METHOD);
     } else {
         ftnentities(p, method);
     }
@@ -1406,6 +1406,18 @@ static b32 ftndeclaration(Ftn *p)
         return 1;
     case FW_STDCALL:
         ftnnext(p);
+        return 1;
+    case FW_GENERIC:
+        // Unlike Universal Ctags, which declares variables here, a
+        // generic interface, as INTERFACE would declare it (F7)
+        ftnnext(p);
+        if (ftnis(p, FT_COMMA)) {
+            ftnattrs(p);
+        }
+        if (ftnis(p, FT_COLONS)) {
+            ftnnext(p);
+        }
+        ftngeneric(p, F_INTERFACE);
         return 1;
     case FW_ABSTRACT:
         ftnnext(p);

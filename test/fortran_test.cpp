@@ -668,20 +668,37 @@ static TagCase fortrancases[] = {
      "t\tx.f90\t/^  type t$/;\"\tt\tline:2\tmodule:m\n"
      "x\tx.f90\t/^    integer :: x$/;\"\tk\tline:3\ttype:t\n",
      ""},
-    {SHARED, "FTN-6 module-level GENERIC declares variables", "x.f90", "",
+    {IMPROVED, "F7 a GENERIC statement outside a type declares an interface", "x.f90", "",
      "module m\n"
      "  generic :: g => a, b\n"
+     "  generic, public :: operator(.plus.) => a\n"
+     "  generic :: assignment(=) => b\n"
      "  integer :: x\n"
+     "  type t\n"
+     "  contains\n"
+     "    generic :: tg => a\n"
+     "  end type\n"
      "contains\n"
      "  subroutine a()\n"
      "  end subroutine\n"
      "end module\n",
-     "a\tx.f90\t/^  subroutine a(/;\"\ts\tline:5\tmodule:m\n"
+     ".plus.\tx.f90\t/^  generic, public :: operator(.plus.)/;\"\ti\tline:3\tmodule:m\n"
+     "=\tx.f90\t/^  generic :: assignment(=) =>/;\"\ti\tline:4\tmodule:m\n"
+     "a\tx.f90\t/^  subroutine a(/;\"\ts\tline:11\tmodule:m\n"
+     "g\tx.f90\t/^  generic :: g /;\"\ti\tline:2\tmodule:m\n"
+     "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
+     "t\tx.f90\t/^  type t$/;\"\tt\tline:6\tmodule:m\n"
+     "tg\tx.f90\t/^    generic :: tg /;\"\tM\tline:8\ttype:t\n"
+     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:5\tmodule:m\n",
+     "a\tx.f90\t/^  subroutine a(/;\"\ts\tline:11\tmodule:m\n"
+     "assignment\tx.f90\t/^  generic :: assignment(/;\"\tv\tline:4\tmodule:m\n"
      "b\tx.f90\t/^  generic :: g => a, b$/;\"\tv\tline:2\tmodule:m\n"
      "g\tx.f90\t/^  generic :: g /;\"\tv\tline:2\tmodule:m\n"
      "m\tx.f90\t/^module m$/;\"\tm\tline:1\n"
-     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:3\tmodule:m\n",
-     ""},
+     "operator\tx.f90\t/^  generic, public :: operator(/;\"\tv\tline:3\tmodule:m\n"
+     "t\tx.f90\t/^  type t$/;\"\tt\tline:6\tmodule:m\n"
+     "tg\tx.f90\t/^    generic :: tg /;\"\tM\tline:8\ttype:t\n"
+     "x\tx.f90\t/^  integer :: x$/;\"\tv\tline:5\tmodule:m\n"},
     {SHARED, "FTN-6 unknown attributes and attribute statements", "x.f90", "",
      "module m\n"
      "  real, contiguous :: a(:)\n"

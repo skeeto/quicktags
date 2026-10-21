@@ -1078,3 +1078,70 @@
 @ units/parser-fortran.r/fortran-submodule.d/allkinds: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
 + x	input.f90	/^        integer :: x,/;"	L	line:23	function:g3	file:
 + y	input.f90	/^        integer :: x,y$/;"	L	line:23	function:g3	file:
+
+@ corpus/llvm/flang: F7, a GENERIC statement outside a type declares a generic interface: its name or operator is tagged as an interface, as INTERFACE would declare it, instead of the name, a variable named operator, and the specific procedures, all as variables.
++ +	flang/test/Semantics/modfile07.f90	/^  generic :: operator ( + /;"	i	line:14	module:m1
++ +	flang/test/Semantics/resolve25.f90	/^  generic :: operator(+)/;"	i	line:39	module:m2
++ +	flang/test/Semantics/resolve25.f90	/^  generic :: operator(+)/;"	i	line:41	module:m2
++ -	flang/test/Semantics/resolve67.f90	/^    generic :: operator(-)/;"	i	line:76	subroutine:s
++ .eq.	flang/test/Semantics/resolve110.f90	/^  generic :: operator(.eq.)/;"	i	line:35	module:m2
++ .false.	flang/test/Semantics/resolve47.f90	/^  generic :: operator(.false.)/;"	i	line:7	module:m1
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:27	module:m
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:28	module:m
++ .foo.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.foo.)/;"	i	line:30	module:m
++ .gt.	flang/test/Semantics/resolve25.f90	/^  generic :: operator(.gt.)/;"	i	line:54	module:m3
++ .ne.	flang/test/Semantics/modfile07.f90	/^  generic :: operator(.ne.)/;"	i	line:31	module:m1
++ <>	flang/test/Semantics/modfile07.f90	/^  generic :: operator(<>)/;"	i	line:32	module:m1
++ ==	flang/test/Semantics/resolve110.f90	/^  generic :: operator(==)/;"	i	line:10	module:m1
++ >	flang/test/Semantics/resolve25.f90	/^  generic :: operator(>) => /;"	i	line:52	module:m3
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:22	module:m
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:23	module:m
++ bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	i	line:25	module:m
++ g1	flang/test/Semantics/resolve53.f90	/^  generic :: g1 /;"	i	line:160	module:m12
++ g2	flang/test/Semantics/resolve53.f90	/^  generic :: g2 /;"	i	line:162	module:m12
++ g3	flang/test/Semantics/resolve53.f90	/^  generic :: g3 /;"	i	line:164	module:m12
++ gen	flang/test/Semantics/bug2381.f90	/^  generic :: gen /;"	i	line:3	module:m
++ gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	i	line:18	module:modfile71a
++ gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	i	line:57	module:modfile71a
++ gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 /;"	i	line:195	module:m14
++ gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 => gen2$/;"	i	line:206	module:m15
++ generic	flang/test/Semantics/pointer02.f90	/^  generic :: generic /;"	i	line:14	subroutine:sub
++ private	flang/test/Semantics/resolve120.f90	/^  generic :: private /;"	i	line:13	program:main
++ private	flang/test/Semantics/resolve120.f90	/^  generic, private :: private /;"	i	line:5	module:m
++ public	flang/test/Semantics/resolve120.f90	/^  generic :: public /;"	i	line:12	program:main
++ public	flang/test/Semantics/resolve120.f90	/^  generic, public :: public /;"	i	line:4	module:m
++ xIntercept	flang/test/Semantics/generic06.f90	/^  generic :: xIntercept /;"	i	line:10	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:22	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:23	module:m
+- bar	flang/test/Semantics/resolve25.f90	/^  generic :: bar /;"	v	line:25	module:m
+- g1	flang/test/Semantics/resolve53.f90	/^  generic :: g1 /;"	v	line:160	module:m12
+- g2	flang/test/Semantics/resolve53.f90	/^  generic :: g2 /;"	v	line:162	module:m12
+- g3	flang/test/Semantics/resolve53.f90	/^  generic :: g3 /;"	v	line:164	module:m12
+- gen	flang/test/Semantics/bug2381.f90	/^  generic :: gen /;"	v	line:3	module:m
+- gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	v	line:18	module:modfile71a
+- gen	flang/test/Semantics/modfile71.F90	/^  generic :: gen /;"	v	line:57	module:modfile71a
+- gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 /;"	v	line:195	module:m14
+- gen2	flang/test/Semantics/resolve18.f90	/^  generic :: gen2 => gen2$/;"	v	line:206	module:m15
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator /;"	v	line:14	module:m1
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator(/;"	v	line:31	module:m1
+- operator	flang/test/Semantics/modfile07.f90	/^  generic :: operator(/;"	v	line:32	module:m1
+- operator	flang/test/Semantics/resolve110.f90	/^  generic :: operator(/;"	v	line:10	module:m1
+- operator	flang/test/Semantics/resolve110.f90	/^  generic :: operator(/;"	v	line:35	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:27	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:28	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:30	module:m
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:39	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:41	module:m2
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:52	module:m3
+- operator	flang/test/Semantics/resolve25.f90	/^  generic :: operator(/;"	v	line:54	module:m3
+- operator	flang/test/Semantics/resolve47.f90	/^  generic :: operator(/;"	v	line:7	module:m1
+- private	flang/test/Semantics/resolve120.f90	/^  generic :: private /;"	v	line:13	program:main
+- private	flang/test/Semantics/resolve120.f90	/^  generic, private :: private /;"	v	line:5	module:m
+- public	flang/test/Semantics/resolve120.f90	/^  generic :: public /;"	v	line:12	program:main
+- public	flang/test/Semantics/resolve120.f90	/^  generic, public :: public /;"	v	line:4	module:m
+- s2	flang/test/Semantics/modfile07.f90	/^  generic :: operator ( + ) => s1, s2$/;"	v	line:14	module:m1
+- s2	flang/test/Semantics/resolve53.f90	/^  generic :: g1 => s1, s2 /;"	v	line:160	module:m12
+- s3	flang/test/Semantics/resolve53.f90	/^  generic :: g2 => s2, s3 /;"	v	line:162	module:m12
+- s4	flang/test/Semantics/resolve53.f90	/^  generic :: g3 => s1, s4 /;"	v	line:164	module:m12
+- spec1	flang/test/Semantics/bug2381.f90	/^  generic :: gen => spec2, spec1$/;"	v	line:3	module:m
+- xIntercept	flang/test/Semantics/generic06.f90	/^  generic :: xIntercept /;"	v	line:10	module:m
