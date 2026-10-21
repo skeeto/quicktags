@@ -17,6 +17,7 @@ struct VNode {
 struct Os {
     Arena *a;        // for the file system and captured output
     VNode  root;     // the current directory
+    Str    cwd;      // its absolute path, ending in a separator at a root
     Str    input;    // standard input
     Buf    out;      // fd 1
     Buf    err;      // fd 2
@@ -46,10 +47,24 @@ static b32 vfssep(Os *os, u8 c)
     return c=='/' || (os->windows && c=='\\');
 }
 
-// Find a node, or with an arena, make it and any missing directories.
-static VNode *vfsfind(Os *os, Str path, Arena *a)
+enum : iz { VFSDEPTH = 32 };
+
+// How many of a path's names are its root on Windows: a drive, or a
+// UNC path's host and share. None elsewhere.
+static iz vfsroot(Os *os, Str path)
 {
-    VNode *n = &os->root;
+    if (!os->windows || path.len<2) {
+        return 0;
+    } else if (path[1] == ':') {
+        return 1;
+    }
+    return vfssep(os, path[0]) && vfssep(os, path[1]) ? 2 : 0;
+}
+
+// Append a path's names, without empty ones and ".", and with a current
+// directory, each ".." taking the name before it, but those of a root.
+static iz vfssplit(Os *os, Str path, Str *names, iz len, iz root)
+{
     for (iz i = 0; i < path.len;) {
         iz end = i;
         for (; end<path.len && !vfssep(os, path[end]); end++) {}
@@ -57,19 +72,75 @@ static VNode *vfsfind(Os *os, Str path, Arena *a)
         i = end + 1;
         if (!part.len || part==".") {
             continue;
+        } else if (part==".." && os->cwd.len) {
+            len -= len > root;
+            continue;
         }
+        assert(len < VFSDEPTH);
+        names[len++] = part;
+    }
+    return len;
+}
+
+// The names to find a path by, from the current directory, the root.
+// With an absolute current directory, a path is first made absolute,
+// on Windows from the directory's root when it has none of its own,
+// then loses the directory's names if it lies under it, compared
+// regardless of case on Windows. Other absolute paths keep all their
+// names from the root: "/x" is "x" on POSIX, "D:\x" is "D:/x".
+static iz vfsnames(Os *os, Str path, Str *names)
+{
+    Str cwd   = os->cwd;
+    iz  root  = vfsroot(os, path);
+    iz  croot = vfsroot(os, cwd);
+    iz  len   = 0;
+    if (!cwd.len || root) {
+        len = vfssplit(os, path, names, 0, root);
+    } else if (path.len && vfssep(os, path[0])) {
+        len = vfssplit(os, cwd, names, 0, croot);
+        len = vfssplit(os, path, names, len<croot ? len : croot, croot);
+    } else {
+        len = vfssplit(os, cwd, names, 0, croot);
+        len = vfssplit(os, path, names, len, croot);
+    }
+
+    Str here[VFSDEPTH];
+    iz  nhere = vfssplit(os, cwd, here, 0, croot);
+    if (!nhere || len<nhere) {
+        return len;
+    }
+    for (iz i = 0; i < nhere; i++) {
+        Str x = names[i];
+        if (os->windows ? !equalsfold(x, here[i]) : x!=here[i]) {
+            return len;
+        }
+    }
+    for (iz i = nhere; i < len; i++) {
+        names[i-nhere] = names[i];
+    }
+    return len - nhere;
+}
+
+// Find a node, or with an arena, make it and any missing directories.
+static VNode *vfsfind(Os *os, Str path, Arena *a)
+{
+    Str    names[VFSDEPTH];
+    iz     len   = vfsnames(os, path, names);
+    b32    trail = path.len && vfssep(os, path[path.len-1]);  // a directory
+    VNode *n     = &os->root;
+    for (iz i = 0; i < len; i++) {
         if (!n->isdir) {
             return 0;
         }
         VNode *c = n->child;
-        for (; c && c->name!=part; c = c->next) {}
+        for (; c && c->name!=names[i]; c = c->next) {}
         if (!c) {
             if (!a) {
                 return 0;
             }
             c = alloc<VNode>(a);
-            c->name  = clone(a, part);
-            c->isdir = end < path.len;
+            c->name  = clone(a, names[i]);
+            c->isdir = i+1<len || trail;
             c->tail  = &c->child;
             *n->tail = c;
             n->tail  = &c->next;
@@ -193,6 +264,11 @@ static Read os_read(Os *os, Arena *a, Str path, iz max)
 static Str os_stdin(Os *os, Arena *a)
 {
     return clone(a, os->input);
+}
+
+static Str os_cwd(Os *os, Arena *a)
+{
+    return os->cwd.data ? clone(a, os->cwd) : Str{};
 }
 
 static i32 os_create(Os *os, Arena, Str path)

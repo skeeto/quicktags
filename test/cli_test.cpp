@@ -461,11 +461,14 @@ static void test_cli(Test *t)
          "ctags: unknown output format name supplied for "
          "\"output-format=bogus\"\n"},
         {"--tag-relative=no a",     OK,    ""},
-        {"--tag-relative=NEVER a",  FATAL,
-         "ctags: --tag-relative: not yet supported\n"},
-        {"--tag-relative a",        FATAL,
-         "ctags: --tag-relative: not yet supported\n"},
+        {"--tag-relative=NEVER a",  OK,    ""},
+        {"--tag-relative=Always a", OK,    ""},
+        {"--tag-relative=on a",     OK,    ""},
+        {"--tag-relative a",        OK,    ""},
+        {"--tag-relative= a",       OK,    ""},
         {"--tag-relative=x a",      FATAL,
+         "ctags: Invalid value for \"tag-relative\" option\n"},
+        {"--tag-relative=alway a",  FATAL,
          "ctags: Invalid value for \"tag-relative\" option\n"},
         {"--totals --totals=extra --totals=no a", OK, ""},
         {"--totals=x a",       FATAL, "ctags: Invalid value for \"totals\" "
@@ -997,6 +1000,29 @@ static void test_cli(Test *t)
         Arena  tmp = a;
         Parsed r   = parsecmd(&tmp, fk[i].args);
         expect(t, fk[i].args, num(&tmp, r.opt.filekind), num(&tmp, fk[i].on));
+    }
+
+    // --tag-relative, which -e sets to yes, the last option winning
+    // (OPT-7, OPT-18)
+    struct { Str args; i32 mode; } trs[] = {
+        {"a",                                TREL_NO},
+        {"--tag-relative a",                 TREL_YES},
+        {"--tag-relative= a",                TREL_YES},
+        {"--tag-relative=Y a",               TREL_YES},
+        {"--tag-relative=0 a",               TREL_NO},
+        {"--tag-relative=ALWAYS a",          TREL_ALWAYS},
+        {"--tag-relative=never a",           TREL_NEVER},
+        {"--tag-relative=never --tag-relative=off a", TREL_NO},
+        {"-e a",                             TREL_YES},
+        {"--output-format=etags a",          TREL_YES},
+        {"-e --tag-relative=never a",        TREL_NEVER},
+        {"--tag-relative=no -e a",           TREL_YES},
+    };
+    for (iz i = 0; i < countof(trs); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, trs[i].args);
+        expect(t, trs[i].args, num(&tmp, r.opt.tagrelative),
+               num(&tmp, trs[i].mode));
     }
     {
         // The placeholder kind's letter, a space, which words() splits

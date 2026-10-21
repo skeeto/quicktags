@@ -107,7 +107,7 @@ apply.
   - Arguments are checked as given, `.` too: `--exclude=.*` excludes `.` and every path starting with `.`, so `ctags -R --exclude=.* .` tags nothing, while `ctags -R --exclude=.*` tags everything but the dot entries [V].
   - No corpus directory matches the case-insensitive list except `.git`, which I checked with `find`.
 - **DISC-4 [S][I]** `--maxdepth` defaults to `0xffffffff`; the top directory counts as depth 1. There is no loop detection on Windows.
-- **DISC-5 [V]** The printed file name is the argument or constructed path **verbatim**, with only `\`→`/` at output time. `//`, `./` and `..` are kept, and so is case. Absolute `C:\…` prints as `C:/…`.
+- **DISC-5 [V]** The printed file name is the argument or constructed path **verbatim**, with only `\`→`/` at output time. `//`, `./` and `..` are kept, and so is case. Absolute `C:\…` prints as `C:/…`. `--tag-relative` changes this (OPT-18).
 - **DISC-6 [S][V] `-L FILE`** (`main.c createTagsFromListFile`, `args.c`) names a list of inputs, read from standard input for `-`.
   - Its entries come after the command line's files. A FILE that cannot be opened is FATAL `cannot open list file "FILE" : REASON`, once the command line's files are tagged.
   - **[V] Bug:** a `-L` that follows a file name is parsed (`--verbose` shows it), but its list is never read, nor opened: `ctags a.c -L list` tags `a.c` alone, and exits 0 when `list` does not exist. `main.c` tests for a list again after the files, but declares `Option` const, so this build apparently keeps the value it read before them. Here such a list is read as any other (D13).
@@ -662,7 +662,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--tag-relative` other than no, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `--output-format=e-ctags`, fields other than the defaults (OPT-9), `--excmd`, `-n`, `-N` other than mixed, `--format` other than 2, `--pattern-length-limit` other than 96, `--sort` other than yes and `-u`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -750,6 +750,28 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor.ignore=TOKEN` adds one token, unsplit (OPT-13).
   - A token's name runs to its first `+` or `=`, and an empty one is ignored. `NAME` drops the identifier; a `+` before any `=` also drops a parenthesized group after it (`NAME+`); the text after the first `=`, when not empty, replaces them (`NAME=TEXT`, `NAME+=TEXT`). Text between the `+` and the `=` is ignored, `NAME=` is `NAME`, and a token ends at a NUL.
   - A later token for a name replaces an earlier one, until the table grows [V]. Universal Ctags keeps every token in a hash table of 1024 buckets, adding each at the front of its bucket and finding the first. Before adding one to a table at least 80% full, it grows the table to the next of the primes 1361, 2729, 5471, 10949, 21911, …, which reverses each bucket. So with `A=int,A=char` and 818 more tokens `char` is found, with 819 to 1087 more `int`, with 1088 more `char` again. The count is of tokens added, repeated names included, and empty names not, since the table was last emptied.
+
+**Paths**
+- **OPT-18 [S][V] `--tag-relative[=yes|no|always|never]`** (`read.c`, where an input's path for its tags is set; `routines.c`, which makes paths absolute and relative; `entry.c`, where the tags file is opened) changes only the file field. Warnings, exclusions (DISC-3), language detection and anonymous names (CXX-12) keep the path as constructed (DISC-2).
+  - The values (OPT-7): `no`, the default, writes the path as constructed (DISC-5). `yes`, as a bare `--tag-relative` and `-e` set it, makes a relative path relative to the base and writes an absolute one as constructed. `always` makes every path relative to the base, and `never` makes every path absolute.
+  - **The base** is the tags file's directory: its name up to and including the last separator, made absolute, or the current directory when the name has no separator or is `-`. On Windows `:` is a separator here, so `-f C:tags` has the base `C:`, and paths relative to it start at the drive's root: `/w/a.c`.
+  - **Absolute.** A path is absolute when it starts with a separator, or on Windows with a letter and `:`, then a separator or nothing. Otherwise the current directory goes before it, with a `/` between unless the directory ends in a separator. On Windows an absolute path without a drive gets the current one, `X:` (`/x` is `C:/x`, and from a UNC current directory `@:/x`; here `//host/share/x`, D16). Then, left to right, each name `.` goes with the separator before it, and each name `..` goes with the separator before it and with everything back to the separator before that, of whatever kind, so on Windows the drive's `:` (`C:/../x` becomes `C/x`; here not, D15), or with no separator before, as at `/` on POSIX, only the `..` itself goes (`/../x` is `/x`). Doubled separators stay, and `..` takes the empty name between them (here the name before them, D14). An empty result is `/`. Every separator but `:` becomes `/`, and on Windows a lowercase drive letter becomes uppercase. A UNC path counts as one without a drive: `//host/share/a.c` becomes `C://host/share/a.c` (here not, D16).
+  - **Relative.** The path is made absolute, then compared with the base byte by byte, ignoring the case of ASCII letters on Windows, up to the first byte that differs. The equal part is cut back to its last separator (`:` included on Windows); when there is none, as when the drives differ, the result is the absolute path. Otherwise it is a `../` for each separator the base has past that point, then the absolute path past it. As the base ends in a separator, a file in its directory or below gets the path from there, and any other climbs to the common directory.
+
+    | `-f` (from `/w`) | `a.c` | `./sub/b.c` | `sub/deep/d.c` |
+    |---|---|---|---|
+    | `-`, `tags` | `a.c` | `sub/b.c` | `sub/deep/d.c` |
+    | `sub/tags`, `./sub/tags`, `/w/sub/tags` | `../a.c` | `b.c` | `deep/d.c` |
+    | `sub/deep/tags` | `../../a.c` | `../b.c` | `d.c` |
+    | `other/tags` | `../a.c` | `../sub/b.c` | `../sub/deep/d.c` |
+    | `../tags` | `w/a.c` | `w/sub/b.c` | `w/sub/deep/d.c` |
+
+    On Windows the comparison makes `SUB/B.C` `B.C` under `-f sub/tags`, and an input on another drive stays absolute even with `always`. `never` writes `/w/a.c`, `/w/sub/b.c`, …, and `yes` writes an absolute input as constructed, `c:\w\a.c` as `c:/w/a.c`, where `always` and `never` uppercase its drive.
+  - **[V] Bugs** with doubled separators, each counted as a name (here not, D14): `x//../a.c` is `x/a.c`; under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x` (here `C:/x`, D15). A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x` (D16).
+  - **Drive-relative paths.** On Windows, making absolute a path that is a letter, `:`, and then not a separator is FATAL `C:a.c: relative file names with drive letters not supported`: an input once it is to be tagged, with any value but `no` (one that is missing only warns, and one of no language is skipped), and the tags file's directory once the file is opened (`-f C:sub/tags`: `C:sub/: relative …`), whatever the value, leaving the file created and empty.
+  - **The current directory** [S] is looked up by Universal Ctags at every start (`main.c`, `routines.c`), whatever the options, in a buffer of `PATH_MAX` bytes. When that fails, as when the directory has been removed on POSIX or its name does not fit, it stops with FATAL `failed in getcwd() : REASON` (CLI-7). The system names a root with its separator, `C:\` or `/`, and any other directory without one, so the `/` added before a relative path is never doubled.
+  - Here the current directory is looked up only with a value other than `no`, and of any length. When it cannot be, the run stops with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report. The platform test runs the program from the root of its drive or file system, which the unit tests' file system cannot model.
+  - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
 
 ---
 
@@ -901,6 +923,29 @@ Decided for this program, deliberately different from Universal Ctags.
   list names, and a list that cannot be opened is FATAL. Universal Ctags
   parses such an option but never reads its list, so it tags `a.c`
   alone, and exits 0 though the list does not exist.
+- **D14** Under `--tag-relative` (OPT-18), doubled separators are no
+  name of their own where Universal Ctags' counting them goes wrong:
+  `..` after them takes the name before them (`x//../a.c` is `a.c`,
+  where Universal Ctags writes `x/a.c`, which is not the file); they
+  are no level of the tags file's directory (with `-f sub//tags`,
+  `a.c` is `../a.c`, not `../../a.c`); and a relative path does not
+  begin with a separator (with `-f -`, `.//a.c` is `a.c`, not `/a.c`,
+  and with `-f sub/tags`, `sub//b.c` is `b.c`, not `/b.c`). They stay
+  where they lead to the file, as there: `..//a.c`, `/w//a.c`.
+- **D15** Under `--tag-relative` (OPT-18), a `..` at the root of a
+  Windows drive stays there, as Windows resolves it: `C:\..\x` is
+  `C:/x`. Universal Ctags removes the drive's `:` with it, as its
+  separator, writing `C/x`, which names no file, relative or absolute.
+- **D16** Under `--tag-relative` (OPT-18), a UNC path, `\\host\share\…`,
+  is absolute with its share as its root, as a drive is: made absolute
+  it stays `//host/share/…`, `..` does not leave the share, and it is
+  made relative only to a base under the same share, matched
+  regardless of case, else written absolute. A path rooted without a
+  drive takes the current directory's root, drive or share. Universal
+  Ctags puts the current drive before a UNC path, `C://host/share/a.c`,
+  which names no file, or relative climbs to that drive's root,
+  `../../..//host/share/a.c`; and from a UNC current directory it puts
+  `@:` before `/x`, its drive number 0 as a letter.
 - **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
   as an anchor.
 - **O2** A lone CR ends the pattern without the `$` anchor.
@@ -913,7 +958,7 @@ Decided for this program, deliberately different from Universal Ctags.
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
-  the listings (OPT-15), `--version`, `--help`, and this program's
+  `--tag-relative`, the listings (OPT-15), `--version`, `--help`, and this program's
   `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
@@ -931,7 +976,12 @@ Decided for this program, deliberately different from Universal Ctags.
   after its files (DISC-6); forcing a language this program does not
   parse tags nothing, where the reference is FATAL as the language is
   disabled, and forcing a disabled one of ours is FATAL even when no
-  file would be tagged (LANG-6).
+  file would be tagged (LANG-6); a tags file named on a drive but not
+  from its root, `-f C:sub/tags`, is refused only with `--tag-relative`,
+  and an input so named ends the run after the walk, not while tagging,
+  with no tags file written; and the current directory is needed, so
+  that failing to find it ends the run, only with `--tag-relative`, and
+  the message gives no reason (OPT-18).
 
 ### Lexing (built in from the start)
 

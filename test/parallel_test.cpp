@@ -15,6 +15,7 @@ static void test_parallel(Test *t)
 {
     Arena a  = t->perm;
     Os   *os = newos(&a);
+    os->cwd = "/home/u";  // for --tag-relative
     vfsfile(os, "src/main.c",
         "#include \"util.h\"\n"
         "static int count;\n"
@@ -88,6 +89,7 @@ static void test_parallel(Test *t)
     Str modes[] = {
         "",
         "--extras=+q",
+        "--tag-relative=never",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;

@@ -11,6 +11,78 @@ static Str tagnames(Arena *a, Str out)
     return finish(&b);
 }
 
+// The names and file fields of the tags in output, but pseudo-tags, as
+// "name=file" separated by spaces.
+static Str tagfiles(Arena *a, Str out)
+{
+    Buf b(a, 64);
+    for (Cut c = cut(out, '\n'); c.ok; c = cut(c.tail, '\n')) {
+        if (startswith(c.head, "!_")) {
+            continue;
+        }
+        Cut name = cut(c.head, '\t');
+        if (b.len) putbyte(&b, ' ');
+        print(&b, name.head);
+        putbyte(&b, '=');
+        print(&b, cut(name.tail, '\t').head);
+    }
+    return finish(&b);
+}
+
+struct TrelCase {
+    Str out;   // the tags file, "-" for standard output
+    Str args;
+    i32 status;
+    Str want;  // tagfiles() of the output
+    Str err;
+};
+
+// Run --tag-relative cases, each writing its own tags file, which is
+// then removed. A failure writes none.
+static void runtrel(Test *t, Os *os, TrelCase *cases, iz n)
+{
+    Arena *a = os->a;
+    for (iz i = 0; i < n; i++) {
+        TrelCase *c    = cases + i;
+        Str       args = concat(a, concat(a, concat(a, "-f ", c->out), " "),
+                                c->args);
+        Str       name = concat(a, args, os->windows ? Str(" (windows)")
+                                                     : Str(""));
+        Run       r    = run(os, *a, args);
+        VNode    *f    = c->out=="-" ? 0 : vfsfind(os, c->out, 0);
+        Str       out  = f ? f->data : r.out;
+        expect(t, name, num(a, r.status), num(a, c->status));
+        expect(t, name, r.err, c->err);
+        expect(t, name, tagfiles(a, out), c->want);
+        if (f) {
+            vfsunlink(os, c->out);
+        }
+    }
+}
+
+// A --tag-relative case on a quirk of Universal Ctags, with its output,
+// which ours differs from exactly where it departs (D14, D15, D16).
+struct TrelQuirk {
+    Str out;
+    Str args;
+    Str want;
+    Str uctags;
+    b32 departs;  // else kept as there
+};
+
+static void runquirks(Test *t, Os *os, TrelQuirk *cases, iz n)
+{
+    Arena *a = os->a;
+    for (iz i = 0; i < n; i++) {
+        TrelQuirk *q    = cases + i;
+        TrelCase   c    = {q->out, q->args, 0, q->want, ""};
+        Str        name = concat(a, "departs: -f ", q->out);
+        name = concat(a, concat(a, name, " "), q->args);
+        runtrel(t, os, &c, 1);
+        expect(t, name, num(a, q->want!=q->uctags), num(a, q->departs));
+    }
+}
+
 static void test_walk(Test *t)
 {
     Arena a = t->perm;
@@ -965,5 +1037,309 @@ static void test_walk(Test *t)
             expect(t, concat(&a, "warnings out ", args), tagnames(&a, r.out),
                    "a");
         }
+    }
+
+    // --tag-relative (OPT-18): file fields as Universal Ctags writes them
+    // in this tree, here from /home/u/w, and on Windows from C:\Users\u\w
+    Str here    = "a=a.c b=sub/b.c d=sub/deep/d.c o=other/o.c";
+    Str insub   = "a=../a.c b=b.c d=deep/d.c o=../other/o.c";
+    Str indeep  = "a=../../a.c b=../b.c d=d.c o=../../other/o.c";
+    Str inother = "a=../a.c b=../sub/b.c d=../sub/deep/d.c o=o.c";
+    Str above   = "a=w/a.c b=w/sub/b.c d=w/sub/deep/d.c o=w/other/o.c";
+    {
+        Os *os = newos(&a);
+        os->cwd = "/home/u/w";
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "sub/b.c",      "int b;\n");
+        vfsfile(os, "sub/deep/d.c", "int d;\n");
+        vfsfile(os, "other/o.c",    "int o;\n");
+        vfsfile(os, "list",         "./a.c\nsub/b.c\n/home/u/w/other/o.c\n");
+        vfsfile(os, "opts",         "--tag-relative\n");
+        Str abs    = "a=/home/u/w/a.c b=/home/u/w/sub/b.c "
+                     "d=/home/u/w/sub/deep/d.c o=/home/u/w/other/o.c";
+        Str a1     = "a=/home/u/w/a.c";
+        Str b1     = "b=/home/u/w/sub/b.c";
+        Str nosuch = "ctags: Warning: cannot open input file \"./nosuch.c\" "
+                     ": No such file or directory\n";
+        TrelCase cases[] = {
+            // Each value, with the tags file anywhere
+            {"sub/tags",           "-R",                       0, here,    ""},
+            {"sub/tags",           "--tag-relative=no -R",     0, here,    ""},
+            {"sub/tags",           "--tag-relative -R",        0, insub,   ""},
+            {"sub/tags",           "--tag-relative= -R",       0, insub,   ""},
+            {"sub/tags",           "--tag-relative=yes .",     0, insub,   ""},
+            {"sub/tags",           "--tag-relative=always -R", 0, insub,   ""},
+            {"sub/tags",           "--tag-relative=never -R",  0, abs,     ""},
+            {"sub/tags",           "--options=opts -R",        0, insub,   ""},
+            {"sub/deep/tags",      "--tag-relative -R",        0, indeep,  ""},
+            {"other/tags",         "--tag-relative -R",        0, inother, ""},
+            {"./sub/tags",         "--tag-relative -R",        0, insub,   ""},
+            {"sub/./tags",         "--tag-relative -R",        0, insub,   ""},
+            {"sub/../other/tags",  "--tag-relative -R",        0, inother, ""},
+            {"../tags",            "--tag-relative -R",        0, above,   ""},
+            {"../tags",            "--tag-relative=always -R", 0, above,   ""},
+            {"/home/u/w/sub/tags", "--tag-relative -R",        0, insub,   ""},
+            {"/home/u/w/tags",     "--tag-relative=always -R", 0, here,    ""},
+            {"tags",               "--tag-relative -R",        0, here,    ""},
+            {"-",                  "--tag-relative -R",        0, here,    ""},
+            {"-",                  "--tag-relative=always -R", 0, here,    ""},
+            {"-",                  "--tag-relative=never -R",  0, abs,     ""},
+
+            // Roots with "." and "..", and what is walked under them
+            {"sub/tags", "--tag-relative ./",          0, insub,              ""},
+            {"sub/tags", "--tag-relative sub/",        0, "b=b.c d=deep/d.c", ""},
+            {"sub/tags", "--tag-relative sub/deep/..", 0, "b=b.c d=deep/d.c", ""},
+            {"sub/tags", "--tag-relative sub/.",       0, "b=b.c d=deep/d.c", ""},
+            {"sub/tags", "--tag-relative ./a.c sub/./b.c sub/deep/../b.c "
+                         "../w/a.c",                   0, "a=../a.c b=b.c",   ""},
+            {"-",        "--tag-relative ./a.c sub/deep/../b.c "
+                         "../w/sub/deep/d.c",
+                         0, "a=a.c b=sub/b.c d=sub/deep/d.c", ""},
+            {"-",        "--tag-relative=never ./a.c ../w/a.c", 0, a1, ""},
+
+            // Absolute inputs, written as constructed only by yes
+            {"sub/tags", "--tag-relative /home/u/w/a.c /home/u/w/sub/../sub/b.c",
+                         0, "a=/home/u/w/a.c b=/home/u/w/sub/../sub/b.c", ""},
+            {"sub/tags", "--tag-relative=always /home/u/w/a.c "
+                         "/home/u/w/sub/../sub/b.c", 0, "a=../a.c b=b.c", ""},
+            {"sub/tags", "--tag-relative=never /home/u/w/a.c "
+                         "/home/u/w/sub/../sub/b.c",
+                         0, concat(&a, concat(&a, a1, " "), b1), ""},
+            {"../tags",  "--tag-relative=always /home/u/w/sub/b.c",
+                         0, "b=w/sub/b.c", ""},
+
+            // -L entries are as arguments
+            {"sub/tags", "--tag-relative -L list",
+                         0, "a=../a.c b=b.c o=/home/u/w/other/o.c", ""},
+            {"sub/tags", "--tag-relative=always -L list",
+                         0, "a=../a.c b=b.c o=../other/o.c", ""},
+            {"-",        "--tag-relative=never -L list",
+                         0, concat(&a, concat(&a, concat(&a, a1, " "), b1),
+                                   " o=/home/u/w/other/o.c"), ""},
+
+            // Warnings keep the path as constructed
+            {"-",        "--tag-relative=never ./nosuch.c a.c", 0, a1, nosuch},
+        };
+        runtrel(t, os, cases, countof(cases));
+
+        // Anonymous names hash the path as constructed, whatever the file
+        // field holds
+        vfsfile(os, "anon.c", "struct { int v; } g;\n");
+        Run r1 = run(os, a, "-f - anon.c");
+        Run r2 = run(os, a, "-f - --tag-relative=never anon.c");
+        Run r3 = run(os, a, "-f - ./anon.c");
+        Str n1 = tagnames(&a, r1.out);
+        expect(t, "trel anon", tagnames(&a, r2.out), n1);
+        expect(t, "trel anon file",
+               num(&a, find(r2.out, "\t/home/u/w/anon.c\t")>0), "1");
+        expect(t, "trel anon ./", num(&a, tagnames(&a, r3.out)==n1), "0");
+        vfsunlink(os, "anon.c");
+
+        // D14: doubled separators are no name of their own where Universal
+        // Ctags' counting them goes wrong, and stay where they lead to the
+        // file, as there
+        TrelQuirk d14[] = {
+            {"-",           "--tag-relative .//a.c",          "a=a.c", "a=/a.c", 1},
+            {"sub/tags",    "--tag-relative sub//b.c sub///deep/d.c",
+                            "b=b.c d=deep/d.c",       "b=/b.c d=//deep/d.c", 1},
+            {"sub//tags",   "--tag-relative a.c sub/b.c",
+                            "a=../a.c b=b.c",         "a=../../a.c b=../b.c", 1},
+            {".//sub/tags", "--tag-relative=always a.c sub/b.c",
+                            "a=../a.c b=../sub/b.c",  "a=../../a.c b=../../sub/b.c", 1},
+            {"-",           "--tag-relative=never x//../a.c",
+                            a1,                       "a=/home/u/w/x/a.c", 1},
+            {"sub/tags",    "--tag-relative .//a.c",          "a=..//a.c", "a=..//a.c", 0},
+            {"-",           "--tag-relative=never .//a.c",
+                            "a=/home/u/w//a.c",       "a=/home/u/w//a.c", 0},
+        };
+        runquirks(t, os, d14, countof(d14));
+
+        // Without a current directory, --tag-relative fails, giving no
+        // reason, and the default works, where Universal Ctags fails at
+        // every start
+        os->cwd = {};
+        Run r = run(os, a, "-f - --tag-relative a.c");
+        expect(t, "trel nocwd status", num(&a, r.status), "1");
+        expect(t, "trel nocwd err", r.err, "ctags: failed in getcwd()\n");
+        r = run(os, a, "-f - --tag-relative=no a.c");
+        expect(t, "trel nocwd no", tagfiles(&a, r.out), "a=a.c");
+        r = run(os, a, "a.c");
+        VNode *tags = vfsfind(os, "tags", 0);
+        expect(t, "trel nocwd default", num(&a, r.status), "0");
+        expect(t, "trel nocwd default", tagfiles(&a, tags ? tags->data : Str{}),
+               "a=a.c");
+        vfsunlink(os, "tags");
+    }
+    {
+        // From a root, which the system names with its separator, "/" or
+        // "C:\", unlike any other directory
+        Os *os = newos(&a);
+        os->cwd = "/";
+        vfsfile(os, "home/u/w/a.c",     "int a;\n");
+        vfsfile(os, "home/u/w/sub/b.c", "int b;\n");
+        TrelCase cases[] = {
+            {"-", "--tag-relative=never home/u/w/a.c",   0, "a=/home/u/w/a.c", ""},
+            {"-", "--tag-relative ./home/u/w/a.c",       0, "a=home/u/w/a.c",  ""},
+            {"-", "--tag-relative=always /home/u/w/a.c", 0, "a=home/u/w/a.c",  ""},
+            {"home/u/w/sub/tags", "--tag-relative=always /home/u/w/a.c",
+                                  0, "a=../a.c", ""},
+        };
+        runtrel(t, os, cases, countof(cases));
+
+        os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\";
+        vfsfile(os, "Users/u/w/a.c",     "int a;\n");
+        vfsfile(os, "Users/u/w/sub/b.c", "int b;\n");
+        TrelCase wcases[] = {
+            {"-", "--tag-relative=never Users\\u\\w\\a.c",
+                  0, "a=C:/Users/u/w/a.c", ""},
+            {"-", "--tag-relative=never \\Users\\u\\w\\a.c",
+                  0, "a=C:/Users/u/w/a.c", ""},
+            {"-", "--tag-relative .\\Users\\u\\w\\a.c",
+                  0, "a=Users/u/w/a.c", ""},
+            {"-", "--tag-relative=always C:\\Users\\u\\w\\a.c",
+                  0, "a=Users/u/w/a.c", ""},
+            {"Users\\u\\w\\sub\\tags", "--tag-relative=always C:/Users/u/w/a.c",
+                                       0, "a=../a.c", ""},
+        };
+        runtrel(t, os, wcases, countof(wcases));
+    }
+    {
+        Os *os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\Users\\u\\w";
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "sub/b.c",      "int b;\n");
+        vfsfile(os, "sub/deep/d.c", "int d;\n");
+        vfsfile(os, "other/o.c",    "int o;\n");
+        Str abs = "a=C:/Users/u/w/a.c b=C:/Users/u/w/sub/b.c "
+                  "d=C:/Users/u/w/sub/deep/d.c o=C:/Users/u/w/other/o.c";
+        TrelCase cases[] = {
+            {"sub\\tags",                  "--tag-relative -R",        0, insub,   ""},
+            {"sub\\deep\\tags",            "--tag-relative=always -R", 0, indeep,  ""},
+            {"C:\\Users\\u\\w\\sub\\tags", "--tag-relative -R",        0, insub,   ""},
+            {"c:/USERS/U/W/OTHER/tags",    "--tag-relative -R",        0, inother, ""},
+            {"-",                          "--tag-relative=never -R",  0, abs,     ""},
+            {"..\\tags",                   "--tag-relative -R",        0, above,   ""},
+            {"sub/tags", "--tag-relative .\\a.c sub\\b.c .\\sub\\deep\\d.c",
+                         0, "a=../a.c b=b.c d=deep/d.c", ""},
+
+            // Absolute, with either separator, a drive in either case, or
+            // none, compared with the base regardless of case
+            {"sub/tags", "--tag-relative C:\\Users\\u\\w\\a.c "
+                         "c:/users/U/W/sub/b.c",
+                         0, "a=C:/Users/u/w/a.c b=c:/users/U/W/sub/b.c", ""},
+            {"sub/tags", "--tag-relative=always C:\\Users\\u\\w\\a.c "
+                         "c:/users/U/W/sub/b.c", 0, "a=../a.c b=b.c", ""},
+            {"sub/tags", "--tag-relative=never C:\\Users\\u\\w\\a.c "
+                         "c:/users/U/W/sub/b.c",
+                         0, "a=C:/Users/u/w/a.c b=C:/users/U/W/sub/b.c", ""},
+            {"sub/tags", "--tag-relative \\Users\\u\\w\\a.c",
+                         0, "a=/Users/u/w/a.c", ""},
+            {"sub/tags", "--tag-relative=always /Users/u/w/a.c",
+                         0, "a=../a.c", ""},
+            {"-",        "--tag-relative=never \\Users\\u\\w\\a.c",
+                         0, "a=C:/Users/u/w/a.c", ""},
+        };
+        runtrel(t, os, cases, countof(cases));
+
+        // D15: ".." at a drive's root stays there, where Universal Ctags
+        // takes the drive's ':' with it
+        TrelQuirk d15[] = {
+            {"-",        "--tag-relative=never C:\\..\\Users\\u\\w\\a.c",
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c", 1},
+            {"-",        "--tag-relative=never /../../Users/u/w/a.c",
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c", 1},
+            {"sub/tags", "--tag-relative=always C:/../Users/u/w/a.c",
+                         "a=../a.c",           "a=C/Users/u/w/a.c", 1},
+            {"-",        "--tag-relative ..\\..\\..\\..\\Users\\u\\w\\a.c",
+                         "a=a.c",              "a=C/Users/u/w/a.c", 1},
+        };
+        runquirks(t, os, d15, countof(d15));
+
+        // The current directory's drive letter in lowercase, as cmd.exe
+        // may have it, is uppercased in absolute paths
+        os->cwd = "c:\\users\\u\\w";
+        TrelCase lower[] = {
+            {"-", "--tag-relative=never a.c sub\\b.c",
+                  0, "a=C:/users/u/w/a.c b=C:/users/u/w/sub/b.c", ""},
+            {"-", "--tag-relative=always C:\\Users\\u\\w\\a.c sub\\b.c",
+                  0, "a=a.c b=sub/b.c", ""},
+        };
+        runtrel(t, os, lower, countof(lower));
+    }
+    {
+        // Paths on another drive, and on a drive but not from its root
+        Os *os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\Users\\u\\w";
+        vfsfile(os, "a.c",     "int a;\n");
+        vfsfile(os, "C:x.c",   "int x;\n");
+        vfsfile(os, "D:\\y.c", "int y;\n");
+        Str drive  = "ctags: C:x.c: relative file names with drive letters "
+                     "not supported\n";
+        Str nosuch = "ctags: Warning: cannot open input file \"C:nosuch.c\" "
+                     ": No such file or directory\n";
+        Str subdir = "ctags: C:sub/: relative file names with drive letters "
+                     "not supported\n";
+        TrelCase cases[] = {
+            {"-",          "--tag-relative a.c D:\\y.c",       0, "a=a.c y=D:/y.c", ""},
+            {"sub/tags",   "--tag-relative=always a.c D:/y.c", 0, "a=../a.c y=D:/y.c", ""},
+            {"sub/tags",   "--tag-relative=never D:\\y.c",     0, "y=D:/y.c", ""},
+            {"-",          "C:x.c",                            0, "x=C:x.c", ""},
+            {"-",          "--tag-relative C:x.c a.c",         1, "", drive},
+            {"-",          "--tag-relative=always a.c C:x.c",  1, "", drive},
+            {"tags",       "--tag-relative=never C:x.c",       1, "", drive},
+            // No tags file, where Universal Ctags leaves a's tags in one
+            {"tags",       "--tag-relative a.c C:x.c",         1, "", drive},
+            {"-",          "--tag-relative C:nosuch.c a.c",    0, "a=a.c", nosuch},
+            {"C:sub/tags", "a.c",                              0, "a=a.c", ""},
+            {"C:sub/tags", "--tag-relative a.c",               1, "", subdir},
+            {"C:tags",     "--tag-relative a.c",               0, "a=/Users/u/w/a.c", ""},
+        };
+        runtrel(t, os, cases, countof(cases));
+    }
+    {
+        // D16: a UNC path is rooted at its share, as a path at its drive,
+        // where Universal Ctags puts the current drive before it, or
+        // before a path rooted without a drive, from a share, "@:"
+        Os *os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\Users\\u\\w";
+        vfsfile(os, "//host/share/x/a.c", "int a;\n");
+        Str unc = "a=//host/share/x/a.c";
+        TrelQuirk d16[] = {
+            {"-",        "--tag-relative=never \\\\host\\share\\x\\a.c",
+                         unc, "a=C://host/share/x/a.c", 1},
+            {"sub/tags", "--tag-relative=always //host/share/x/a.c",
+                         unc, "a=../../../..//host/share/x/a.c", 1},
+            {"-",        "--tag-relative=never //host/share/../x/a.c",
+                         unc, "a=C://host/x/a.c", 1},
+            {"-",        "--tag-relative //host/share/x/a.c", unc, unc, 0},
+        };
+        runquirks(t, os, d16, countof(d16));
+
+        os->cwd = "\\\\host\\share\\w";
+        vfsfile(os, "a.c",          "int a;\n");
+        vfsfile(os, "sub/b.c",      "int b;\n");
+        vfsfile(os, "\\x\\c.c",     "int c;\n");
+        vfsfile(os, "//host/other/d.c", "int d;\n");
+        Str share = "a=//host/share/w/a.c b=//host/share/w/sub/b.c";
+        TrelQuirk cwd16[] = {
+            // The current directory's own paths, as Universal Ctags has them
+            {"-",        "--tag-relative=never a.c sub\\b.c", share, share, 0},
+            {"sub/tags", "--tag-relative a.c sub\\b.c",
+                         "a=../a.c b=b.c",              "a=../a.c b=b.c", 0},
+            {"-",        "--tag-relative=never ..\\..\\w\\a.c",
+                         "a=//host/share/w/a.c",        "a=//host/w/a.c", 1},
+            {"-",        "--tag-relative=never \\x\\c.c",
+                         "c=//host/share/x/c.c",        "c=@:/x/c.c", 1},
+            {"-",        "--tag-relative=always \\\\HOST\\Share\\w\\sub\\b.c",
+                         "b=sub/b.c",                   "b=@://HOST/Share/w/sub/b.c", 1},
+            {"sub/tags", "--tag-relative=always //host/other/d.c",
+                         "d=//host/other/d.c",          "d=@://host/other/d.c", 1},
+        };
+        runquirks(t, os, cwd16, countof(cwd16));
     }
 }
