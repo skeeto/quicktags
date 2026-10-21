@@ -293,6 +293,32 @@ static TagCase ccases[] = {
      "g\thx.c\t/^int Z$/;\"\tv\tline:7\ttyperef:typename:int\n"
      "m\thx.c\t/^{ int m; };$/;\"\tm\tline:2\tstruct:B\ttyperef:typename:int\tfile:\n",
      ""},
+    {SHARED, "-I counts restart as the file is read", "rs.c", "-I DECL=int",
+     "DECL v1;\n"
+     "DECL v2;\n"
+     "DECL v3;\n"
+     "DECL v4;\n"
+     "DECL v5;\n"
+     "DECL v6;\n"
+     "DECL v7;\n"
+     "DECL v8;\n"
+     "DECL v9;\n"
+     "DECL v10;\n",
+     "v1\trs.c\t/^DECL v1;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "v10\trs.c\t/^DECL v10;$/;\"\tv\tline:10\ttyperef:typename:int\n"
+     "v2\trs.c\t/^DECL v2;$/;\"\tv\tline:2\ttyperef:typename:int\n"
+     "v3\trs.c\t/^DECL v3;$/;\"\tv\tline:3\ttyperef:typename:int\n"
+     "v4\trs.c\t/^DECL v4;$/;\"\tv\tline:4\ttyperef:typename:int\n"
+     "v5\trs.c\t/^DECL v5;$/;\"\tv\tline:5\ttyperef:typename:int\n"
+     "v6\trs.c\t/^DECL v6;$/;\"\tv\tline:6\ttyperef:typename:int\n"
+     "v7\trs.c\t/^DECL v7;$/;\"\tv\tline:7\ttyperef:typename:int\n"
+     "v8\trs.c\t/^DECL v8;$/;\"\tv\tline:8\ttyperef:typename:int\n"
+     "v9\trs.c\t/^DECL v9;$/;\"\tv\tline:9\ttyperef:typename:int\n",
+     ""},
+    {SHARED, "-I replacements in a row", "pp.c", "-I P=*P",
+     "int P;\n",  // 8 times, then P stays
+     "P\tpp.c\t/^int P;$/;\"\tv\tline:1\ttyperef:typename:int ********\n",
+     ""},
     // Universal Ctags never finishes these
     {OURS, "X12 -I loops at the end, looking for a group", "le.c", "-I S+=;S",
      "int a;\n"
@@ -793,6 +819,23 @@ static void test_macrolimits(Test *t)
         Run r = run(os, a, "-I @list -f - m.c");
         expect(t, "-I buffer size", r.out, bs[i].want);
     }
+
+    // Nor is one made in a statement at the token limit, here one that
+    // would end it
+    Buf big(&a, 1<<16);
+    print(&big, "int v(");
+    for (i32 i = 0; i < 8200; i++) {
+        print(&big, "a, ");
+    }
+    print(&big, "X);\n");
+    vfsfile(os, "list", "X=0);int w;int u(0\n");
+    vfsfile(os, "s.c", "int v(a, X);\n");
+    vfsfile(os, "big.c", finish(&big));
+    Run r = run(os, a, "-I @list -f - s.c");
+    expect(t, "-I below the token limit", r.out,
+           "w\ts.c\t/^int v(a, X);$/;\"\tv\tline:1\ttyperef:typename:int\n");
+    r = run(os, a, "-I @list -f - big.c");
+    expect(t, "-I at the token limit", r.out, "");
 }
 
 static void test_c(Test *t)

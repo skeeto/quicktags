@@ -371,6 +371,10 @@ static void test_cli(Test *t)
                                  "file or directory\n"},
         {"-I ./nosuch a", FATAL, "ctags: cannot open \"./nosuch\" : No such "
                                  "file or directory\n"},
+        {"-I /nosuch a",  FATAL, "ctags: cannot open \"/nosuch\" : No such "
+                                 "file or directory\n"},
+        {"-I \\nosuch a", FATAL, "ctags: cannot open \"\\nosuch\" : No such "
+                                 "file or directory\n"},
         {"-I @ a",        FATAL, "ctags: cannot open \"\" : No such file or "
                                  "directory\n"},
         {"-I C:x a",      OK,    ""},  // a file only on Windows
