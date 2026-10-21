@@ -44,6 +44,8 @@ set(ctags_fmt_keep "")
 # tags output here, and the rest until their fields are ported
 set(ctags_fields_strip e o {end} {nth}
   m {implementation} S a i {signature} {access} {inherits})
+# Every field letter, which a leading * enables (u-ctags --list-fields)
+set(ctags_fields_all N F P C E K R S T Z a e f i k l m n o p r s t x z)
 
 # Is the option stripped from both command lines?
 function(ctags_stripped var opt)
@@ -66,29 +68,43 @@ function(ctags_stripped var opt)
   set(${var} ${r} PARENT_SCOPE)
 endfunction()
 
-# A --fields spec without the letters in ctags_fields_strip, signs
-# merged: "" for a relative spec left empty, which is dropped, and an
-# absolute one left empty stays "--fields=".
+# A --fields spec that enables the same fields, but none of those in
+# ctags_fields_strip: "" for a relative spec left empty, which is
+# dropped. An absolute spec (one without a leading sign) stays absolute,
+# with its leading removals dropped, since they remove from nothing, and
+# "--fields=" when left empty. A leading * becomes the letters it keeps.
 function(ctags_filterfields var spec)
-  string(REGEX MATCHALL "\\{[^}]*\\}|." tokens "${spec}")
   set(out "")
-  set(mode "")
+  set(mode "+")
   set(written "")
-  set(any OFF)
+  set(absolute OFF)
+  if(NOT spec MATCHES "^[-+]")
+    set(absolute ON)
+    set(written "+")
+  endif()
+  if(spec MATCHES "^\\*(.*)$")
+    set(spec "${CMAKE_MATCH_1}")
+    foreach(tok IN LISTS ctags_fields_all)
+      list(FIND ctags_fields_strip "${tok}" at)
+      if(at EQUAL -1)
+        string(APPEND out "${tok}")
+      endif()
+    endforeach()
+  endif()
+  string(REGEX MATCHALL "\\{[^}]*\\}|." tokens "${spec}")
   foreach(tok IN LISTS tokens)
     list(FIND ctags_fields_strip "${tok}" at)
     if(tok STREQUAL "+" OR tok STREQUAL "-")
       set(mode "${tok}")
-    elseif(at EQUAL -1)
+    elseif(at EQUAL -1 AND NOT (absolute AND out STREQUAL "" AND mode STREQUAL "-"))
       if(NOT mode STREQUAL written)
         string(APPEND out "${mode}")
         set(written "${mode}")
       endif()
       string(APPEND out "${tok}")
-      set(any ON)
     endif()
   endforeach()
-  if(any OR NOT spec MATCHES "^[-+]")
+  if(absolute OR NOT out STREQUAL "")
     set(${var} "--fields=${out}" PARENT_SCOPE)
   else()
     set(${var} "" PARENT_SCOPE)

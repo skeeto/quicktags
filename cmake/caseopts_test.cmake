@@ -12,7 +12,8 @@ function(expect name got want)
   endif()
 endfunction()
 
-# --fields specs: stripped letters and names, merged signs
+# --fields specs: stripped letters and names, merged signs, absolute
+# specs kept absolute, and "*" as the fields it keeps
 foreach(pair IN ITEMS
     "+K{inherits}=--fields=+K"
     "+K=--fields=+K"
@@ -21,11 +22,22 @@ foreach(pair IN ITEMS
     "e=--fields="
     "=--fields="
     "+K-e+n=--fields=+Kn"
-    "Ke+n=--fields=K+n"
+    "Ke+n=--fields=Kn"
     "-S+n=--fields=+n"
+    "-k=--fields=-k"
+    "+e-n=--fields=-n"
     "+{end}{scope}=--fields=+{scope}"
     "+{signature}-{nth}="
-    "*=--fields=*")
+    "S+n=--fields=n"
+    "e+n=--fields=n"
+    "{end}+K=--fields=K"
+    "Se-k=--fields="
+    "e-n=--fields="
+    "S-n+k=--fields=k"
+    "Sn-n=--fields=n-n"
+    "*=--fields=NFPCEKRTZfklnprstxz"
+    "*-S=--fields=NFPCEKRTZfklnprstxz"
+    "*-n=--fields=NFPCEKRTZfklnprstxz-n")
   string(FIND "${pair}" "=" eq)
   string(SUBSTRING "${pair}" 0 ${eq} spec)
   math(EXPR rest "${eq} + 1")
