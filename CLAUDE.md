@@ -33,8 +33,10 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 - XP: `sh test/xp.sh` builds on the XP laptop over ssh with the
   one-command builds at the top of `ctags.cpp`, which must keep working
   without CMake.
-- Debug builds trap on undefined behavior and failed asserts (UBSan with
-  `-fsanitize-trap`); run them under gdb to find the line.
+- Debug builds are `-Og -g3` and trap on undefined behavior and failed
+  asserts (UBSan with `-fsanitize-trap`); run them under gdb to find the
+  line. `-Og` keeps lines, frames, and most locals, at about twice the
+  time of Release, where `-O0` with UBSan takes about five times.
 
 ## Layout
 

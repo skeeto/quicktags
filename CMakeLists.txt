@@ -28,6 +28,8 @@ add_compile_options(
 )
 
 # Debug builds trap on undefined behavior, which includes failed asserts.
+# They optimize lightly (-Og), which keeps them debuggable and about twice
+# as fast as -O0 with the sanitizer's checks.
 set(CTAGS_TRAP "")
 check_cxx_compiler_flag(-fsanitize-trap CTAGS_HAS_TRAP)
 if(CTAGS_HAS_TRAP)
@@ -38,7 +40,7 @@ else()
     set(CTAGS_TRAP -fsanitize=undefined -fsanitize-undefined-trap-on-error)
   endif()
 endif()
-add_compile_options("$<$<CONFIG:Debug>:-g3;${CTAGS_TRAP}>")
+add_compile_options("$<$<CONFIG:Debug>:-Og;-g3;${CTAGS_TRAP}>")
 add_link_options("$<$<CONFIG:Debug>:${CTAGS_TRAP}>")
 
 check_linker_flag(CXX -nostdlib++ CTAGS_HAS_NOSTDLIBXX)
