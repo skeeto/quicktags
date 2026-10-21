@@ -4,3 +4,8 @@
 *.md text eol=lf
 # The plugin tests sample tree keeps its bytes: CRLF lines, a BOM
 test/plugins/** -text
+
+# Left out of release tarballs (git archive)
+.github        export-ignore
+.gitattributes export-ignore
+.gitignore     export-ignore

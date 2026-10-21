@@ -1,0 +1,72 @@
+# On a version tag (v1.2.3, which must equal the version in
+# src/ctags.cpp), test, then publish a release whose asset is a
+# deterministic source tarball. GitHub records its SHA-256 digest.
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+# Explicitly bash, which runs steps with -e and pipefail, so that a
+# failing git archive fails its step
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # gh release create
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
+
+      - name: Check the tag against the version
+        run: |
+          v=$(sed -n 's/^static Str version = "\([^"]*\)";$/\1/p' src/ctags.cpp)
+          if [ -z "$v" ] || [ "$GITHUB_REF_NAME" != "v$v" ]; then
+              echo "::error::tag $GITHUB_REF_NAME is not v$v (src/ctags.cpp)"
+              exit 1
+          fi
+          echo "V=$v" >>"$GITHUB_ENV"
+
+      # Debug, which traps on undefined behavior and failed asserts. The
+      # differential tests need Universal Ctags 6.2.1, so only the unit
+      # label runs here.
+      - name: Build and test
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build -j"$(nproc)"
+          ctest --test-dir build -j"$(nproc)" -L '^unit$' --output-on-failure
+
+      # gzip -n stores no name or time, and git archive sets every mtime
+      # to the commit's
+      - name: Source tarball
+        run: |
+          mkdir dist
+          git -c tar.umask=0022 archive --format=tar \
+              --prefix="quicktags-$V/" "$GITHUB_SHA" |
+              gzip -9n >"dist/quicktags-$V.tar.gz"
+
+      # The tarball alone builds with the one-command build at the top of
+      # src/ctags.cpp, and the result reports the tagged version
+      - name: Smoke test, build from the tarball
+        run: |
+          mkdir smoke
+          tar -xzf "dist/quicktags-$V.tar.gz" -C smoke
+          cd "smoke/quicktags-$V"
+          c++ -std=c++20 -O2 -pthread -o ctags main_posix.cpp
+          ./ctags --version | tee version.txt
+          grep -qF "$V" version.txt
+          printf 'int main(void) { return 0; }\n' >t.c
+          ./ctags -f - t.c | grep -q '^main	'
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+              --title "quicktags $V" dist/*
