@@ -87,7 +87,7 @@ static iz vfssplit(Os *os, Str path, Str *names, iz len, iz root)
 // on Windows from the directory's root when it has none of its own,
 // then loses the directory's names if it lies under it, compared
 // regardless of case on Windows. Other absolute paths keep all their
-// names: "/x" and "D:\x" are "x" and "D:/x" from the root.
+// names from the root: "/x" is "x" on POSIX, "D:\x" is "D:/x".
 static iz vfsnames(Os *os, Str path, Str *names)
 {
     Str cwd   = os->cwd;

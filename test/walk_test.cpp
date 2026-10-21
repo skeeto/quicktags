@@ -1268,10 +1268,10 @@ static void test_walk(Test *t)
         vfsfile(os, "sub/b.c",      "int b;\n");
         vfsfile(os, "\\x\\c.c",     "int c;\n");
         vfsfile(os, "//host/other/d.c", "int d;\n");
-        Str here = "a=//host/share/w/a.c b=//host/share/w/sub/b.c";
+        Str share = "a=//host/share/w/a.c b=//host/share/w/sub/b.c";
         struct { Str out, args, want, uctags; } cwd16[] = {
-            // As Universal Ctags writes them
-            {"-",        "--tag-relative=never a.c sub\\b.c", here, here},
+            // The current directory's own paths, as Universal Ctags has them
+            {"-",        "--tag-relative=never a.c sub\\b.c", share, share},
             {"sub/tags", "--tag-relative a.c sub\\b.c",
                          "a=../a.c b=b.c",              "a=../a.c b=b.c"},
             {"-",        "--tag-relative=never ..\\..\\w\\a.c",
