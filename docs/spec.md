@@ -14,8 +14,8 @@ Markers: **[V]** observed by running Universal Ctags 6.2.1 (the w64devkit
 build); **[S]** read from its source; **[I]** inferred, unverified.
 Paths like `parsers/cxx/cxx_parser.c` refer to its source tree.
 
-Departures are listed in section 4, and some under the rules where they
-apply.
+Departures are listed in section 4, and noted ("Here ...") under the
+rules they depart from.
 
 ## 1. Universal Ctags rules (6.2.1 defaults, w64devkit build)
 
@@ -116,7 +116,7 @@ apply.
   - A line starting with `-` is an option, applying to the entries after it, with the ordering rule of CLI-6: an initOnly option after an entry, in the list or on the command line, is FATAL `-f option may not follow a file name`. Any other line is an entry, which goes through DISC-1, so a directory is ignored without `-R`, and `-R` in the list does not make it recurse.
   - `-L` in the list warns `-L option specified more than once, last value used`, and is ignored, as the list being read is the only one read.
   - With a list, there are files, even if the list is empty, so `-R` does not recurse into `.` (CLI-2), and no files is not an error.
-  - Here the list is read once the command line is parsed, before anything is tagged, so a list that cannot be read is FATAL first. Its options act as those of the command line do, on every file (section 4), and none is refused for following a file name; a directory in it is recursed (D8); and a line of only blanks is skipped.
+  - Here the list is read once the command line is parsed, before anything is tagged, so a list that cannot be read is FATAL first. Its options act as those of the command line do, on every file (D22), and none is refused for following a file name; a directory in it is recursed (D8); and a line of only blanks is skipped.
 - **DISC-7 [S] `--links=no`** skips symbolic links (step 2 of DISC-1), arguments and list entries as well as walked entries, and directories as well as files, even dangling ones. The check uses `lstat`, which this Windows build lacks, so there the option does nothing [V]: a link to a file is tagged, and one to a directory recursed into, through the link. Here it works on Windows too, where a link is a reparse point that is a name surrogate (symbolic links and junctions), and walks never follow links to directories anyway (D4).
 - **DISC-8 [S][V] Patterns** (gnulib `fnmatch_loop.c`, as built, single-byte, without `FNM_CASEFOLD`): a pattern matches the whole name, one element at a time.
   - `*` matches any run of characters, `/` and a leading `.` included; `?` matches any one character.
@@ -502,7 +502,7 @@ depends on how far the walk had read when the label was seen. Our
   - `inherits:` (`i`), `access:` (`a`), `implementation:` (`m`) and `signature:` (`S`) on the tags FLD-7 to FLD-11 give them.
   - Nothing for `C` (xref output only), `R`, `p` (no effect in tags output), `x` (it needs libxml2, which this build lacks), and `T` but on file-kind tags (`epoch:`, EX-7).
   - A file-kind tag (EX-7) has only the kind, `line:`, `language:`, `roles:`, `extras:` and `epoch:`, and in Universal Ctags `end:`.
-  - Universal Ctags also writes `end:` (`e`) on definitions whose last line it knows, and `nth:` (`o`) on members, enumerators and macro parameters. Here `e` and `o` are accepted and write nothing (section 4).
+  - Universal Ctags also writes `end:` (`e`) on definitions whose last line it knows, and `nth:` (`o`) on members, enumerators and macro parameters. Here `e` and `o` are accepted and write nothing (D25).
 - **FLD-6 [S][V] `--output-format=e-ctags`** (`writer-ctags.c eCtagsWriter`), Exuberant Ctags' flavor of the format:
   - The name, the file field, the scope name and the signature (FLD-8) are written as they are, not escaped (FLD-2), but the typeref, the base classes (FLD-9) and the parser's fields still are.
   - On Windows the file field keeps the backslashes of the path as given (`sub\deep\z.c`, `.\sub/y.c` for `-R .\sub`), which Universal Ctags' own writer turns into `/` (DISC-5).
@@ -699,7 +699,7 @@ depends on how far the walk had read when the label was seen. Our
 - **EX-7 [S][V] inputFile** (`entry.c`, `parse.c`, `field.c`). While the `f` extra and the file kind are both enabled (CLI-4), every file a parser tags gets one more tag, of the file kind, made once the parse is over, so after a failed first pass's retry, and after all the file's other tags in unsorted output (SORT-4). A file with no other tags gets one too, an empty one included.
   - Its name is the base name of the path as constructed (DISC-2): what follows the last `/`, on Windows also the last `\` or `:` (`C:a.c` gives `a.c`). It is escaped as any name (FLD-2), so `!x.c` is `\x21x.c`. `--tag-relative` changes the file field only (OPT-18): with `--tag-relative -f sub/tags`, `a.c` is the tag `a.c` in `../a.c`.
   - Its address is the line number `1`, under every `--excmd`, `pattern` and `combine` too, followed by `;"` and the fields as any address is (OUT-6, OUT-8): `a.c\ta.c\t1;"\tF\tline:1\tepoch:1792612665`; with `--format=1`, `a.c\ta.c\t1`; with `--kinds-C= --extras=f --fields=T`, which leaves the file kind and drops the kind field, `a.c\ta.c\t1;"\tepoch:1792612665`.
-  - Its fields, each while enabled (FLD-5): the kind `F`, `file` with `K`, after `kind:` with `z`; `line:1`; `language:` with the parser's name, so `C++` for a `.h` file (LANG-4); `roles:def`; `extras:inputFile`; and `epoch:` (`T`, enabled by default), the file's last modification time, in seconds since 1970 UTC. No other tag has `epoch:`. Universal Ctags also writes `end:` (`e`) with the number of lines; here `e` writes nothing (section 4).
+  - Its fields, each while enabled (FLD-5): the kind `F`, `file` with `K`, after `kind:` with `z`; `line:1`; `language:` with the parser's name, so `C++` for a `.h` file (LANG-4); `roles:def`; `extras:inputFile`; and `epoch:` (`T`, enabled by default), the file's last modification time, in seconds since 1970 UTC. No other tag has `epoch:`. Universal Ctags also writes `end:` (`e`) with the number of lines; here `e` writes nothing (D25).
   - The other extras leave it alone: it is not dropped by `--extras=-F` or `--extras=-{anonymous}`, gets no qualified copy, and takes no anonymous number.
   - E-ctags (FLD-6) writes its name and file as they are, dropping it when either holds a tab or a newline, or here a NUL (X4).
   - Files that are not tagged get none: those of no language or a disabled one, excluded, missing or unreadable ones, and directories. Here neither do files over 64 MiB (D7), nor files of languages this program does not parse, which Universal Ctags tags with an empty parser or its own (`--langdef=Foo --map-Foo=+.foo` gives `x.foo` one, of the language `Foo`), but under etags, where such files, and those of the language `Unknown` (OPT-12), get their sections and file tags as Universal Ctags writes them (OPT-21).
@@ -728,7 +728,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Accepted** (here). Nothing is refused as not yet supported: every option that OPT-5 does not refuse acts as this section says, or is accepted without effect. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Accepted** (here). Every option that OPT-5 does not refuse acts as this section says, or is accepted silently without effect: the defaults, `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -843,7 +843,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **[V] Bugs** with doubled separators, each counted as a name (here not, D14): `x//../a.c` is `x/a.c`; under `-f sub//tags`, `a.c` is `../../a.c`; under `-f -`, `.//a.c` is `/a.c`, and under `-f sub/tags`, `sub//b.c` is `/b.c`. Above a Windows drive's root, `C:/../x` and `/../x` are `C/x` (here `C:/x`, D15). A UNC path made absolute keeps a drive before it, `C://host/share/a.c`, or made relative climbs to the drive's root, `../../..//host/share/a.c`, and from a UNC current directory, `/x` is `@:/x` (D16).
   - **Drive-relative paths.** On Windows, making absolute a path that is a letter, `:`, and then not a separator is FATAL `C:a.c: relative file names with drive letters not supported`: an input once it is to be tagged, with any value but `no` (one that is missing only warns, and one of no language is skipped), and the tags file's directory once the file is opened (`-f C:sub/tags`: `C:sub/: relative …`), whatever the value, leaving the file created and empty.
   - **The current directory** [S] is looked up by Universal Ctags at every start (`main.c`, `routines.c`), whatever the options, in a buffer of `PATH_MAX` bytes. When that fails, as when the directory has been removed on POSIX or its name does not fit, it stops with FATAL `failed in getcwd() : REASON` (CLI-7). The system names a root with its separator, `C:\` or `/`, and any other directory without one, so the `/` added before a relative path is never doubled.
-  - Here the current directory is looked up, of any length, only where it is used: once before the walk with a value other than `no`, and once more as the tags file is written, for its `PROC_CWD` pseudo-tag (PT-4), whatever the value. When it cannot be, a run with a value other than `no` stops before the walk with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report; any other run goes on, and its tags file lacks the `PROC_CWD` line. The platform tests run the program from the root of its drive or file system, which the unit tests' file system cannot model.
+  - Here the current directory is looked up, of any length (`getcwd` with a buffer doubled until it fits; on Windows `GetCurrentDirectoryW`, asked first for the size, since `GetFullPathNameW(".")` at a drive's root asks for too little room, and then writes `C:` alone), only where it is used: once before the walk with a value other than `no`, and once more as the tags file is written, for its `PROC_CWD` pseudo-tag (PT-4), whatever the value. When it cannot be, a run with a value other than `no` stops before the walk with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report; any other run goes on, and its tags file lacks the `PROC_CWD` line. The platform tests run the program from the root of its drive or file system, which the unit tests' file system cannot model.
   - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
 
 **Appending**
@@ -855,7 +855,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - Only when a tag was added (a parser's pseudo-tags count): with none, the file is left as it was, out of order or not, but for the flag.
   - The old lines are all kept, those of the files tagged again too, so a file tagged again has its old tags and its new ones (D9).
   - [V] On Windows, in a file whose lines end in LF alone, the flag's byte is found at a miscounted position, so the digit lands elsewhere (`!_TAG_FILE_SORTE0\t1` for `--sort=no`) or the flag is left as it was (`0` under `--sort=yes`), and the lines may be left out of order. A file with CRLF line ends is rewritten as the rule says.
-  - Here the whole file is read into memory, where CR, LF and CRLF each end a line and blank lines are dropped, in every mode. Its order is checked by the mode's comparison, never taken from its flag: a file in order is merged as it is read, and one out of order is first sorted. The new lines are merged in, or under `--sort=no` follow the old, and the result, with LF line ends (section 4), is written to a new file that replaces the old, as without `-a`. The flag is rewritten as above, wherever the leading lines' line ends were LF or CRLF, blank lines among them ignored; the file is rewritten (sorted) even when no tag was added; and an empty file is written as a missing one is, with the pseudo-tags. A file too large for the memory the program reserves (about 1 GiB in a 32-bit process) stops the run before it is read, with `out of memory` and status 2.
+  - Here the whole file is read into memory, where CR, LF and CRLF each end a line and blank lines are dropped, in every mode. Its order is checked by the mode's comparison, never taken from its flag: a file in order is merged as it is read, and one out of order is first sorted. The new lines are merged in, or under `--sort=no` follow the old, and the result, with LF line ends (D6, D24), is written to a new file that replaces the old, as without `-a`. The flag is rewritten as above, wherever the leading lines' line ends were LF or CRLF, blank lines among them ignored; the file is rewritten (sorted) even when no tag was added; and an empty file is written as a missing one is, with the pseudo-tags. A file too large for the memory the program reserves (about 1 GiB in a 32-bit process) stops the run before it is read, with `out of memory` and status 2.
   - Here the old lines of each file tagged in this run are dropped before the merge (D9): the lines not starting with `!_` whose second field, up to a tab or the line's end, is byte for byte the file field this run writes for one of the files it tags, whether or not that file has tags now. A file that is skipped, because it cannot be read or is too large (D7), is not tagged, and keeps its old lines. So appending the files of a tree to its own tags file changes nothing, and a file appended again replaces its old tags.
   - Under etags, see OPT-21.
 
@@ -872,7 +872,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     - A tag whose line is past the end of the file gets no entry.
     - A NUL ends the line as Universal Ctags reads it, which then joins the next line on, after the NUL's: `int a; /*`, NUL, ` */`, LF, `int b;` gives `a` the text `int a; /* int b;` [V] (and LEX-1 loses `b`). Here a NUL is a byte of the text like any other (X4).
   - **File tags** (EX-7, `--extras=+f`): DEL, the name, SOH, `1,0`, LF, after the file's other entries. Files of the languages this program does not parse get them too.
-  - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (section 4).
+  - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (D6).
   - **The TAGS file** is created before any file is tagged, so a walk of its directory finds it, of no language, and gives it an empty section: `-R` writes `TAGS,0` [V]. Here, too, the file is created empty before the walk if it does not exist.
   - **A file that cannot be read** gets an empty section, named by the path as constructed even where `--tag-relative` makes the others relative, with WARNING `cannot open "PATH" : REASON`: with `-f ../T -R` from `wl`, `wl/a.c` but `sub/b.c,0` [V]. A file of no language is read too, so one that cannot be gets the same. Here a file that cannot be read gets no section, as it gets no tags (D19), nor does one too large to read (D7); one of a language not parsed here is not read, so it gets its section, named as any other, and no warning.
   - **`--sort=yes` or `foldcase`** after `-e` sorts the lines of the TAGS file as if they were tags, which merges the sections and loses lines: `a.c`, then `z.c`, give one section of `a.c`'s entries, sorted, and none of `z.c`'s [V]. Here the order is that of the walk, whatever `--sort` says (D18).
@@ -976,23 +976,13 @@ All are [V] unless marked. Each would be a whitelisted difference in an "improve
 ## 4. Departures
 
 Decided for this program, deliberately different from Universal Ctags.
+The IDs are stable names, used in tests, the ledger and commits: D for
+output, options and discovery, O for patterns, X for lexing, P for C
+and C++ parsing, F and R for Fortran. Their numbers give no order of
+importance.
 
-### Output and discovery (built in from the start)
+### Output, options and discovery
 
-- **line:N on every tag**, right after the kind, as `--fields=+n` writes
-  it, so that Vim starts its search at the tag's line instead of jumping
-  to an earlier identical line (4.5% of tags in a llama.cpp sample).
-- **LF line endings**, also on Windows, where Universal Ctags writes CRLF.
-- **Fewer pseudo-tags**: the nine whose values readers act on,
-  `!_TAG_FILE_FORMAT`, `!_TAG_FILE_SORTED`, `!_TAG_OUTPUT_EXCMD`,
-  `!_TAG_OUTPUT_FILESEP`, `!_TAG_OUTPUT_MODE`,
-  `!_TAG_PATTERN_LENGTH_LIMIT`, `!_TAG_PROC_CWD`, `!_TAG_PROGRAM_NAME`
-  (`ctags`) and `!_TAG_PROGRAM_VERSION`, with PT-4's values, only in a
-  tags file, and not with `--extras=-p` (EX-5). There are no
-  descriptions of kinds, fields, extras or roles, and no parser or
-  output versions. Nine lines are enough for LeaderF, which skips six.
-- **The tags file is replaced atomically** (written to `NAME.tmpN`, then
-  renamed), so Vim never sees a partial file, and no temporary files leak.
 - **D1** `.C` is C++ (on Windows, Universal Ctags makes it C). C++'s
   map holds a `C` of its own, which takes only names whose extension is
   exactly `C`, and takes them before any extension is compared ignoring
@@ -1006,11 +996,17 @@ Decided for this program, deliberately different from Universal Ctags.
   extension of `X.h` (no spurious `file:` fields), whatever the
   language, forced or not. A final `.in` is recognized ignoring case, so
   `x.c.IN` is C, where Universal Ctags tags nothing.
+- **D3** `line:N` is on every tag, right after the kind, as
+  `--fields=+n` writes it, so that Vim starts its search at the tag's
+  line instead of jumping to an earlier identical line (4.5% of tags in
+  a llama.cpp sample).
 - **D4** Links and junctions to directories are skipped while recursing,
   so there are no cycles. Links to files are followed, unless
   `--links=no`, which skips them and links given as arguments, on
   Windows too (DISC-7).
 - **D5** Paths are UTF-8 (WTF-8) with no MAX_PATH limit.
+- **D6** Lines end in LF, also on Windows, where Universal Ctags writes
+  CRLF.
 - **D7** Files over 64 MiB are skipped with a warning.
 - **D8** A directory argument is always tagged recursively, so `ctags .`
   is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
@@ -1090,67 +1086,79 @@ Decided for this program, deliberately different from Universal Ctags.
   empty one, named by the path as constructed where `--tag-relative`
   names the other sections from the TAGS file's directory, so the name
   may be of no file at all, or of another one.
-- **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
-  as an anchor.
-- **O2** A lone CR ends the pattern without the `$` anchor.
-- Options apply to every file wherever they appear on the command line,
-  in option files, or in a `-L` list. Universal Ctags' options are parsed with its
-  grammar and messages (section 1.12). Those that act here are `-R`,
-  `--recurse`, `-f`, `-o`, `--kinds-LANG` (and `--LANG-kinds`,
-  `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
-  `--file-scope`, `--file-tags`), `--fields` (FLD-5), `--excmd`, `-n`,
-  `-N` (OUT-6), `--pattern-length-limit` (OUT-7), `--format` (OUT-8),
-  `--output-format=e-ctags` (FLD-6), `-e` and `--output-format=etags`
-  (OPT-21), `--options`, `--exclude`,
+- **D20** Fewer pseudo-tags: the nine whose values readers act on,
+  `!_TAG_FILE_FORMAT`, `!_TAG_FILE_SORTED`, `!_TAG_OUTPUT_EXCMD`,
+  `!_TAG_OUTPUT_FILESEP`, `!_TAG_OUTPUT_MODE`,
+  `!_TAG_PATTERN_LENGTH_LIMIT`, `!_TAG_PROC_CWD`, `!_TAG_PROGRAM_NAME`
+  (`ctags`) and `!_TAG_PROGRAM_VERSION`, with PT-4's values, only in a
+  tags file, and not with `--extras=-p` (EX-5). There are no
+  descriptions of kinds, fields, extras or roles, and no parser or
+  output versions. Nine lines are enough for LeaderF, which skips six.
+- **D21** The tags file is replaced atomically (written to `NAME.tmpN`,
+  then renamed), so Vim never sees a partial file, and no temporary
+  files leak.
+- **D22** Options apply to every file wherever they appear: on the
+  command line, in option files, or in a `-L` list (CLI-6). Universal
+  Ctags' options are parsed with its grammar and messages (section
+  1.12). Those that act here are `-R`, `--recurse`, `-f`, `-o`,
+  `--kinds-LANG` (and `--LANG-kinds`, `--LANG-types`, `--kinds-all`),
+  `--extras` (and `--extra`, `--file-scope`, `--file-tags`), `--fields`
+  (FLD-5), `--excmd`, `-n`, `-N` (OUT-6), `--pattern-length-limit`
+  (OUT-7), `--format` (OUT-8), `--output-format=e-ctags` (FLD-6), `-e`
+  and `--output-format=etags` (OPT-21), `--options`, `--exclude`,
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
   `--tag-relative`, `--sort` and `-u` (SORT-3, SORT-4), `-a` and
-  `--append` (OPT-20), the listings (OPT-15), `--version` (OPT-19), `--help`, and this program's
-  `--jobs`. The others are
-  accepted at their defaults and where they name other languages
-  (OPT-4, OPT-6), and otherwise refused (OPT-5). Of the extras, only `anonymous`, `F`, `f`, `p` and `q` have
-  effects (EX-6, EX-7).
-- Smaller departures in parsing options: a letter that takes a
-  parameter is FATAL as the last argument (OPT-1); option files skip
-  lines of only blanks, print no empty line after their warning, do not
-  make later options follow a file, and do not make later option files
-  warn (OPT-14); `--options=NONE` is
-  taken anywhere, and paths are not searched for (OPT-14); listings hold
-  only our languages (OPT-15); `--langdef=NAME{base}` warns where
-  Universal Ctags crashes (OPT-12); a `-L` list is read before anything
-  is tagged, skips lines of only blanks, and may hold initOnly options
-  after its files (DISC-6); forcing a language this program does not
-  parse tags nothing, where the reference is FATAL as the language is
-  disabled, and files of such languages, as `--langdef` makes them, get
-  no file tag (EX-7); forcing a disabled one of ours is FATAL even when no
-  file would be tagged (LANG-6); a tags file named on a drive but not
-  from its root, `-f C:sub/tags`, is refused only with `--tag-relative`,
-  and an input so named ends the run after the walk, not while tagging,
-  with no tags file written; and the current directory is looked up
-  only with `--tag-relative` and for the `PROC_CWD` pseudo-tag, so that
-  failing to find it ends the run only with `--tag-relative`, and the
-  message gives no reason, and otherwise leaves that pseudo-tag out
-  (OPT-18).
-- **Appending** (OPT-20): the tags file is read whole and written anew,
-  so CR, LF and CRLF each end an old line, blank lines go, and every
-  line ends in LF, also under `--sort=no`; the sorted flag is rewritten
-  where Universal Ctags on Windows misplaces its byte in a file with LF
-  line ends; the result is sorted even when no tag was added, where
-  Universal Ctags leaves an old file out of order as it was; and an
-  empty file gets the pseudo-tags a new one does, where Universal Ctags
-  writes it none, which leaves readers that skip a fixed number of
-  lines, as LeaderF does, skipping tags. Under etags (OPT-21), an old
-  file whose last line lacks its LF gets one before the new sections,
-  where Universal Ctags runs that line into the first new form feed,
-  which then starts no section.
-- **Fields accepted without output** (FLD-5): `e` (`end:`) and `o`
-  (`nth:`) are accepted and write nothing, since the parsers do not track
-  where definitions end or count members. A reader of either must treat
-  a missing field as unknown, as it would for a tag Universal Ctags has
-  none for.
+  `--append` (OPT-20), the listings (OPT-15), `--version` (OPT-19),
+  `--help`, and this program's `--jobs`. The others are accepted at
+  their defaults and where they name other languages (OPT-4, OPT-6),
+  and otherwise refused (OPT-5). Of the extras, only `anonymous`, `F`,
+  `f`, `p` and `q` have effects (EX-6, EX-7).
+- **D23** Smaller departures in parsing options:
+  - a letter that takes a parameter is FATAL as the last argument
+    (OPT-1);
+  - option files skip lines of only blanks, print no empty line after
+    their warning, do not make later options follow a file, and do not
+    make later option files warn; `--options=NONE` is taken anywhere,
+    and paths are not searched for (OPT-14);
+  - listings hold only our languages (OPT-15);
+  - `--langdef=NAME{base}` warns where Universal Ctags crashes (OPT-12);
+  - a `-L` list is read before anything is tagged, skips lines of only
+    blanks, and may hold initOnly options after its files (DISC-6);
+  - forcing a language this program does not parse tags nothing, where
+    the reference is FATAL as the language is disabled, and files of
+    such languages, as `--langdef` makes them, get no file tag (EX-7);
+    forcing a disabled one of ours is FATAL even when no file would be
+    tagged (LANG-6);
+  - a tags file named on a drive but not from its root, `-f C:sub/tags`,
+    is refused only with `--tag-relative`, and an input so named ends
+    the run after the walk, not while tagging, with no tags file
+    written; and the current directory is looked up only with
+    `--tag-relative` and for the `PROC_CWD` pseudo-tag, so that failing
+    to find it ends the run only with `--tag-relative`, and the message
+    gives no reason, and otherwise leaves that pseudo-tag out (OPT-18).
+- **D24** Appending (OPT-20) reads the tags file whole and writes it
+  anew, so CR, LF and CRLF each end an old line, blank lines go, and
+  every line ends in LF, also under `--sort=no`; the sorted flag is
+  rewritten where Universal Ctags on Windows misplaces its byte in a
+  file with LF line ends; the result is sorted even when no tag was
+  added, where Universal Ctags leaves an old file out of order as it
+  was; and an empty file gets the pseudo-tags a new one does, where
+  Universal Ctags writes it none, which leaves readers that skip a fixed
+  number of lines, as LeaderF does, skipping tags. Under etags (OPT-21),
+  an old file whose last line lacks its LF gets one before the new
+  sections, where Universal Ctags runs that line into the first new form
+  feed, which then starts no section.
+- **D25** The fields `e` (`end:`) and `o` (`nth:`) are accepted and write
+  nothing (FLD-5), since the parsers do not track where definitions end
+  or count members. A reader of either must treat a missing field as
+  unknown, as it would for a tag Universal Ctags has none for.
+- **O1** A `$` that ends a cut pattern is escaped, so Vim cannot read it
+  as an anchor.
+- **O2** A lone CR ends the pattern without the `$` anchor.
 
-### Lexing (built in from the start)
+### Lexing
 
 - **X1** `/+` does not start a comment.
 - **X2** Strings end at an unescaped newline.
@@ -1193,7 +1201,7 @@ Decided for this program, deliberately different from Universal Ctags.
   group, reaches the end, nor `-I T=int*v;T` on one ending in `T`
   without a newline. Here the statements stop after 8 replacements.
 
-### Parsing (after parity)
+### Parsing
 
 Each landed as its own commit with an IMPROVED tag case and ledger
 entries for its corpus differences.
