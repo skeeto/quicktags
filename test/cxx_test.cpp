@@ -746,9 +746,49 @@ static TagCase cxxcases[] = {
      ""},
 };
 
+// head, n spaces, then tail.
+static Str padded(Arena *a, Str head, iz n, Str tail)
+{
+    Buf b(a, head.len + n + tail.len);
+    print(&b, head);
+    for (iz i = 0; i < n; i++) {
+        putbyte(&b, ' ');
+    }
+    print(&b, tail);
+    return finish(&b);
+}
+
+// The limits on -I replacements (LEX-14), with inputs too large for tag
+// cases. Universal Ctags gives the same output.
+static void test_macrolimits(Test *t)
+{
+    Arena a  = t->perm;
+    Os   *os = newos(&a);
+    vfsfile(os, "m.c", "X\n");
+
+    // A replacement's buffer is 8 bytes longer than it, and none is made
+    // while the buffer being read has 65536 bytes, which a replacement
+    // nested in it does not change once read
+    struct { Str list; Str want; } bs[] = {
+        {padded(&a, "Y=int\nX=", 65523, "Y v;\n"),
+         "v\tm.c\t/^X$/;\"\tv\tline:1\ttyperef:typename:int\n"},
+        {padded(&a, "Y=int\nX=", 65524, "Y v;\n"), ""},
+        {padded(&a, "Y=int\nZ=", 65540, "char\nX=Z Y v;\n"),
+         "v\tm.c\t/^X$/;\"\tv\tline:1\ttyperef:typename:char int\n"},
+    };
+    for (iz i = 0; i < countof(bs); i++) {
+        vfsfile(os, "list", bs[i].list);
+        Run r = run(os, a, "-I @list -f - m.c");
+        expect(t, "-I buffer size", r.out, bs[i].want);
+    }
+}
+
 static void test_c(Test *t)
 {
     runcases(t, ccases, countof(ccases));
+    if (!t->exportdir) {
+        test_macrolimits(t);
+    }
 }
 
 static void test_cxx(Test *t)

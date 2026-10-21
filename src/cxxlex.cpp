@@ -145,11 +145,13 @@ enum : i32 {
 
 // A replacement pushed back (ungetat): the characters above base, which
 // report the position of the identifier replaced. Once they are read,
-// those below report the position they did before, kept here.
+// those below report the position they did before, and have the size
+// they did, kept here.
 struct Mark {
     iz  base;
     i32 line;
     iz  pos;
+    iz  size;
 };
 
 struct Cpp {
@@ -162,6 +164,7 @@ struct Cpp {
     b32    backlive;  // pushed-back characters may remain
     i32    backline;  // the position reported while they do
     iz     backpos;
+    iz     backsize;  // as Universal Ctags would allocate them (cppgrow)
     Mark  *marks;     // replacements in the pushback, innermost last
     iz     nmarks;
     iz     capmarks;
@@ -207,6 +210,7 @@ static iz cpppos(Cpp *p)
 static void cppdrained(Cpp *p)
 {
     p->backlive = 0;
+    p->backsize = 0;
     p->nmarks   = 0;
     p->drains++;
 }
@@ -226,6 +230,7 @@ static i32 rawget(Cpp *p)
             Mark *m = p->marks + --p->nmarks;
             p->backline = m->line;
             p->backpos  = m->pos;
+            p->backsize = m->size;
         }
         cppdrained(p);
     }
@@ -237,6 +242,23 @@ static i32 rawget(Cpp *p)
 static iz cppbacklen(Cpp *p)
 {
     return p->nback - (p->nmarks ? p->marks[p->nmarks-1].base : 0);
+}
+
+// Universal Ctags pushes characters back into a stack of buffers, one
+// for each replacement being read and one below them, and stops making
+// replacements while the buffer being read is large (LEX-14). Track its
+// size as it would grow for n characters pushed back as a string, or
+// one at a time.
+static void cppgrow(Cpp *p, iz n, b32 string)
+{
+    iz have = cppbacklen(p);
+    iz size = p->backsize;
+    if (string) {
+        size = size<have+n ? 8+n+have : size;
+    } else {
+        size = !size ? 8 : have==size ? size+8 : size;
+    }
+    p->backsize = size;
 }
 
 static void pushback(Cpp *p, u8 c)
@@ -251,7 +273,14 @@ static void pushback(Cpp *p, u8 c)
     p->back[p->nback++] = c;
 }
 
-static void ungetstr(Cpp *, Str);
+// Push back a string, as one, its first character to be read first.
+static void pushstr(Cpp *p, Str s)
+{
+    cppgrow(p, s.len, 1);
+    for (iz i = s.len-1; i >= 0; i--) {
+        pushback(p, s[i]);
+    }
+}
 
 static void unget(Cpp *p, i32 c)
 {
@@ -261,15 +290,15 @@ static void unget(Cpp *p, i32 c)
         p->backpos  = p->in.linepos;
     }
     if (c==C_STRING || c==C_CHAR) {
-        u8  q = c==C_STRING ? '"' : '\'';
-        Str s = {p->lit.data, p->lit.len};
+        u8 q = c==C_STRING ? '"' : '\'';
+        cppgrow(p, 1, 0);
         pushback(p, q);
-        for (iz i = s.len-1; i >= 0; i--) {
-            pushback(p, s[i]);
-        }
+        pushstr(p, {p->lit.data, p->lit.len});
+        cppgrow(p, 1, 0);
         pushback(p, q);
         p->lit.len = 0;
     } else if (c != C_EOF) {
+        cppgrow(p, 1, 0);
         pushback(p, (u8)c);
     }
 }
@@ -281,9 +310,7 @@ static void ungetstr(Cpp *p, Str s)
         p->backline = p->in.line;
         p->backpos  = p->in.linepos;
     }
-    for (iz i = s.len-1; i >= 0; i--) {
-        pushback(p, s[i]);
-    }
+    pushstr(p, s);
 }
 
 // Push back the replacement of an identifier at line and pos, which its
@@ -303,12 +330,12 @@ static void ungetat(Cpp *p, Str s, i32 line, iz pos)
     m->base = p->nback;
     m->line = p->backline;
     m->pos  = p->backpos;
+    m->size = p->backsize;
     p->backlive = 1;
     p->backline = line;
     p->backpos  = pos;
-    for (iz i = s.len-1; i >= 0; i--) {
-        pushback(p, s[i]);
-    }
+    p->backsize = 0;
+    pushstr(p, s);
 }
 
 // The nth byte before the last one read from the file, or 0 if it is

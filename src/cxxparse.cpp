@@ -42,7 +42,7 @@ enum : i32 {
     NESTMAX  = 1024,   // nested blocks and brackets
     PARAMMAX = 24,     // parameters described
     USEMAX   = 8,      // replacements of one -I macro between file reads
-    BACKMAX  = 65536,  // pushed-back characters that stop replacements
+    BACKMAX  = 65536,  // Cpp.backsize that stops replacements
 };
 
 // Replacements of a macro -I names since reading last went to the file.
@@ -744,7 +744,7 @@ static i32 dropmacro(Cxx *c, Macro *m, iz initial)
 
     // Unless replacements may be running away
     b32 room = c->nesting<NESTMAX && initial<CHAINMAX &&
-               cppbacklen(&c->cpp)<BACKMAX;
+               c->cpp.backsize<BACKMAX;
     if (m->repl.data && room) {
         unget(&c->cpp, c->ch);
         if (cppident(m->repl[m->repl.len-1]) && cppident(c->ch)) {
