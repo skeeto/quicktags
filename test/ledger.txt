@@ -111,3 +111,31 @@
 
 @ corpus/llvm/polly: P3, MACRO(x) *name(...) names the function, not MACRO
 = 2 polly/lib/External/isl/isl_multi_from_tuple_templ.c
+
+@ corpus/llama: P5, enum T in a declarator's type is not an enum definition
+= 8 common/arg.cpp
+= 5 common/arg.h
+= 14 common/common.h
+= 3 ggml/src/ggml-cpu/ggml-cpu.c
+= 7 ggml/src/ggml-opencl/ggml-opencl.cpp
+= 3 ggml/src/ggml-vulkan/ggml-vulkan.cpp
+= 1 src/llama-vocab.cpp
+= 1 tests/test-quantize-stats.cpp
+
+@ corpus/llvm/clang: P5, enum T in a declarator's type is not an enum definition
+= 2 clang/test/SemaCXX/enum-scoped.cpp
+
+@ corpus/llvm/clang-tools-extra: P5, enum T in a declarator's type is not an enum definition
+= 11 clang-tools-extra/test/clang-tidy/checkers/bugprone/invalid-enum-default-initialization.c
+
+@ corpus/llvm/lldb: P5, enum T in a declarator's type is not an enum definition
+= 50 lldb/source/Plugins/Highlighter/TreeSitter/Swift/tree-sitter-swift/scanner.c
+
+@ corpus/llvm/llvm: P5, enum T in a declarator's type is not an enum definition
+= 4 llvm/include/llvm/BinaryFormat/SFrame.h
+
+@ corpus/llvm/polly: P5, enum T in a declarator's type is not an enum definition
+= 14 polly/lib/External/isl/isl_ast_build_expr.c
+= 5 polly/lib/External/isl/isl_ast_codegen.c
+= 18 polly/lib/External/isl/isl_map.c
+= 7 polly/lib/External/isl/isl_schedule_node.c

@@ -1184,8 +1184,11 @@ static b32 parseblockinternal(Cxx *c, b32 closer, b32 exported)
                 break;
 
             case KW_enum:
-                if (!parseenum(c)) {
-                    return 0;
+                // Departure P5: not in a template argument list
+                if (!c->tok->prev || !(c->tok->prev->type&(T_LT|T_COMMA))) {
+                    if (!parseenum(c)) {
+                        return 0;
+                    }
                 }
                 break;
 

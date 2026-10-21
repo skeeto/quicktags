@@ -139,7 +139,8 @@ static b32 parseenum(Cxx *c)
     iz     count = c->chain->count;
     Token *last  = c->chain->tail;
 
-    u32 terms = T_EOF|T_SEMICOLON|T_COLON|T_PARENS|T_LBRACE;
+    // Departure P5: also stop at '=', a variable: enum T x[] = {...};
+    u32 terms = T_EOF|T_SEMICOLON|T_COLON|T_PARENS|T_LBRACE|T_ASSIGN;
     if (!upto(c, terms|T_KEYWORD, 0)) {
         return 0;
     }
@@ -176,6 +177,19 @@ static b32 parseenum(Cxx *c)
 
     if (count > 1) {
         cleanupprefix(c, KW_enum, last);
+    }
+
+    if (c->tok->type == T_ASSIGN) {
+        // enum X Y = ...;
+        b32 vars = c->chain->count > 3;
+        if (!upto(c, T_EOF|T_SEMICOLON, 0)) {
+            return 0;
+        }
+        if (vars) {
+            extractvars(c, c->chain, 0);
+        }
+        newstatement(c);
+        return 1;
     }
 
     if (c->tok->type == T_SEMICOLON) {

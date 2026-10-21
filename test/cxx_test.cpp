@@ -342,6 +342,27 @@ static TagCase cxxcases[] = {
      "dump\tp4.cpp\t/^    void dump() {}$/;\"\tf\tline:4\tclass:Json\ttyperef:typename:void\tfile:\n",
      "Json\tp4.cpp\t/^class Json {$/;\"\tc\tline:1\tfile:\n"
      "dump\tp4.cpp\t/^    void dump() {}$/;\"\tf\tline:4\tclass:Json\ttyperef:typename:void\tfile:\n"},
+    {IMPROVED, "P5 enum types in declarators", "p5.cpp", "",
+     "enum color { RED, GREEN };\n"
+     "enum color palette[] = { RED, GREEN };\n"
+     "struct S {\n"
+     "    std::vector<enum color> colors = { RED };\n"
+     "};\n",
+     "GREEN\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "RED\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "S\tp5.cpp\t/^struct S {$/;\"\ts\tline:3\tfile:\n"
+     "color\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\tg\tline:1\tfile:\n"
+     "colors\tp5.cpp\t/^    std::vector<enum color> colors = { RED };$/;\"\tm\tline:4\tstruct:S\ttyperef:typename:std::vector<enum color>\tfile:\n"
+     "palette\tp5.cpp\t/^enum color palette[] = { RED, GREEN };$/;\"\tv\tline:2\ttyperef:enum:color[]\n",
+     "GREEN\tp5.cpp\t/^enum color palette[] = { RED, GREEN };$/;\"\te\tline:2\tenum:palette\tfile:\n"
+     "GREEN\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "RED\tp5.cpp\t/^    std::vector<enum color> colors = { RED };$/;\"\te\tline:4\tenum:S::colors\tfile:\n"
+     "RED\tp5.cpp\t/^enum color palette[] = { RED, GREEN };$/;\"\te\tline:2\tenum:palette\tfile:\n"
+     "RED\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\te\tline:1\tenum:color\tfile:\n"
+     "S\tp5.cpp\t/^struct S {$/;\"\ts\tline:3\tfile:\n"
+     "color\tp5.cpp\t/^enum color { RED, GREEN };$/;\"\tg\tline:1\tfile:\n"
+     "colors\tp5.cpp\t/^    std::vector<enum color> colors = { RED };$/;\"\tg\tline:4\tstruct:S\tfile:\n"
+     "palette\tp5.cpp\t/^enum color palette[] = { RED, GREEN };$/;\"\tg\tline:2\tfile:\n"},
 };
 
 static void test_c(Test *t)
