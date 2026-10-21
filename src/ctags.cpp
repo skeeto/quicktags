@@ -107,6 +107,12 @@ static b32 strless(Str *a, Str *b)
     return compare(*a, *b) < 0;
 }
 
+// The bytes an arena may yet hand out, committed or not.
+static iz arenasize(Arena a)
+{
+    return (a.lim ? a.lim : a.end) - a.beg;
+}
+
 // Split len bytes off the front of an arena as an arena of its own.
 static Arena carve(Arena *a, iz len)
 {
@@ -164,11 +170,6 @@ static void parsefile(File *f, Arena scratch)
 
 // Main
 
-static iz arenasize(Arena a)
-{
-    return (a.lim ? a.lim : a.end) - a.beg;
-}
-
 static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
 {
     // Global memory for the main thread, the rest split between workers.
@@ -197,10 +198,19 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         return 1;
     }
 
+    // A tags file appended to may be larger than g can hold, so it is
+    // read from the memory the workers would otherwise share
+    Old old = {};
+    if (opt.append && !loadold(&old, os, &opt, &mem, &log)) {
+        os_write(os, 2, finish(&log));
+        return 1;
+    }
+
     Ctx ctx = {};
     ctx.os      = os;
     ctx.opt     = &opt;
     ctx.ordered = opt.sort == SORT_NO;
+    ctx.chunked = ctx.ordered || old.text.data;
     if (opt.tagrelative != TREL_NO) {
         // Paths are made relative to the tags file's directory (OPT-18)
         ctx.cwd = os_cwd(os, &g);
@@ -358,7 +368,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     // file in the scratch arena that the log would otherwise grow over
     reserve(&log, opt.output.len + 128);
     iz  ntags = 0;
-    b32 ok    = writetags(os, &opt, ws, n, &ntags, g, &log);
+    b32 ok    = writetags(os, &opt, ws, n, &old, &ntags, g, &log);
     i64 t2    = opt.stats ? os_clock(os) : 0;
 
     if (opt.stats) {

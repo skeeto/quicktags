@@ -2188,7 +2188,6 @@ static i32 parsefinish(Parse *p)
     // milestone lands
     b32 filetags = opt->extras&EXTRA_INPUTFILE && opt->filekind;
     if (opt->writer == WRITER_ETAGS)  return notyet(p, "-e");                      // M10
-    if (opt->append)                  return notyet(p, "--append");                // M5
     if (filetags)                     return notyet(p, "--extras=+f");             // M7
 
     // Universal Ctags finds this once it is to tag a file (LANG-6)

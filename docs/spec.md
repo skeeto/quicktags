@@ -719,7 +719,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, `-a` and `--append`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`, and the inputFile extra while the file kind is enabled (`--extras=+f`, `--file-tags`, CLI-4). The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -835,6 +835,18 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - **The current directory** [S] is looked up by Universal Ctags at every start (`main.c`, `routines.c`), whatever the options, in a buffer of `PATH_MAX` bytes. When that fails, as when the directory has been removed on POSIX or its name does not fit, it stops with FATAL `failed in getcwd() : REASON` (CLI-7). The system names a root with its separator, `C:\` or `/`, and any other directory without one, so the `/` added before a relative path is never doubled.
   - Here the current directory is looked up, of any length, only where it is used: once before the walk with a value other than `no`, and once more as the tags file is written, for its `PROC_CWD` pseudo-tag (PT-4), whatever the value. When it cannot be, a run with a value other than `no` stops before the walk with `ctags: failed in getcwd()`, without a reason, which the platform layer does not report; any other run goes on, and its tags file lacks the `PROC_CWD` line. The platform tests run the program from the root of its drive or file system, which the unit tests' file system cannot model.
   - Here the base is found only with a value other than `no`, so `-f C:sub/tags` works without `--tag-relative`. The path of each file is made absolute and relative by itself, as the base may lie inside a directory walked; this costs a few passes over the path, next to reading the file. An input that cannot be made absolute ends the run once the walk is done, naming the least such path, with no tags file written.
+
+**Appending**
+- **OPT-20 [S][V] `-a`, `--append[=BOOL]`** (`entry.c openTagFile`, `updatePseudoTags`, `updateSortedFlag`; `sort.c internalSortTags`) adds the new tags to the tags file instead of replacing it. With output to stdout it is FATAL (OPT-16). A file that does not exist is written as without the option. One that exists, a tags file by CLI-3's test, is kept:
+  - **No pseudo-tags** of the common set are written, not even to an empty file, which so gets none at all.
+  - **The sorted flag.** In the file's leading lines that start with `!`, a line starting `!_TAG_FILE_SORTED` and a tab has the byte after that tab rewritten to the mode's digit (PT-4) when it is `0` or `1`. A `2` is left alone, as is such a line after the leading ones.
+  - **Sorted modes** (SORT-1, SORT-3): the old lines and the new are sorted together, the old pseudo-tags among them, exact duplicates dropped and blank lines skipped, so an old file out of order comes out in order, whatever its flag says. The file is read as text, so a CRLF ends a line as LF does.
+  - **`--sort=no`** (SORT-4): the new lines follow the old, which are left as they were, blank lines and line ends included.
+  - Only when a tag was added (a parser's pseudo-tags count): with none, the file is left as it was, out of order or not, but for the flag.
+  - The old lines are all kept, those of the files tagged again too, so a file tagged again has its old tags and its new ones (D9).
+  - [V] On Windows, in a file whose lines end in LF alone, the flag's byte is found at a miscounted position, so the digit lands elsewhere (`!_TAG_FILE_SORTE0\t1` for `--sort=no`) or the flag is left as it was (`0` under `--sort=yes`), and the lines may be left out of order. A file with CRLF line ends is rewritten as the rule says.
+  - Here the whole file is read into memory, where CR, LF and CRLF each end a line and blank lines are dropped, in every mode. Its order is checked by the mode's comparison, never taken from its flag: a file in order is merged as it is read, and one out of order is first sorted. The new lines are merged in, or under `--sort=no` follow the old, and the result, with LF line ends (section 4), is written to a new file that replaces the old, as without `-a`. The flag is rewritten as above, wherever the leading lines' line ends were LF or CRLF, blank lines among them ignored; the file is rewritten (sorted) even when no tag was added; and an empty file is written as a missing one is, with the pseudo-tags. A file too large for the memory the program reserves (about 1 GiB in a 32-bit process) stops the run before it is read, with `out of memory` and status 2.
+  - Here the old lines of each file tagged in this run are dropped before the merge (D9): the lines not starting with `!_` whose second field, up to a tab or the line's end, is byte for byte the file field this run writes for one of the files it tags, whether or not that file has tags now. A file that is skipped, because it cannot be read or is too large (D7), is not tagged, and keeps its old lines. So appending the files of a tree to its own tags file changes nothing, and a file appended again replaces its old tags.
 
 ---
 
@@ -973,6 +985,14 @@ Decided for this program, deliberately different from Universal Ctags.
   is `ctags -R`. Without `-R`, Universal Ctags silently ignores it (exit
   0, no tags), which is never what was meant. `-R` keeps one meaning of
   its own: with no files, it tags the current directory.
+- **D9** `-a` replaces the old lines of each file tagged again
+  (OPT-20): those lines of the tags file whose file field is the one
+  this run writes for a file it tags, even one without tags now, are
+  dropped, and pseudo-tags never are. Universal Ctags keeps every old
+  line, so a file appended again has its stale tags and its new ones,
+  both found by Vim, and one emptied of tags keeps them all. Plugins
+  that append, as gutentags does, filter the file's lines out first,
+  which now changes nothing.
 - **D10** `;"` is written whenever any field is (FLD-4), also before a
   parser's field written alone, as C++'s `name:` is with `--fields=`.
   Universal Ctags writes `A\ta.cpp\t/^namespace A = N;$/\tname:N`,
@@ -1033,8 +1053,8 @@ Decided for this program, deliberately different from Universal Ctags.
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
-  `--tag-relative`, `--sort` and `-u` (SORT-3, SORT-4), the listings
-  (OPT-15), `--version` (OPT-19), `--help`, and this program's
+  `--tag-relative`, `--sort` and `-u` (SORT-3, SORT-4), `-a` and
+  `--append` (OPT-20), the listings (OPT-15), `--version` (OPT-19), `--help`, and this program's
   `--jobs`. The others are
   accepted at their defaults and where they name other languages
   (OPT-4, OPT-6), and otherwise refused (OPT-5) or not yet supported
@@ -1060,6 +1080,15 @@ Decided for this program, deliberately different from Universal Ctags.
   failing to find it ends the run only with `--tag-relative`, and the
   message gives no reason, and otherwise leaves that pseudo-tag out
   (OPT-18).
+- **Appending** (OPT-20): the tags file is read whole and written anew,
+  so CR, LF and CRLF each end an old line, blank lines go, and every
+  line ends in LF, also under `--sort=no`; the sorted flag is rewritten
+  where Universal Ctags on Windows misplaces its byte in a file with LF
+  line ends; the result is sorted even when no tag was added, where
+  Universal Ctags leaves an old file out of order as it was; and an
+  empty file gets the pseudo-tags a new one does, where Universal Ctags
+  writes it none, which leaves readers that skip a fixed number of
+  lines, as LeaderF does, skipping tags.
 - **Fields accepted without output** (FLD-5): `e` (`end:`) and `o`
   (`nth:`) are accepted and write nothing, since the parsers do not track
   where definitions end or count members. A reader of either must treat

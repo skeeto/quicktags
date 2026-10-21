@@ -366,7 +366,11 @@ static void test_output(Test *t)
         sort(ls, 3, lineless<0>, a);
         sort(ls+3, 3, lineless<0>, a);
         sort(ls+6, 3, lineless<0>, a);
-        Stream s[] = {{ls, ls+3}, {ls+3, ls+6}, {ls+6, ls+9}};
+        Stream s[3] = {};
+        for (i32 i = 0; i < 3; i++) {
+            s[i].beg = ls + 3*i;
+            s[i].end = ls + 3*i + 3;
+        }
 
         // Lines must end in newlines, as they do in a worker's buffer
         Buf joined(&a, 256);
@@ -407,7 +411,11 @@ static void test_output(Test *t)
         sort(ls, 4, lineless<1>, a);
         sort(ls+4, 4, lineless<1>, a);
         sort(ls+8, 4, lineless<1>, a);
-        Stream s[] = {{ls, ls+4}, {ls+4, ls+8}, {ls+8, ls+12}};
+        Stream s[3] = {};
+        for (i32 i = 0; i < 3; i++) {
+            s[i].beg = ls + 4*i;
+            s[i].end = ls + 4*i + 4;
+        }
 
         Os  *os = newos(&a);
         Out *o  = newout(os, &a, 1);

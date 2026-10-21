@@ -120,6 +120,44 @@ static void test_parallel(Test *t)
         }
     }
 
+    // Appending to a tags file, in order or not, in each order
+    Str olds[] = {
+        "!_TAG_FILE_SORTED\t1\t/x/\nA\tsrc/main.c\t1\ng3\tsrc/gone.c\t1\n"
+        "zz\tsrc/gen/d1/f1.c\t9\n",
+        "zz\tsrc/gen/d1/f1.c\t9\r\ng3\tsrc/gone.c\t1\r\nA\tsrc/main.c\t1\r\n",
+    };
+    Str appends[] = {"-a", "-a --sort=no", "-a --sort=foldcase"};
+    for (iz m = 0; m < countof(appends); m++) {
+        for (iz o = 0; o < countof(olds); o++) {
+            os->seed = 0;
+            vfsfile(os, "tags", olds[o]);
+            Str  cmd  = concat(&a, appends[m], " -R src --jobs=");
+            Run  one  = run(os, a, concat(&a, cmd, "1"));
+            Str  want = vfsfind(os, "tags", 0)->data;
+            expect(t, "append status", num(&a, one.status), "0");
+            expect(t, "append tags", num(&a, want.len > 2000), "1");
+            for (u64 seed = 0; seed <= 8; seed++) {
+                for (i32 j = 2; j <= 32; j *= 2) {
+                    Buf name(&a, 64);
+                    print(&name, appends[m]);
+                    print(&name, " seed ");
+                    print(&name, (i64)seed);
+                    print(&name, " jobs ");
+                    print(&name, (i64)j);
+                    print(&name, " old ");
+                    print(&name, (i64)o);
+
+                    os->seed = seed;
+                    vfsfile(os, "tags", olds[o]);
+                    Run r = run(os, a, concat(&a, cmd, num(&a, j)));
+                    expect(t, finish(&name), num(&a, r.status), "0");
+                    expect(t, finish(&name), vfsfind(os, "tags", 0)->data, want);
+                }
+            }
+        }
+    }
+    vfsunlink(os, "tags");
+
     // Arguments, more than there are workers, which the workers then
     // examine: missing ones are reported in their order
     Buf list(&a, 1<<10);
