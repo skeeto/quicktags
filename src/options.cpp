@@ -908,6 +908,258 @@ static i32 optionsopt(Parse *p, Str name, Str value)
 }
 
 
+// Listings, as Universal Ctags writes them, of our languages
+
+// Print a table as the --list-* commands do: each column but the last
+// padded to its widest cell, then a space, and the header row marked
+// with a '#'. The cells are row by row, the header first.
+static void printtable(Buf *b, Slice<Str> cells, i32 ncols)
+{
+    iz width[8] = {};
+    assert(ncols <= countof(width));
+    for (iz i = 0; i < cells.len; i++) {
+        iz c = i % ncols;
+        width[c] = cells[i].len>width[c] ? cells[i].len : width[c];
+    }
+    width[0]++;  // the '#'
+    for (iz i = 0; i < cells.len; i++) {
+        iz c   = i % ncols;
+        iz len = cells[i].len;
+        if (!i) {
+            putbyte(b, '#');
+            len++;
+        }
+        print(b, cells[i]);
+        if (c+1 == ncols) {
+            putbyte(b, '\n');
+        } else {
+            for (; len < width[c]; len++) {
+                putbyte(b, ' ');
+            }
+            putbyte(b, ' ');
+        }
+    }
+}
+
+static Str yesno(b32 b)
+{
+    return b ? Str("yes") : Str("no");
+}
+
+static Str letterof(Kind *k)
+{
+    return k->letter ? Str{&k->letter, 1} : Str("-");
+}
+
+static Str kinddesc(i32 lang, i32 kind)
+{
+    if (lang==LANG_C && kind==K_MEMBER) {
+        return "struct, and union members";
+    }
+    return lang==LANG_FORTRAN ? ftnkinds[kind].desc : cxxkinds[kind].desc;
+}
+
+// The language a --list-* option names: LANG_NONE for all of them, or
+// with ok cleared, one Universal Ctags does not know.
+struct Listed {
+    i32 lang;
+    b32 ok;
+};
+
+static Listed listed(Parse *p, Str value)
+{
+    Listed r = {};
+    r.ok = 1;
+    if (value.len && !equalsfold(value, "all")) {
+        r.lang = langnamed(p, value).lang;
+        r.ok   = r.lang != LANG_NONE;
+    }
+    return r;
+}
+
+static void listkinds(Buf *b, Options *opt, i32 lang, b32 indent)
+{
+    KindTable t = kindtable(&opt->kinds, lang);
+    for (i32 i = 0; i < t.len; i++) {
+        print(b, indent ? Str("    ") : Str(""));
+        putbyte(b, t.kinds[i].letter);
+        print(b, "  ");
+        print(b, kinddesc(lang, i));
+        print(b, kindon(&opt->kinds, lang, i) ? Str("") : Str(" [off]"));
+        putbyte(b, '\n');
+    }
+}
+
+static b32 letterless(Kind **a, Kind **b)
+{
+    return (*a)->letter < (*b)->letter;
+}
+
+// Add a language's kinds as --list-kinds-full lists them, by letter.
+static Slice<Str> fullkinds(Arena *a, Slice<Str> cells, Options *opt,
+                            i32 lang, b32 named)
+{
+    KindTable t     = kindtable(&opt->kinds, lang);
+    Kind    **kinds = alloc<Kind *>(a, t.len);
+    for (i32 i = 0; i < t.len; i++) {
+        kinds[i] = t.kinds + i;
+    }
+    sort(kinds, t.len, letterless, *a);
+    for (i32 i = 0; i < t.len; i++) {
+        Kind *k     = kinds[i];
+        i32   kind  = (i32)(k - t.kinds);
+        Buf   roles(a, 4);
+        print(&roles, (i64)countroles(lang, k->letter, {}));
+        if (named) {
+            cells = push(a, cells, langnames[lang]);
+        }
+        cells = push(a, cells, letterof(k));
+        cells = push(a, cells, k->name);
+        cells = push(a, cells, yesno(kindon(&opt->kinds, lang, kind)));
+        cells = push(a, cells, yesno(k==cxxkinds+K_HEADER));
+        cells = push(a, cells, finish(&roles));
+        b32 shared = lang!=LANG_FORTRAN && kind<NCKINDS;
+        cells = push(a, cells, shared ? Str("C") : Str("NONE"));
+        cells = push(a, cells, kinddesc(lang, kind));
+    }
+    return cells;
+}
+
+// --list-kinds[=LANG] and --list-kinds-full[=LANG]. Other languages'
+// kinds are unknown here, so they list none.
+static i32 listkindsopt(Parse *p, Str name, Str value)
+{
+    Options *opt  = p->opt;
+    Listed   l    = listed(p, value);
+    b32      full = name == "list-kinds-full";
+    if (!l.ok) {
+        return unknownlang(p, value, name);
+    }
+
+    Buf b(p->perm);
+    if (!full) {
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            if (!l.lang) {
+                print(&b, langnames[lang]);
+                print(&b, opt->langs>>lang&1 ? Str("") : Str(" [disabled]"));
+                putbyte(&b, '\n');
+            }
+            if (!l.lang || l.lang==lang) {
+                listkinds(&b, opt, lang, !l.lang);
+            }
+        }
+    } else {
+        Slice<Str> cells = {};
+        Str header[] = {
+            "LANGUAGE", "LETTER", "NAME", "ENABLED", "REFONLY", "NROLES",
+            "MASTER", "DESCRIPTION",
+        };
+        for (iz i = !!l.lang; i < countof(header); i++) {
+            cells = push(p->perm, cells, header[i]);
+        }
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            if (!l.lang || l.lang==lang) {
+                cells = fullkinds(p->perm, cells, opt, lang, !l.lang);
+            }
+        }
+        printtable(&b, cells, (i32)countof(header) - !!l.lang);
+    }
+    opt->print = finish(&b);
+    return ARGS_EXIT;
+}
+
+// --list-extras[=LANG|NONE]: the common extras, and Fortran's.
+static i32 listextrasopt(Parse *p, Str name, Str value)
+{
+    Options *opt  = p->opt;
+    b32      none = equalsfold(value, "NONE");
+    Listed   l    = none ? Listed{} : listed(p, value);
+    if (!none && !l.ok) {
+        return unknownlang(p, value, name);
+    }
+
+    Slice<Str> cells = {};
+    Str header[] = {"LETTER", "NAME", "ENABLED", "LANGUAGE", "FIXED",
+                    "DESCRIPTION"};
+    for (iz i = 0; i < countof(header); i++) {
+        cells = push(p->perm, cells, header[i]);
+    }
+    for (i32 i = 0; i < NEXTRAS; i++) {
+        b32 common = i < NCOMMONEXTRAS;
+        if (l.lang ? l.lang==LANG_FORTRAN && !common : common || !none) {
+            Kind *x = extras + i;
+            cells = push(p->perm, cells, letterof(x));
+            cells = push(p->perm, cells, x->name);
+            cells = push(p->perm, cells, yesno(opt->extras>>i & 1));
+            cells = push(p->perm, cells, common ? Str("NONE") : Str("Fortran"));
+            cells = push(p->perm, cells, Str("no"));
+            cells = push(p->perm, cells, x->desc);
+        }
+    }
+    Buf b(p->perm);
+    printtable(&b, cells, (i32)countof(header));
+    opt->print = finish(&b);
+    return ARGS_EXIT;
+}
+
+// --list-fields[=LANG|NONE]: the common fields, and C's and C++'s, after
+// enabling those that must be.
+static i32 listfieldsopt(Parse *p, Str name, Str value)
+{
+    Options *opt  = p->opt;
+    b32      none = equalsfold(value, "NONE");
+    Listed   l    = none ? Listed{} : listed(p, value);
+    if (!none && !l.ok) {
+        return unknownlang(p, value, name);
+    }
+    if (opt->writer != WRITER_ETAGS) {
+        fixfields(p);
+    }
+
+    Slice<Str> cells = {};
+    Str header[] = {"LETTER", "NAME", "ENABLED", "LANGUAGE", "JSTYPE",
+                    "FIXED", "OP", "DESCRIPTION"};
+    for (iz i = 0; i < countof(header); i++) {
+        cells = push(p->perm, cells, header[i]);
+    }
+    for (i32 i = 0; i < NFIELDS; i++) {
+        i32 lang = i<FIELD_C ? LANG_NONE : i<FIELD_CXX ? LANG_C : LANG_CXX;
+        if (l.lang ? l.lang==lang : !lang || !none) {
+            Kind *f      = fields + i;
+            b32   common = lang == LANG_NONE;
+            cells = push(p->perm, cells, letterof(f));
+            cells = push(p->perm, cells, f->name.data ? f->name : Str("NONE"));
+            cells = push(p->perm, cells, yesno(fieldon(opt->fields, i)));
+            cells = push(p->perm, cells, langnames[lang]);
+            cells = push(p->perm, cells, common ? fieldtypes[i] : Str("s--"));
+            cells = push(p->perm, cells, yesno(i <= FIELD_PATTERN));
+            cells = push(p->perm, cells, common ? fieldops[i] : Str("--"));
+            cells = push(p->perm, cells, f->desc);
+        }
+    }
+    Buf b(p->perm);
+    printtable(&b, cells, (i32)countof(header));
+    opt->print = finish(&b);
+    return ARGS_EXIT;
+}
+
+// --list-languages, and its categories, which have none of ours.
+static i32 listlangsopt(Parse *p, Str value)
+{
+    Options *opt = p->opt;
+    Buf      b(p->perm, 64);
+    if (value!="_libxml" && value!="_libyaml" && value!="_packcc") {
+        for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
+            print(&b, langnames[lang]);
+            print(&b, opt->langs>>lang&1 ? Str("") : Str(" [disabled]"));
+            putbyte(&b, '\n');
+        }
+    }
+    opt->print = finish(&b);
+    return ARGS_EXIT;
+}
+
+
 // Long options
 
 static void etagsmode(Options *opt)
@@ -921,9 +1173,10 @@ enum : i32 {
     OPT_APPEND, OPT_EXCLUDE, OPT_EXCEPTION, OPT_EXCMD, OPT_EXTRAS,
     OPT_FIELDS, OPT_FILESCOPE, OPT_FILETAGS, OPT_FORMAT, OPT_HELP, OPT_IF0,
     OPT_JOBS, OPT_FORCE, OPT_LANGUAGES, OPT_LANGDEF, OPT_LANGMAP,
-    OPT_LINEDIRS, OPT_LINKS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT,
-    OPT_QUIET, OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS,
-    OPT_VERBOSE, OPT_VERSION, OPT_STATS, OPT_NOFAST,
+    OPT_LINEDIRS, OPT_LINKS, OPT_LISTEXTRAS, OPT_LISTFIELDS, OPT_LISTKINDS,
+    OPT_LISTLANGS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
+    OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
+    OPT_VERSION, OPT_STATS, OPT_NOFAST,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
@@ -948,6 +1201,11 @@ static struct { Str name; i32 id; } longopts[] = {
     {"langmap",              OPT_LANGMAP},
     {"line-directives",      OPT_LINEDIRS},
     {"links",                OPT_LINKS},
+    {"list-extras",          OPT_LISTEXTRAS},
+    {"list-fields",          OPT_LISTFIELDS},
+    {"list-kinds",           OPT_LISTKINDS},
+    {"list-kinds-full",      OPT_LISTKINDS},
+    {"list-languages",       OPT_LISTLANGS},
     {"options",              OPT_OPTIONS},
     {"output-format",        OPT_OUTFORMAT},
     {"pattern-length-limit", OPT_PATLIMIT},
@@ -1130,8 +1388,11 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         opt->nolinks = !b;
         return ARGS_OK;
 
-    case OPT_OPTIONS:
-        return optionsopt(p, name, value);
+    case OPT_LISTEXTRAS: return listextrasopt(p, name, value);
+    case OPT_LISTFIELDS: return listfieldsopt(p, name, value);
+    case OPT_LISTKINDS:  return listkindsopt(p, name, value);
+    case OPT_LISTLANGS:  return listlangsopt(p, value);
+    case OPT_OPTIONS:    return optionsopt(p, name, value);
 
     case OPT_OUTFORMAT:
         if (!value.len) {

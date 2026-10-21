@@ -755,6 +755,220 @@ static void test_cli(Test *t)
         expect(t, st[i].args, showextras(&tmp, r.opt.extras), st[i].extras);
         expect(t, st[i].args, showfields(&tmp, r.opt.fields), st[i].fields);
     }
+    // Listings, as Universal Ctags 6.2.1 prints them for these languages,
+    // with the state the options before them leave
+    struct { Str args; i32 status; Str print, log; } ls[] = {
+        {"--list-languages", ARGS_EXIT, "C\nC++\nFortran\n", ""},
+        {"--languages=C --list-languages=x", ARGS_EXIT,
+         "C\nC++ [disabled]\nFortran [disabled]\n", ""},
+        {"--list-languages=_packcc", ARGS_EXIT, "", ""},
+        {"--kinds-C=+p-d --list-kinds=C", ARGS_EXIT,
+         "d  macro definitions [off]\n"
+         "e  enumerators (values inside an enumeration)\n"
+         "f  function definitions\n"
+         "g  enumeration names\n"
+         "h  included header files\n"
+         "l  local variables [off]\n"
+         "m  struct, and union members\n"
+         "p  function prototypes\n"
+         "s  structure names\n"
+         "t  typedefs\n"
+         "u  union names\n"
+         "v  variable definitions\n"
+         "x  external and forward variable declarations [off]\n"
+         "z  function parameters inside function or prototype definitions [off]\n"
+         "L  goto labels [off]\n"
+         "D  parameters inside macro definitions [off]\n", ""},
+        {"--languages=-Fortran --kinds-Fortran= --list-kinds", ARGS_EXIT,
+         "C\n"
+         "    d  macro definitions\n"
+         "    e  enumerators (values inside an enumeration)\n"
+         "    f  function definitions\n"
+         "    g  enumeration names\n"
+         "    h  included header files\n"
+         "    l  local variables [off]\n"
+         "    m  struct, and union members\n"
+         "    p  function prototypes [off]\n"
+         "    s  structure names\n"
+         "    t  typedefs\n"
+         "    u  union names\n"
+         "    v  variable definitions\n"
+         "    x  external and forward variable declarations [off]\n"
+         "    z  function parameters inside function or prototype definitions [off]\n"
+         "    L  goto labels [off]\n"
+         "    D  parameters inside macro definitions [off]\n"
+         "C++\n"
+         "    d  macro definitions\n"
+         "    e  enumerators (values inside an enumeration)\n"
+         "    f  function definitions\n"
+         "    g  enumeration names\n"
+         "    h  included header files\n"
+         "    l  local variables [off]\n"
+         "    m  class, struct, and union members\n"
+         "    p  function prototypes [off]\n"
+         "    s  structure names\n"
+         "    t  typedefs\n"
+         "    u  union names\n"
+         "    v  variable definitions\n"
+         "    x  external and forward variable declarations [off]\n"
+         "    z  function parameters inside function or prototype definitions [off]\n"
+         "    L  goto labels [off]\n"
+         "    D  parameters inside macro definitions [off]\n"
+         "    c  classes\n"
+         "    n  namespaces\n"
+         "    A  namespace aliases [off]\n"
+         "    N  names imported via using scope::symbol [off]\n"
+         "    U  using namespace statements [off]\n"
+         "    Z  template parameters [off]\n"
+         "    M  modules\n"
+         "    P  partitions\n"
+         "Fortran [disabled]\n"
+         "    b  block data [off]\n"
+         "    c  common blocks [off]\n"
+         "    e  entry points [off]\n"
+         "    E  enumerations [off]\n"
+         "    f  functions [off]\n"
+         "    i  interface contents, generic names, and operators [off]\n"
+         "    k  type and structure components [off]\n"
+         "    l  labels [off]\n"
+         "    L  local, common block, and namelist variables [off]\n"
+         "    m  modules [off]\n"
+         "    M  type bound procedures [off]\n"
+         "    n  namelists [off]\n"
+         "    N  enumeration values [off]\n"
+         "    p  programs [off]\n"
+         "    P  subprogram prototypes [off]\n"
+         "    s  subroutines [off]\n"
+         "    t  derived types and structures [off]\n"
+         "    v  program (global) and module variables [off]\n"
+         "    S  submodules [off]\n", ""},
+        {"--list-kinds=python", ARGS_EXIT, "", ""},
+        {"--list-kinds-full=C++", ARGS_EXIT,
+         "#LETTER NAME       ENABLED REFONLY NROLES MASTER DESCRIPTION\n"
+         "A       alias      no      no      0      NONE   namespace aliases\n"
+         "D       macroparam no      no      0      C      parameters inside macro definitions\n"
+         "L       label      no      no      0      C      goto labels\n"
+         "M       module     yes     no      2      NONE   modules\n"
+         "N       name       no      no      0      NONE   names imported via using scope::symbol\n"
+         "P       partition  yes     no      1      NONE   partitions\n"
+         "U       using      no      no      0      NONE   using namespace statements\n"
+         "Z       tparam     no      no      0      NONE   template parameters\n"
+         "c       class      yes     no      0      NONE   classes\n"
+         "d       macro      yes     no      2      C      macro definitions\n"
+         "e       enumerator yes     no      0      C      enumerators (values inside an enumeration)\n"
+         "f       function   yes     no      0      C      function definitions\n"
+         "g       enum       yes     no      0      C      enumeration names\n"
+         "h       header     yes     yes     4      C      included header files\n"
+         "l       local      no      no      0      C      local variables\n"
+         "m       member     yes     no      0      C      class, struct, and union members\n"
+         "n       namespace  yes     no      0      NONE   namespaces\n"
+         "p       prototype  no      no      0      C      function prototypes\n"
+         "s       struct     yes     no      0      C      structure names\n"
+         "t       typedef    yes     no      0      C      typedefs\n"
+         "u       union      yes     no      0      C      union names\n"
+         "v       variable   yes     no      0      C      variable definitions\n"
+         "x       externvar  no      no      0      C      external and forward variable declarations\n"
+         "z       parameter  no      no      0      C      function parameters inside function or prototype definitions\n",
+         ""},
+        {"--kinds-Fortran=+L-l --list-kinds-full", ARGS_EXIT, {}, ""},
+        {"--extras=+q-p --list-extras", ARGS_EXIT,
+         "#LETTER NAME      ENABLED LANGUAGE FIXED DESCRIPTION\n"
+         "-       anonymous yes     NONE     no    Include tags for non-named objects like lambda\n"
+         "F       fileScope yes     NONE     no    Include tags of file scope\n"
+         "f       inputFile no      NONE     no    Include an entry for the base file name of every input file\n"
+         "g       guest     no      NONE     no    Include tags generated by guest parsers\n"
+         "p       pseudo    no      NONE     no    Include pseudo tags\n"
+         "q       qualified yes     NONE     no    Include an extra class-qualified tag entry for each tag\n"
+         "r       reference no      NONE     no    Include reference tags\n"
+         "s       subparser yes     NONE     no    Include tags generated by subparsers\n"
+         "z       nulltag   no      NONE     no    Include tags with empty strings as their names\n"
+         "-       linkName  no      Fortran  no    Linking name used in foreign languages\n",
+         ""},
+        {"--list-extras=fortran", ARGS_EXIT,
+         "#LETTER NAME     ENABLED LANGUAGE FIXED DESCRIPTION\n"
+         "-       linkName no      Fortran  no    Linking name used in foreign languages\n",
+         ""},
+        {"--list-extras=C", ARGS_EXIT,
+         "#LETTER NAME ENABLED LANGUAGE FIXED DESCRIPTION\n", ""},
+        {"--fields-C++=-{name}+{template} --list-fields=C++", ARGS_EXIT,
+         "#LETTER NAME           ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION\n"
+         "-       alias          no      C++      s--    no    -- the name of the alias target specified in __attribute__((alias(...)))\n"
+         "-       captures       no      C++      s--    no    -- lambda capture list\n"
+         "-       macrodef       no      C++      s--    no    -- macro definition\n"
+         "-       name           no      C++      s--    no    -- aliased names\n"
+         "-       properties     no      C++      s--    no    -- properties (static, inline, mutable, export,...)\n"
+         "-       section        no      C++      s--    no    -- the place where the object is placed\n"
+         "-       specialization no      C++      s--    no    -- template specialization parameters\n"
+         "-       template       yes     C++      s--    no    -- template parameters\n",
+         ""},
+        {"--fields=-N-n+Z-s --list-fields=NONE", ARGS_EXIT,
+         "#LETTER NAME           ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION\n"
+         "N       name           yes     NONE     s--    yes   rw tag name\n"
+         "F       input          yes     NONE     s--    yes   r- input file\n"
+         "P       pattern        yes     NONE     s-b    yes   -- pattern\n"
+         "C       compact        no      NONE     s--    no    -- compact input line (used only in xref output)\n"
+         "E       extras         no      NONE     s--    no    r- Extra tag type information\n"
+         "K       NONE           no      NONE     s--    no    -- Kind of tag in long-name form\n"
+         "R       NONE           no      NONE     s--    no    -- Marker (R or D) representing whether tag is definition or reference\n"
+         "S       signature      no      NONE     s--    no    rw Signature of routine (e.g. prototype or parameter list)\n"
+         "T       epoch          yes     NONE     -i-    no    -- the last modified time of the input file (only for F/file kind tag)\n"
+         "Z       scope          yes     NONE     s--    no    rw [tags output] prepend \"scope:\" key to s/scope field output, [xref and json output] the same as s/ field\n"
+         "a       access         no      NONE     s--    no    rw Access (or export) of class members\n"
+         "e       end            no      NONE     -i-    no    rw end lines of various items\n"
+         "f       file           yes     NONE     --b    no    -- File-restricted scoping\n"
+         "i       inherits       no      NONE     s-b    no    -w Inheritance information\n"
+         "k       NONE           yes     NONE     s--    no    -- Kind of tag in one-letter form\n"
+         "l       language       no      NONE     s--    no    r- Language of input file containing tag\n"
+         "m       implementation no      NONE     s--    no    -- Implementation information\n"
+         "n       line           no      NONE     -i-    no    rw Line number of tag definition\n"
+         "o       nth            no      NONE     -i-    no    -- the order in the parent scope\n"
+         "p       scopeKind      no      NONE     s--    no    -- [tags output] no effect, [xref and json output] kind of scope in long-name form\n"
+         "r       roles          no      NONE     s--    no    r- Roles\n"
+         "s       NONE           yes     NONE     s--    no    -- [tags output] scope (kind:name) of tag definition, [xref and json output] name of scope\n"
+         "t       typeref        yes     NONE     s--    no    rw Type and name of a variable or typedef\n"
+         "x       xpath          no      NONE     s--    no    -- xpath for the tag\n"
+         "z       kind           no      NONE     s--    no    r- [tags output] prepend \"kind:\" to k/ (or K/) field output, [xref and json output] kind in long-name form\n",
+         "ctags: Warning: though Z/scope field is enabled, s field is not "
+         "enabled\n"
+         "ctags: Warning: enable the s field to make the Z/scope field "
+         "printable\n"
+         "ctags: Warning: Cannot disable fixed field: 'N'{name} in ctags "
+         "output mode\n"},
+        {"--list-fields=fortran", ARGS_EXIT,
+         "#LETTER NAME ENABLED LANGUAGE JSTYPE FIXED OP DESCRIPTION\n", ""},
+        {"--list-kinds=cpp", ARGS_FATAL, {},
+         "ctags: Unknown language \"cpp\" in \"list-kinds\" option\n"},
+        {"--list-kinds-full=NONE", ARGS_FATAL, {},
+         "ctags: Unknown language \"NONE\" in \"list-kinds-full\" option\n"},
+        {"--list-extras=cpp", ARGS_FATAL, {},
+         "ctags: Unknown language \"cpp\" in \"list-extras\" option\n"},
+        {"--list-fields=cpp", ARGS_FATAL, {},
+         "ctags: Unknown language \"cpp\" in \"list-fields\" option\n"},
+    };
+    for (iz i = 0; i < countof(ls); i++) {
+        Arena  tmp = a;
+        Parsed r   = parsecmd(&tmp, ls[i].args);
+        expect(t, ls[i].args, num(&tmp, r.status), num(&tmp, ls[i].status));
+        if (ls[i].print.data) {
+            expect(t, ls[i].args, r.opt.print, ls[i].print);
+        }
+        expect(t, ls[i].args, r.log, ls[i].log);
+    }
+    {
+        // Listing all kinds in full, sorted by language and letter
+        Arena  tmp  = a;
+        Parsed r    = parsecmd(&tmp, "--kinds-Fortran=+L-l --list-kinds-full");
+        Str    want =
+            "#LANGUAGE LETTER NAME       ENABLED REFONLY NROLES MASTER DESCRIPTION\n"
+            "C         D      macroparam no      no      0      C      parameters inside macro definitions\n";
+        expect(t, "full kinds head", takehead(r.opt.print, want.len), want);
+        Str fortran =
+            "Fortran   L      local      yes     no      0      NONE   local, common block, and namelist variables\n";
+        expect(t, "full kinds L", num(&tmp, find(r.opt.print, fortran) > 0), "1");
+        Str last =
+            "Fortran   v      variable   yes     no      0      NONE   program (global) and module variables\n";
+        expect(t, "full kinds tail", num(&tmp, endswith(r.opt.print, last)), "1");
+    }
     {
         Arena tmp = a;
         Os   *os  = newos(&tmp);

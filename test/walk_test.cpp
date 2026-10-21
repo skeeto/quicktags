@@ -247,9 +247,21 @@ static void test_walk(Test *t)
         };
         for (iz i = 0; i < countof(cases); i++) {
             Run r = run(os, a, cases[i].args);
-            expect(t, cases[i].args, num(&a, r.status), num(&a, cases[i].status));
+            expect(t, cases[i].args, num(&a, r.status),
+                   num(&a, cases[i].status));
             expect(t, cases[i].args, r.err, cases[i].err);
         }
+    }
+    {
+        // A listing prints to standard output, warnings to standard error
+        Os *os = newos(&a);
+        vfsfile(os, "list",
+                "--kinds-cpp=x\n--languages=-c++\n--list-languages\n");
+        Run r = run(os, a, "--options=list --bogus");
+        expect(t, "list status", num(&a, r.status), "0");
+        expect(t, "list out", r.out, "C\nC++ [disabled]\nFortran\n");
+        expect(t, "list err", r.err, "ctags: Warning: Unknown language \"cpp\" "
+                                     "in \"kinds-cpp\" option\n");
     }
 
     {

@@ -9,7 +9,7 @@ enum : i32 {
 
 enum : u32 { LANGS_ALL = 1u<<LANG_C | 1u<<LANG_CXX | 1u<<LANG_FORTRAN };
 
-static Str langnames[] = {"", "C", "C++", "Fortran"};
+static Str langnames[] = {"NONE", "C", "C++", "Fortran"};
 
 // An entry of a table of kinds, extras, or fields, as Universal Ctags
 // lists it.
@@ -343,6 +343,19 @@ static Kind fields[NFIELDS] = {
     {0, "section",        0, "the place where the object is placed"},
     {0, "specialization", 0, "template specialization parameters"},
     {0, "template",       0, "template parameters"},
+};
+
+// Universal Ctags' data type and access columns for the common fields.
+// The parsers' are all "s--" and "--".
+static Str fieldtypes[NCOMMONFIELDS] = {
+    "s--", "s--", "s-b", "s--", "s--", "s--", "s--", "s--", "-i-", "s--",
+    "s--", "-i-", "--b", "s-b", "s--", "s--", "s--", "-i-", "-i-", "s--",
+    "s--", "s--", "s--", "s--", "s--",
+};
+static Str fieldops[NCOMMONFIELDS] = {
+    "rw", "r-", "--", "--", "r-", "--", "--", "rw", "--", "rw",
+    "rw", "rw", "--", "-w", "--", "r-", "--", "rw", "--", "--",
+    "r-", "--", "rw", "--", "r-",
 };
 
 static u64 defaultfields()
