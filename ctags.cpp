@@ -124,12 +124,25 @@ static Arena carve(Arena *a, iz len)
 
 // Parsing
 
+#include "cxx.cpp"
+#include "fortran.cpp"
+
 // Tag one file. Each parser makes a second pass with different rules
-// when the first fails, discarding the first pass's tags.
+// when the first fails, discarding the first pass's tags but keeping
+// its count of anonymous names.
 static void parsefile(File *f, Arena scratch)
 {
-    (void)f;
-    (void)scratch;
+    b32 (*parse)(File *, b32, Arena) = 0;
+    switch (f->src->lang) {
+    case LANG_C:
+    case LANG_CXX:     parse = cxxtags; break;
+    case LANG_FORTRAN: parse = ftntags; break;
+    }
+    if (parse && !parse(f, 0, scratch)) {
+        f->out->len = f->mark;
+        f->ntags    = 0;
+        parse(f, 1, scratch);
+    }
 }
 
 

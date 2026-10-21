@@ -16,11 +16,19 @@ from ssg (`~/src/skeeto.github.com/_ssg/`); keep them close to it.
 ```
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 cmake --build build
-ctest --test-dir build -j24 -L unit        # unit tests, import check
+ctest --test-dir build -j24 -L '^unit$'    # unit tests, import check, cases
 ctest --test-dir build -j24 -L units       # differential, Universal Ctags Units
 ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 ```
 
+- Corpus tests (opt-in): configure with `-DCTAGS_CORPUS_LLAMA=~/src/llama.cpp
+  -DCTAGS_CORPUS_LLVM=~/src/llvm-project -DCTAGS_CORPUS_REUSE_REF=ON`, then
+  `ctest -L corpus` (corpus/llama, corpus/llvm/TOPDIR). `CTAGS_UNITS_ONLY`
+  and `CTAGS_CORPUS_ONLY` (e.g. `C:d,C++:d` or `Fortran:*`) restrict the
+  comparison to some kinds while a parser is incomplete.
+- Tag cases (`TagCase` in `main_test.cpp`) are the main unit tests of the
+  parsers: a source, options, and exact output. `cases/uctags` exports
+  them and checks SHARED ones against Universal Ctags' real output.
 - 32-bit: `cmake -B build32 -G Ninja -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++`.
 - XP: `sh test/xp.sh` builds on the XP laptop over ssh with the
   one-command builds at the top of `ctags.cpp`, which must keep working
@@ -37,6 +45,9 @@ ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 - `walk.cpp`: discovery and the worker threads (a lock-free work stack).
 - `output.cpp`: per-worker sorting, merging, writing the tags file.
 - `main_win32.cpp`, `main_posix.cpp`, `main_test.cpp`: platform layers.
+- `cxx.cpp`, `fortran.cpp`: the parsers, called by `parsefile` in
+  `ctags.cpp`, which retries a failed first pass with the second pass's
+  rules.
 - `test/`: unit tests (`*_test.cpp`, included by `main_test.cpp`, one
   CTest per group listed in `CTAGS_TEST_GROUPS`), `vfs.cpp` (the test
   platform), `tagdiff.cpp` (differential comparison), `ledger.txt`.

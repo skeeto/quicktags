@@ -74,7 +74,7 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
   enable_testing()
 
   add_executable(ctags_test main_test.cpp)
-  set(CTAGS_TEST_GROUPS wide output cli walk)
+  set(CTAGS_TEST_GROUPS wide output cli walk fortran)
   foreach(group IN LISTS CTAGS_TEST_GROUPS)
     add_test(NAME unit/${group} COMMAND ctags_test ${group})
     set_tests_properties(unit/${group} PROPERTIES LABELS unit)
@@ -96,6 +96,14 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
   # C runtime, like a compiler's test harness)
   add_executable(tagdiff test/tagdiff.cpp)
   include(cmake/units.cmake)
+  include(cmake/corpus.cmake)
+  if(ctags_units_ok)
+    add_test(NAME cases/uctags COMMAND ${CMAKE_COMMAND}
+      -DUCTAGS=${CTAGS_UCTAGS} -DTEST=$<TARGET_FILE:ctags_test>
+      -DTAGDIFF=$<TARGET_FILE:tagdiff> -DWORK=${PROJECT_BINARY_DIR}/work/cases
+      -P ${PROJECT_SOURCE_DIR}/cmake/cases.cmake)
+    set_tests_properties(cases/uctags PROPERTIES LABELS unit)
+  endif()
 
   add_custom_target(check
     COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure -C $<CONFIG>
