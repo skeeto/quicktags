@@ -1,5 +1,6 @@
 // A platform for tests: an in-memory file system, captured output, and
-// threads that run one after another
+// threads that run one after another, or with a seed, take turns at
+// random
 // This is free and unencumbered software released into the public domain.
 
 struct VNode {
@@ -18,7 +19,9 @@ struct Os {
     Buf    err;      // fd 2
     Buf    file;     // fd 3, until closed
     Str    created;  // fd 3's path
+    u64    seed;     // nonzero: workers take turns at random
     i32    ncpu;
+    i32    nworked;  // workers that tagged a file, in the last run
     b32    reverse;  // run workers last to first
     b32    windows;
 };
@@ -215,10 +218,40 @@ static i32 os_ncpu(Os *os)
     return os->ncpu;
 }
 
+// Run the workers one after another. With a seed, the work loop instead
+// goes a step at a time, each step by a live worker chosen at random,
+// which interleaves the items as threads might.
 static void os_parallel(Os *os, Worker *ws, i32 n, void (*fn)(Worker *))
 {
+    if (os->seed && fn==work) {
+        Worker *live[32];
+        i32     nlive = n;
+        u64     rng   = os->seed;
+        assert(n <= countof(live));
+        for (i32 i = 0; i < n; i++) {
+            live[i] = ws + i;
+        }
+        while (nlive) {
+            rng = rng*0x3243f6a8885a308d + 1;
+            i32 i = (i32)((rng>>32) * (u64)nlive >> 32);
+            i32 r = workstep(live[i]);
+            assert(r != STEP_WAIT);  // one at a time, none holds an item
+            if (r == STEP_DONE) {
+                live[i] = live[--nlive];
+            }
+        }
+        for (i32 i = 0; i < n; i++) {
+            workend(ws + i);
+        }
+    } else {
+        for (i32 i = 0; i < n; i++) {
+            fn(ws + (os->reverse ? n-1-i : i));
+        }
+    }
+
+    os->nworked = 0;
     for (i32 i = 0; i < n; i++) {
-        fn(ws + (os->reverse ? n-1-i : i));
+        os->nworked += ws[i].nfiles > 0;
     }
 }
 

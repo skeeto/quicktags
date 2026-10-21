@@ -367,30 +367,49 @@ static void visitfile(Worker *w, Item *it)
     w->scratch.end = tmp.end>w->scratch.end ? tmp.end : w->scratch.end;
 }
 
+enum : i32 { STEP_DONE, STEP_DID, STEP_WAIT };
+
+// Pop and process one item: STEP_WAIT when the stack is empty but other
+// workers still hold items, STEP_DONE when all work is done.
+static i32 workstep(Worker *w)
+{
+    Queue *q  = &w->ctx->queue;
+    Item  *it = popitem(q);
+    if (!it) {
+        b32 done = !__atomic_load_n(&q->pending, __ATOMIC_ACQUIRE);
+        return done ? STEP_DONE : STEP_WAIT;
+    }
+    if (it->type == ITEM_DIR) {
+        visitdir(w, it);
+    } else {
+        visitfile(w, it);
+    }
+    __atomic_fetch_sub(&q->pending, 1, __ATOMIC_RELEASE);
+    return STEP_DID;
+}
+
+// Finish a worker's output once all work is done.
+static void workend(Worker *w)
+{
+    sortlines(w);
+}
+
 static void work(Worker *w)
 {
-    Ctx  *c     = w->ctx;
-    Queue *q    = &c->queue;
-    i64   start = c->opt->stats ? os_clock(c->os) : 0;
+    Ctx *c     = w->ctx;
+    i64  start = c->opt->stats ? os_clock(c->os) : 0;
     for (i32 attempt = 0;;) {
-        Item *it = popitem(q);
-        if (!it) {
-            if (!__atomic_load_n(&q->pending, __ATOMIC_ACQUIRE)) {
-                break;
-            }
+        i32 r = workstep(w);
+        if (r == STEP_DONE) {
+            break;
+        } else if (r == STEP_WAIT) {
             os_backoff(c->os, attempt++);
-            continue;
-        }
-        attempt = 0;
-        if (it->type == ITEM_DIR) {
-            visitdir(w, it);
         } else {
-            visitfile(w, it);
+            attempt = 0;
         }
-        __atomic_fetch_sub(&q->pending, 1, __ATOMIC_RELEASE);
     }
     if (c->opt->stats) {
         w->busy = os_clock(c->os) - start;
     }
-    sortlines(w);
+    workend(w);
 }

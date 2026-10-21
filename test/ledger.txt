@@ -1,12 +1,15 @@
 # Deliberate differences from Universal Ctags 6.2.1, by test scope.
 #
 # "@ SCOPE: reason" starts an entry, where SCOPE is a glob over test
-# names (units/CATEGORY/CASE/MODE, corpus/NAME). Its lines follow:
-# "- LINE" for a tag Universal Ctags writes and we do not, "+ LINE" for
-# one we write and it does not, with literal tabs. "= N PATH" explains
-# exactly N such lines in the file PATH, for wholesale differences.
-# Every line of an entry whose scope matches must occur, or the entry is
-# stale.
+# names (units/CATEGORY/CASE/MODE, corpus/NAME, corpus-fmt/NAME/SET).
+# Its lines follow: "- LINE" for a tag Universal Ctags writes and we do
+# not, "+ LINE" for one we write and it does not, with literal tabs.
+# "= N PATH" explains exactly N such lines in the file PATH, for
+# wholesale differences; in an ordered comparison, a file's divergence
+# in order is one more. Every line of an entry whose scope matches must
+# occur, or the entry is stale. The fmt and corpus-fmt tests compare
+# only tags on which their base runs (without the format options)
+# agree, so an entry for the base runs must not match their scopes.
 
 @ corpus/llama: D2, a .h.in file is a header, so its tags are not file:
 = 4 ggml/src/ggml-et/cmake/ggml-et-uberkernel-kernel-map.h.in
@@ -1676,13 +1679,17 @@
 - z	flang/test/Semantics/separate-mp02.f90	/^      real :: z(/;"	v	line:30	module:subroutine
 - z	flang/test/Semantics/separate-mp02.f90	/^      real x(0:), y(:), z(/;"	v	line:39	module:subroutine
 
-@ units/parser-fortran.r/fortran-submodule.d/*: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
+@ units/parser-fortran.r/fortran-submodule.d/default: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
 + g3	input.f90	/^    module function g3(/;"	f	line:22
 - function	input.f90	/^    module function /;"	m	line:22
 - x	input.f90	/^        integer :: x,/;"	v	line:23	module:function
 - y	input.f90	/^        integer :: x,y$/;"	v	line:23	module:function
 
 @ units/parser-fortran.r/fortran-submodule.d/allkinds: F2, MODULE before FUNCTION or SUBROUTINE (and prefixes or a type) is a prefix: no more modules named function or subroutine with the dummies as their variables, interfaces of separate module procedures no longer end early, and the units after them get their tags and scopes back. MODULE PROCEDURE bodies still end a module early (Universal Ctags bug, kept), so some recovered subprograms after them have no scope.
++ g3	input.f90	/^    module function g3(/;"	f	line:22
+- function	input.f90	/^    module function /;"	m	line:22
+- x	input.f90	/^        integer :: x,/;"	v	line:23	module:function
+- y	input.f90	/^        integer :: x,y$/;"	v	line:23	module:function
 + x	input.f90	/^        integer :: x,/;"	L	line:23	function:g3	file:
 + y	input.f90	/^        integer :: x,y$/;"	L	line:23	function:g3	file:
 

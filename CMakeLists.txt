@@ -97,6 +97,13 @@ if(NOT CMAKE_CROSSCOMPILING OR (CMAKE_HOST_WIN32 AND WIN32))
   # Differential testing against Universal Ctags (a hosted tool, with a
   # C runtime, like a compiler's test harness)
   add_executable(tagdiff test/tagdiff.cpp)
+  add_test(NAME harness/tagdiff COMMAND ${CMAKE_COMMAND}
+    -DTAGDIFF=$<TARGET_FILE:tagdiff>
+    -DWORK=${PROJECT_BINARY_DIR}/work/harness/tagdiff
+    -P ${PROJECT_SOURCE_DIR}/cmake/tagdiff_test.cmake)
+  add_test(NAME harness/caseopts COMMAND ${CMAKE_COMMAND}
+    -P ${PROJECT_SOURCE_DIR}/cmake/caseopts_test.cmake)
+  set_tests_properties(harness/tagdiff harness/caseopts PROPERTIES LABELS unit)
   include(cmake/units.cmake)
   include(cmake/corpus.cmake)
   if(ctags_units_ok)

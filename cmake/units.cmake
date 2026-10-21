@@ -2,8 +2,11 @@
 # (Units/), which are GPL-2, so they are extracted from its source
 # tarball into the build tree and never copied into this repository.
 # Each case runs in modes: "default" (no options), "allkinds" (every kind
-# enabled), and "args" (the case's own --kinds options, when it has any).
-# Differences must be explained in test/ledger.txt.
+# enabled), "args" (the case's own options that change which tags exist,
+# when it has any), and "fmt" (also its options that change only how
+# they are written, compared tag by tag against the "args" run). See
+# runcase.cmake and caseopts.cmake. Differences must be explained in
+# test/ledger.txt.
 
 set(CTAGS_UCTAGS_TARBALL "$ENV{USERPROFILE}/src/w64devkit/source/ctags-6.2.1.tar.gz"
   CACHE FILEPATH "Universal Ctags 6.2.1 source tarball, for its test inputs")
@@ -48,7 +51,7 @@ foreach(cat IN LISTS ctags_units_cats)
     ${ctags_units_dir}/ctags-6.2.1/Units/${cat}/*.b)
   foreach(case IN LISTS cases)
     get_filename_component(name ${case} NAME)
-    foreach(mode IN ITEMS default allkinds args)
+    foreach(mode IN ITEMS default allkinds args fmt)
       set(test units/${cat}/${name}/${mode})
       add_test(NAME ${test} COMMAND ${CMAKE_COMMAND}
         -DUCTAGS=${CTAGS_UCTAGS}

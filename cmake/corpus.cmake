@@ -2,7 +2,8 @@
 #   $ cmake -B build -DCTAGS_CORPUS_LLAMA=~/src/llama.cpp -DCTAGS_CORPUS_LLVM=~/src/llvm-project
 # llama.cpp is one test, corpus/llama; llvm-project one per top-level
 # directory, corpus/llvm/NAME. Each runs Universal Ctags and ctags with
-# -R from the tree's root and compares, against test/ledger.txt.
+# -R from the tree's root and compares, against test/ledger.txt. With
+# format options, each is also corpus-fmt/NAME/SET (label corpus-fmt).
 
 set(CTAGS_CORPUS_LLAMA "" CACHE PATH "llama.cpp source tree, for corpus tests")
 set(CTAGS_CORPUS_LLVM  "" CACHE PATH "llvm-project source tree, for corpus tests")
@@ -10,6 +11,25 @@ set(CTAGS_CORPUS_ONLY  "" CACHE STRING
   "Compare only these kinds in corpus tests, e.g. C:d,C++:d (empty for all)")
 option(CTAGS_CORPUS_REUSE_REF
   "Reuse Universal Ctags' output from an earlier run (faster; stale if the tree changes)" OFF)
+
+# Format option sets, run with the label corpus-fmt, each compared tag
+# by tag (tagdiff --base) against the default run of the same tree. The
+# set NAME gives both tools the options ctags_fmt_NAME, and tagdiff the
+# flags ctags_fmt_NAME_diff. Sets listed in ctags_fmt_sets run on
+# llama.cpp, those in ctags_fmt_llvm on llvm-project. A set with -e also
+# gets --tag-relative=no, so that TAGS paths start at the tree's root as
+# the base's do (ctags_keyedopts in caseopts.cmake). For example:
+#   set(ctags_fmt_sortno --sort=no)
+#   set(ctags_fmt_sortno_diff --ordered)
+#   list(APPEND ctags_fmt_sets sortno)
+set(ctags_fmt_sets "")
+set(ctags_fmt_llvm "")
+
+# A list as one argument of add_test
+function(ctags_listarg var)
+  string(REPLACE ";" "$<SEMICOLON>" r "${ARGN}")
+  set(${var} "${r}" PARENT_SCOPE)
+endfunction()
 
 function(ctags_corpus_test name root dir)
   add_test(NAME corpus/${name} COMMAND ${CMAKE_COMMAND}
@@ -28,8 +48,37 @@ function(ctags_corpus_test name root dir)
     LABELS corpus TIMEOUT 1800 PROCESSORS 4)
 endfunction()
 
+# The tree as corpus/NAME, with the option set OPTSET, based on the run
+# of corpus/NAME, which goes first when both run
+function(ctags_corpus_fmt_test name root dir optset)
+  set(test corpus-fmt/${name}/${optset})
+  ctags_listarg(args ${ctags_fmt_${optset}})
+  ctags_listarg(diff ${ctags_fmt_${optset}_diff})
+  add_test(NAME ${test} COMMAND ${CMAKE_COMMAND}
+    -DUCTAGS=${CTAGS_UCTAGS}
+    -DOURS=$<TARGET_FILE:ctags>
+    -DTAGDIFF=$<TARGET_FILE:tagdiff>
+    -DROOT=${root}
+    -DDIR=${dir}
+    "-DARGS=${args}"
+    "-DDIFF=${diff}"
+    -DBASE=${PROJECT_BINARY_DIR}/work/corpus/${name}
+    -DSCOPE=${test}
+    -DONLY=${CTAGS_CORPUS_ONLY}
+    -DREUSE=${CTAGS_CORPUS_REUSE_REF}
+    -DLEDGER=${PROJECT_SOURCE_DIR}/test/ledger.txt
+    -DWORK=${PROJECT_BINARY_DIR}/work/${test}
+    -P ${PROJECT_SOURCE_DIR}/cmake/runcorpus.cmake)
+  set_tests_properties(${test} PROPERTIES
+    LABELS "corpus;corpus-fmt" TIMEOUT 1800 PROCESSORS 4
+    DEPENDS corpus/${name})
+endfunction()
+
 if(CTAGS_CORPUS_LLAMA AND ctags_units_ok)
   ctags_corpus_test(llama ${CTAGS_CORPUS_LLAMA} .)
+  foreach(optset IN LISTS ctags_fmt_sets)
+    ctags_corpus_fmt_test(llama ${CTAGS_CORPUS_LLAMA} . ${optset})
+  endforeach()
 endif()
 
 if(CTAGS_CORPUS_LLVM AND ctags_units_ok)
@@ -38,14 +87,20 @@ if(CTAGS_CORPUS_LLVM AND ctags_units_ok)
   foreach(top IN LISTS tops)
     if(IS_DIRECTORY ${CTAGS_CORPUS_LLVM}/${top} AND NOT top STREQUAL ".git")
       ctags_corpus_test(llvm/${top} ${CTAGS_CORPUS_LLVM} ${top})
+      foreach(optset IN LISTS ctags_fmt_llvm)
+        ctags_corpus_fmt_test(llvm/${top} ${CTAGS_CORPUS_LLVM} ${top} ${optset})
+      endforeach()
     endif()
   endforeach()
 endif()
 
-# The fast paths and threads must not change the output (label "same")
+# The fast paths and threads must not change the output (label "same"),
+# also with the options after OPTS given to both runs
 function(ctags_same_test name root opts)
+  ctags_listarg(base ${ARGN})
   add_test(NAME same/${name} COMMAND ${CMAKE_COMMAND}
     -DOURS=$<TARGET_FILE:ctags> -DROOT=${root} -DOPTS=${opts}
+    "-DBASEOPTS=${base}"
     -DWORK=${PROJECT_BINARY_DIR}/work/same/${name}
     -P ${PROJECT_SOURCE_DIR}/cmake/runsame.cmake)
   set_tests_properties(same/${name} PROPERTIES
