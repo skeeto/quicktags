@@ -1143,6 +1143,41 @@ static void test_walk(Test *t)
         expect(t, "trel nocwd no", tagfiles(&a, r.out), "a=a.c");
     }
     {
+        // From a root, which the system names with its separator, "/" or
+        // "C:\", unlike any other directory
+        Os *os = newos(&a);
+        os->cwd = "/";
+        vfsfile(os, "home/u/w/a.c",     "int a;\n");
+        vfsfile(os, "home/u/w/sub/b.c", "int b;\n");
+        TrelCase cases[] = {
+            {"-", "--tag-relative=never home/u/w/a.c",   0, "a=/home/u/w/a.c", ""},
+            {"-", "--tag-relative ./home/u/w/a.c",       0, "a=home/u/w/a.c",  ""},
+            {"-", "--tag-relative=always /home/u/w/a.c", 0, "a=home/u/w/a.c",  ""},
+            {"home/u/w/sub/tags", "--tag-relative=always /home/u/w/a.c",
+                                  0, "a=../a.c", ""},
+        };
+        runtrel(t, os, cases, countof(cases));
+
+        os = newos(&a);
+        os->windows = 1;
+        os->cwd     = "C:\\";
+        vfsfile(os, "Users/u/w/a.c",     "int a;\n");
+        vfsfile(os, "Users/u/w/sub/b.c", "int b;\n");
+        TrelCase wcases[] = {
+            {"-", "--tag-relative=never Users\\u\\w\\a.c",
+                  0, "a=C:/Users/u/w/a.c", ""},
+            {"-", "--tag-relative=never \\Users\\u\\w\\a.c",
+                  0, "a=C:/Users/u/w/a.c", ""},
+            {"-", "--tag-relative .\\Users\\u\\w\\a.c",
+                  0, "a=Users/u/w/a.c", ""},
+            {"-", "--tag-relative=always C:\\Users\\u\\w\\a.c",
+                  0, "a=Users/u/w/a.c", ""},
+            {"Users\\u\\w\\sub\\tags", "--tag-relative=always C:/Users/u/w/a.c",
+                                       0, "a=../a.c", ""},
+        };
+        runtrel(t, os, wcases, countof(wcases));
+    }
+    {
         Os *os = newos(&a);
         os->windows = 1;
         os->cwd     = "C:\\Users\\u\\w";

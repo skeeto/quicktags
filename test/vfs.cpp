@@ -17,7 +17,7 @@ struct VNode {
 struct Os {
     Arena *a;        // for the file system and captured output
     VNode  root;     // the current directory
-    Str    cwd;      // its absolute path, without a final separator
+    Str    cwd;      // its absolute path, ending in a separator at a root
     Str    input;    // standard input
     Buf    out;      // fd 1
     Buf    err;      // fd 2

@@ -105,6 +105,7 @@ W32(uz,     FindFirstFileExW(c16 *, i32, FindData *, i32, uz, i32));
 W32(b32,    FindNextFileW(uz, FindData *));
 W32(c16 *,  GetCommandLineW());
 W32(b32,    GetConsoleMode(uz, i32 *));
+W32(i32,    GetCurrentDirectoryW(i32, c16 *));
 W32(b32,    GetFileAttributesExW(c16 *, i32, FileAttributes *));
 W32(b32,    GetFileSizeEx(uz, i64 *));
 W32(i32,    GetFileType(uz));
@@ -482,16 +483,17 @@ static Str os_stdin(Os *, Arena *a)
     }
 }
 
-// The full path of ".", asking first for its length.
+// The current directory as the system holds it, asking first for its
+// size. Not GetFullPathNameW("."), which at a drive's root asks for too
+// small a buffer, then given that, writes the drive alone, "C:".
 static Str os_cwd(Os *, Arena *a)
 {
-    c16 dot[] = {'.', 0};
-    i32 cap   = GetFullPathNameW(dot, 0, 0, 0);
+    i32 cap = GetCurrentDirectoryW(0, 0);  // with the terminator
     if (cap <= 0) {
         return {};
     }
     c16 *buf = alloc<c16>(a, cap);
-    i32  len = GetFullPathNameW(dot, cap, buf, 0);
+    i32  len = GetCurrentDirectoryW(cap, buf);
     return len>0 && len<cap ? fromwide(a, buf, len) : Str{};
 }
 
