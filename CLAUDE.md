@@ -21,11 +21,25 @@ ctest --test-dir build -j24 -L units       # differential, Universal Ctags Units
 ctest --test-dir build -j24 -R units/parser-c.r/c-sample.d --output-on-failure
 ```
 
+- Units modes (`cmake/runcase.cmake`): `default`, `allkinds`, `args` (a
+  case's options that change which tags exist) and `fmt` (also those that
+  change only how tags are written, compared by key against the `args`
+  run; skipped while it keeps none). `cmake/caseopts.cmake` holds the
+  strip and keep lists, and the `--fields` filter, that milestones extend.
+- `tagdiff` (`test/tagdiff.cpp`, tested by `harness/tagdiff`): `--ordered`
+  compares order and duplicates too, `--base REFBASE OURSBASE` compares
+  only tags whose lines agree in two base runs, keyed by name, file and
+  line, and `--etags` reads TAGS files.
 - Corpus tests (opt-in): configure with `-DCTAGS_CORPUS_LLAMA=~/src/llama.cpp
   -DCTAGS_CORPUS_LLVM=~/src/llvm-project -DCTAGS_CORPUS_REUSE_REF=ON`, then
   `ctest -L corpus` (corpus/llama, corpus/llvm/TOPDIR). `CTAGS_UNITS_ONLY`
   and `CTAGS_CORPUS_ONLY` (e.g. `C:d,C++:d` or `Fortran:*`) restrict the
-  comparison to some kinds while a parser is incomplete.
+  comparison to some kinds while a parser is incomplete. `-L corpus-fmt`
+  runs the option sets in `cmake/corpus.cmake` against the default runs
+  (`tagdiff --base`); `ctags_same_test` takes options for both runs.
+- `parallel_test` drives the test platform's scheduler: with `os->seed`
+  set, `os_parallel` runs `workstep` on random live workers, so items
+  spread as with threads. Its modes list takes one line per mode.
 - Tag cases (`TagCase` in `main_test.cpp`) are the main unit tests of the
   parsers: a source, options, and exact output. `cases/uctags` exports
   them and checks SHARED ones against Universal Ctags' real output.
