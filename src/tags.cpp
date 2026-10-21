@@ -246,10 +246,12 @@ static b32 wantfield(File *f, i32 field)
     return fmt && !fmt->nofields && fieldon(fmt->fields, field);
 }
 
+// Would a reader end a field or the line inside it: at a tab, a
+// newline, or a NUL, which ends a C string (X4)?
 static b32 hasbreak(Str s)
 {
     for (iz i = 0; i < s.len; i++) {
-        if (s[i]=='\t' || s[i]=='\n') {
+        if (s[i]=='\t' || s[i]=='\n' || !s[i]) {
             return 1;
         }
     }
@@ -271,7 +273,7 @@ static void beginfield(Buf *b, b32 *any, Str key)
 // then the enabled fields in Universal Ctags' order (FLD-4), the first
 // after ;", which unlike Universal Ctags includes the parser's (D10).
 // E-ctags writes names, paths, scopes, and signatures as they are, so it
-// drops tags it could not write that way (FLD-6).
+// drops tags it could not write that way (FLD-6), also for a NUL (X4).
 static void tagline(File *f, Tag *t)
 {
     Source *src = f->src;

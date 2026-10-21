@@ -849,6 +849,14 @@ static TagCase cxxcases[] = {
      "K\te.cpp\t/^class K : public X<\"a\\\\\\\\b\"> {};$/;\"\tc\tline:3\tfile:\tinherits:X<\"a\\\\\\\\b\">\n"
      "f\te.cpp\t/^void f(const char *s = \"x\\\\\\\\y\") {}$/;\"\tf\tline:1\ttyperef:typename:void\tsignature:(const char * s=\"x\\\\y\")\n",
      ""},
+    {IMPROVED, "X4 FLD-6 e-ctags NUL in a signature", "n.cpp",
+     "--fields=+S --output-format=e-ctags",
+     "int a;\n"
+     "void f(char c = '\0', int d) {}\n"
+     "int b;\n",
+     "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "b\tn.cpp\t/^int b;$/;\"\tv\tline:3\ttyperef:typename:int\n",
+     "a\tn.cpp\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n"},
 };
 
 static void test_c(Test *t)

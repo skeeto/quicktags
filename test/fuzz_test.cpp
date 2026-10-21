@@ -233,6 +233,9 @@ static Str fuzzlint(Str out, Str src, Lint *x)
             return "lines not sorted and unique";
         }
         prev = l;
+        if (cut(l, 0).ok) {
+            return "a NUL byte";  // a reader would end the line there
+        }
         Cut name = cut(l, '\t');
         Cut file = cut(name.tail, '\t');
         if (!name.ok || !name.head.len) {
@@ -391,13 +394,14 @@ static b32 fuzzexpect(Test *t, Fuzzed r, char const *what, i32 i, Str file,
 }
 
 // Inputs the checks once got wrong, each tagged with every option set:
-// field values holding ;" before a tab.
+// field values holding ;" before a tab, and a NUL written as it is.
 static struct {
     Str file;
     Str src;
 } fuzzseeds[] = {
-    {"f.h", "class K : Y<\"x;\" {};\n"},
-    {"f.c", "typedef struct node\"nde, *nodeptr;\" z;\n"},
+    {"f.h",   "class K : Y<\"x;\" {};\n"},
+    {"f.c",   "typedef struct node\"nde, *nodeptr;\" z;\n"},
+    {"f.cpp", "void f(char c = '\0', int d) {}\n"},
 };
 
 #ifndef FUZZRUNS

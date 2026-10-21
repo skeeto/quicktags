@@ -230,6 +230,9 @@ static void test_output(Test *t)
                fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt),
                "f\tx.cpp\t/^  int *f() {}$/;\"\tinherits:B\\\\\\t"
                "\tsignature:(c='\\\\')\n");
+        tag.signature = "(c='\0')";  // literals keep embedded NULs
+        expect(t, "e-ctags signature NUL",
+               fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");
         tag.signature = "(s=\"\t\")";
         expect(t, "e-ctags signature tab",
                fmttag(&a, "x.cpp", LANG_CXX, text, tag, &fmt), "");

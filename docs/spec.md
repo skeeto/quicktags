@@ -465,7 +465,7 @@ depends on how far the walk had read when the label was seen. Our
 - **FLD-6 [S][V] `--output-format=e-ctags`** (`writer-ctags.c eCtagsWriter`), Exuberant Ctags' flavor of the format:
   - The name, the file field, the scope name and the signature (FLD-8) are written as they are, not escaped (FLD-2), but the typeref, the base classes (FLD-9) and the parser's fields still are.
   - On Windows the file field keeps the backslashes of the path as given (`sub\deep\z.c`, `.\sub/y.c` for `-R .\sub`), which Universal Ctags' own writer turns into `/` (DISC-5).
-  - A tag whose name or file holds a tab or a newline, or with `--format=2` its scope name (with `s`) or signature (with `S`), or an enabled parser field, is dropped: it could not be read back.
+  - A tag whose name or file holds a tab or a newline, or with `--format=2` its scope name (with `s`) or signature (with `S`), or an enabled parser field, is dropped: it could not be read back. Here a NUL drops it too (X4), since a reader ends the line there: `void f(char c = '\0') {}` with a real NUL byte in the quotes loses `f` while `S` is enabled. Universal Ctags has none in its values, since it drops the rest of a line after a NUL.
   - The pseudo-tags say `e-ctags`, and on Windows `backslash` (PT-4).
 - **FLD-7 [S][V] `access:` of C and C++ tags** (`cxx_tag.c`, `cxx_scope.c`). A tag begun inside a scope takes the access its innermost scope has at that moment: `public`, `private` or `protected`.
   - A class body begins `private`, a struct, union or enum body `public`, and an access label (`protected:`) changes it for the rest of that body. C is no different: its members and enumerators say `public`.
@@ -478,7 +478,7 @@ depends on how far the walk had read when the label was seen. Our
   - Then ` const` when the function is `const` (`() const`), but nothing else that follows the list: not `volatile`, `&`, `noexcept`, `override` or `= 0`.
   - A K&R definition (CXX-4) gets its list of names, spaced as a type name: `(a,b)`.
   - A lambda (CXX-10) with a parameter list gets that list as written, not respaced, so with the source's spaces, and a space after the `)` when one follows it: `(int a, int b) ` for `[](int a, int b) { ... }`, but `(int q)` for `[](int q){ ... }`. A lambda without one (`[]{}`) gets none.
-  - The value is escaped as a scope name is (FLD-2): `(const char * s="x\\\\y")` for `"x\\y"`. E-ctags writes it as it is, and drops a tag whose signature holds a tab or a newline (from a string literal in a default argument) while the field is enabled, as for a scope (FLD-6).
+  - The value is escaped as a scope name is (FLD-2): `(const char * s="x\\\\y")` for `"x\\y"`. E-ctags writes it as it is, and drops a tag whose signature holds a tab or a newline (from a string literal in a default argument), or here a NUL (X4), while the field is enabled, as for a scope (FLD-6).
 - **FLD-9 [S][V] `inherits:` of C and C++ classes, structs and unions** (`cxx_parser.c`), with a base clause, between `:` and `{` (CXX-6). The keywords `public`, `protected`, `private` and `virtual` are dropped, and the rest is joined without spaces, but a bracketed group, `(...)` or `[...]`, keeps the spaces inside it and after its closing bracket. Angle brackets are not groups.
   - `: public Base, protected virtual S2, private Tm<unsigned int>` gives `Base,S2,Tm<unsignedint>`; `: std::vector<std::pair<int, int> >` gives `std::vector<std::pair<int,int>>`; `: decltype(foo()) {` gives `decltype(foo()) ` with the space before `{`.
   - The value is escaped as a scope name is, also by e-ctags, which keeps a tag whose base clause holds a tab.
@@ -922,7 +922,9 @@ Decided for this program, deliberately different from Universal Ctags.
 - **X3** A `'` digit separator applies only inside numbers, so `u8'x'`
   is a character literal.
 - **X4** NUL is ordinary data, not the end of a line, and ends a pattern
-  without the `$` anchor.
+  without the `$` anchor. Field values escape it as `\x00`, but e-ctags,
+  which writes a signature as it is, drops a tag whose signature holds
+  one (FLD-6), as it does for a tab, so it never writes a NUL byte.
 - **X5** Bytes 0x80 and above are identifier characters.
 - **X6** `_Pragma(...)` and MSVC's `__pragma(...)` are dropped like
   `__attribute__(...)`, so pragmas between a declaration's parts do not
