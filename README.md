@@ -1,8 +1,9 @@
-# ctags
+# quicktags
 
-A fast ctags for C, C++, and Fortran, made for [w64devkit][] and Vim. Its
-tags files match [Universal Ctags][] 6.2.1 where that is correct, with a
-`line:` field on each tag, and fix a number of its mistakes.
+Quicktags is a fast ctags for C, C++, and Fortran, made to replace
+[Universal Ctags][] in [w64devkit][], for Vim. It installs as `ctags`,
+and its tags files match Universal Ctags 6.2.1 where that is correct,
+with a `line:` field on each tag, and fix a number of its mistakes.
 
     $ ctags -R
     $ ctags --kinds-C=+p -f tags.local src
@@ -26,14 +27,15 @@ adding to their stale ones. `--exclude`, `-L` file lists, `--languages`,
 work as in Universal Ctags. Files are tagged by extension, as Universal
 Ctags does.
 
-On a 24-thread machine it tags llama.cpp in 0.1 seconds and llvm-project
+On a 24-thread machine quicktags tags llama.cpp in 0.1 seconds and llvm-project
 (800 MB in 77,000 files) in 1.3 seconds, where Universal Ctags takes 5
 and 39 seconds. Where it departs from Universal Ctags, and why, is in
 `docs/spec.md`, section 4.
 
 ## Build
 
-No dependencies, and on Windows no C runtime:
+No dependencies, and on Windows no C runtime. The program is named
+`ctags`, as editors and scripts expect:
 
     $ c++ -std=c++20 -O2 -nostartfiles -static-libgcc -Wl,--stack,0x800000 -s -o ctags.exe main_win32.cpp
     $ c++ -std=c++20 -O2 -pthread -o ctags main_posix.cpp
