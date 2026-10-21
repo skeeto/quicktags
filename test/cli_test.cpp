@@ -364,7 +364,7 @@ static void test_cli(Test *t)
         {"-e a",          FATAL, "ctags: -e: not yet supported\n"},
         {"-n a",          OK,    ""},
         {"-N a",          OK,    ""},
-        {"-u a",          FATAL, "ctags: --sort: not yet supported\n"},
+        {"-u a",          OK,    ""},
         {"-L x",          FATAL, "ctags: cannot open list file \"x\" : No "
                                  "such file or directory\n"},
         {"-L x -L y",     FATAL, "ctags: Warning: -L option specified more "
@@ -404,8 +404,13 @@ static void test_cli(Test *t)
                                        "option: combinex\n"},
         {"--sort=yes a",        OK,    ""},
         {"--sort=1 a",          OK,    ""},
-        {"--sort=no a",         FATAL, "ctags: --sort: not yet supported\n"},
-        {"--sort=FOLD a",       FATAL, "ctags: --sort: not yet supported\n"},
+        {"--sort=no a",         OK,    ""},
+        {"--sort=Off a",        OK,    ""},
+        {"--sort=FOLD a",       OK,    ""},
+        {"--sort=f a",          OK,    ""},
+        {"--sort=foldcase a",   OK,    ""},
+        {"--sort=folded a",     FATAL, "ctags: Invalid value for \"sort\" "
+                                       "option\n"},
         {"--sort a",            FATAL, "ctags: Invalid value for \"sort\" "
                                        "option\n"},
         {"--sort=x a",          FATAL, "ctags: Invalid value for \"sort\" "

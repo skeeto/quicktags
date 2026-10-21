@@ -563,6 +563,48 @@ static void test_walk(Test *t)
         }
     }
     {
+        // Unsorted, each file's tags as its parser made them, the files
+        // in the walk's order: the arguments, then the -L entries, each
+        // directory depth-first in listing order, and nothing dropped
+        // (SORT-4). Folded, letters as uppercase, ties by bytes (SORT-3).
+        Os *os = newos(&a);
+        vfsfile(os, "z.c", "int zb;\nint za;\n");
+        vfsfile(os, "d/y.c", "int y;\n");
+        vfsfile(os, "d/e/x.c", "int x;\n");
+        vfsfile(os, "d/w.c", "int w;\n");
+        vfsfile(os, "a.c", "int B, a, _c, A, b;\n");
+        vfsfile(os, "list", "a.c\nd/e\n");
+        struct { Str args, want; } orders[] = {
+            {"-u z.c d a.c z.c",       "zb za y x w B a _c A b zb za"},
+            {"--sort=no -L list z.c",  "zb za B a _c A b x"},
+            {"--sort=no -R",           "zb za y x w B a _c A b"},
+            {"z.c d a.c z.c",          "A B _c a b w x y za zb"},
+            {"--sort=foldcase a.c z.c", "A a B b za zb _c"},
+            {"--sort=f -u a.c",        "B a _c A b"},
+        };
+        for (iz i = 0; i < countof(orders); i++) {
+            for (u64 seed = 0; seed <= 4; seed++) {
+                os->seed = seed;
+                Str args = concat(&a, "--jobs=3 -f - ", orders[i].args);
+                Run r    = run(os, a, args);
+                expect(t, args, num(&a, r.status), "0");
+                expect(t, args, tagnames(&a, r.out), orders[i].want);
+            }
+        }
+        os->seed = 0;
+
+        // The header says how
+        Str sorted[] = {"--sort=no", "-u", "--sort=yes", "--sort=foldcase"};
+        Str want[]   = {"0", "0", "1", "2"};
+        for (iz i = 0; i < countof(sorted); i++) {
+            Str args = concat(&a, sorted[i], " a.c");
+            run(os, a, args);
+            Str got  = vfsfind(os, "tags", 0)->data;
+            Str line = concat(&a, "!_TAG_FILE_SORTED\t", want[i]);
+            expect(t, args, num(&a, find(got, line)>=0), "1");
+        }
+    }
+    {
         Os *os = newos(&a);
         Run r = run(os, a, "--help");
         Str s = r.out.len ? r.out : r.err;

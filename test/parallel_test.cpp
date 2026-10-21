@@ -93,6 +93,10 @@ static void test_parallel(Test *t)
         "--fields=+iaSmlKzZEr --extras=+q",
         "--excmd=combine --output-format=e-ctags",
         "--tag-relative=never --fields=+iaSK -n",
+        "--sort=no",
+        "-u --extras=+q --fields=+K",
+        "--sort=foldcase",
+        "--sort=foldcase --extras=+q",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;
@@ -134,11 +138,16 @@ static void test_parallel(Test *t)
                   "No such file or directory\n"
                   "ctags: Warning: cannot open input file \"src/aa.c\" : "
                   "No such file or directory\n";
+    os->seed = 0;
+    Run unsorted = run(os, a, "--jobs=1 -u -L list -f -");
     for (u64 seed = 0; seed <= 8; seed++) {
         os->seed = seed;
         Run r = run(os, a, "--jobs=3 -L list -f -");
         expect(t, "list", r.out, first.out);
         expect(t, "list", r.err, missing);
+        r = run(os, a, "--jobs=3 -u -L list -f -");
+        expect(t, "unsorted list", r.out, unsorted.out);
+        expect(t, "unsorted list", r.err, missing);
     }
     os->seed = 0;
 }

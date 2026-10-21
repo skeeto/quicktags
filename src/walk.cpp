@@ -14,6 +14,7 @@ enum : iz { FILEMAX = (iz)64<<20 };  // larger files are skipped
 struct Item {
     Item *next;
     Str   path;    // as constructed: the input to anonymous names
+    Str   key;     // its place in the walk's order, if output is ordered
     i32   type;
     i32   lang;
     b32   header;
@@ -33,9 +34,23 @@ struct Queue {
 struct Ctx {
     Os      *os;
     Options *opt;
-    Str      cwd;    // with --tag-relative: the current directory
-    Str      base;   // and the directory paths are relative to
+    Str      cwd;      // with --tag-relative: the current directory
+    Str      base;     // and the directory paths are relative to
+    b32      ordered;  // files' tags are written in the walk's order
     Queue    queue;
+};
+
+// One file's tags, for output in the walk's order: a span of its
+// worker's tag lines, as offsets until the worker finishes them.
+struct Chunk {
+    Chunk *next;
+    Str    key;      // the item's
+    Str    path;     // as constructed
+    Str    outpath;  // as the file field has it
+    Str    text;     // its lines, set when the worker is done
+    iz     beg;
+    iz     len;
+    iz     ntags;
 };
 
 struct alignas(64) Worker {
@@ -46,6 +61,8 @@ struct alignas(64) Worker {
     Buf    tags;
     Buf    log;
     Line  *lines;
+    Chunk *chunks;   // if ordered, one per file, last first
+    iz     nchunks;
     iz     nlines;
     iz     nfiles;
     i64    nbytes;
@@ -487,6 +504,19 @@ static void warn(Buf *log, Str msg, Str path, i32 err)
 
 // Workers
 
+// The order key of a directory's entry: its directory's key, then its
+// index in the listing, big-endian, so that keys compare as the walk
+// visits them, depth-first in listing order (DISC-2, SORT-4).
+static Str childkey(Arena *a, Str parent, u32 index)
+{
+    Str r = {allocbytes(a, parent.len+4), parent.len+4};
+    copybytes(r.data, parent.data, parent.len);
+    for (i32 i = 0; i < 4; i++) {
+        r[parent.len+i] = (u8)(index >> (24 - 8*i));
+    }
+    return r;
+}
+
 static Item *newitem(Arena *a, Str path, i32 type, Lang lang)
 {
     Item *it = alloc<Item>(a);
@@ -515,7 +545,8 @@ static void visitdir(Worker *w, Item *it)
     Item *last  = 0;  // of files, else of dirs
     Item *dlast = 0;
     iz    count = 0;
-    for (Dirent *d = l.head; d; d = d->next) {
+    u32   index = 0;
+    for (Dirent *d = l.head; d; d = d->next, index++) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
         if ((d->islink && c->opt->nolinks) ||
@@ -525,6 +556,7 @@ static void visitdir(Worker *w, Item *it)
         }
         if (d->isdir) {
             Item *n = newitem(&w->perm, path, ITEM_DIR, {});
+            n->key  = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
             n->next = dirs;
             dirs    = n;
             if (!dlast) dlast = n;
@@ -535,6 +567,7 @@ static void visitdir(Worker *w, Item *it)
                 continue;
             }
             Item *n = newitem(&w->perm, path, ITEM_FILE, lang);
+            n->key  = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
             n->next = files;
             files   = n;
             if (!last) last = n;
@@ -606,6 +639,20 @@ static void visitfile(Worker *w, Item *it)
     f.nofast = c->opt->nofast;
     parsefile(&f, tmp);
 
+    if (c->ordered) {
+        // The output path lives in scratch, so copy it out
+        Chunk *k = alloc<Chunk>(&w->perm);
+        k->key     = it->key;
+        k->path    = it->path;
+        k->outpath = clone(&w->perm, src.outpath);
+        k->beg     = f.mark;
+        k->len     = w->tags.len - f.mark;
+        k->ntags   = f.ntags;
+        k->next    = w->chunks;
+        w->chunks  = k;
+        w->nchunks++;
+    }
+
     w->nlines += f.ntags;
     w->nfiles++;
     w->nbytes += r.data.len;
@@ -663,7 +710,14 @@ static i32 workstep(Worker *w)
 // Finish a worker's output once all work is done.
 static void workend(Worker *w)
 {
-    sortlines(w);
+    if (!w->ctx->ordered) {
+        sortlines(w);
+        return;
+    }
+    Str text = finish(&w->tags);
+    for (Chunk *k = w->chunks; k; k = k->next) {
+        k->text = {text.data+k->beg, k->len};
+    }
 }
 
 static void work(Worker *w)

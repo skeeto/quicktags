@@ -1,27 +1,50 @@
 // Output: sorting, merging, and writing the tags file
 // This is free and unencumbered software released into the public domain.
 
+// Lines are ordered by bytes (SORT-1), or with fold, by bytes with
+// ASCII letters uppercased, then by bytes (SORT-3). Each order is its
+// own instance, so the default pays nothing for the other.
+
+static u8 foldbyte(u8 c)
+{
+    return c>='a' && c<='z' ? (u8)(c - 32) : c;
+}
+
+template<b32 fold>
 static u64 linekey(u8 *p, iz len)
 {
     u64 k = 0;
     for (iz i = 0; i < 8; i++) {
-        k = k<<8 | (i<len ? p[i] : 0);
+        u8 c = i<len ? p[i] : 0;
+        k = k<<8 | (fold ? foldbyte(c) : c);
     }
     return k;
 }
 
 // Byte-wise, unsigned, shorter first: strcmp() order, since lines hold
 // no NUL bytes. That is the order Vim's binary search expects, and the
-// order Universal Ctags writes.
+// order Universal Ctags writes. With fold, struppercmp() order, and
+// lines equal by it in strcmp() order.
+template<b32 fold>
 static b32 lineless(Line *a, Line *b)
 {
     if (a->key != b->key) {
         return a->key < b->key;
     }
     iz len = a->len<b->len ? a->len : b->len;
-    if (len > 8) {
+    if (!fold && len>8) {
         i32 d = __builtin_memcmp(a->data+8, b->data+8, (uz)(len-8));
         if (d) return d < 0;
+    } else if (fold) {
+        for (iz i = 8; i < len; i++) {
+            u8 x = foldbyte(a->data[i]);
+            u8 y = foldbyte(b->data[i]);
+            if (x != y) return x < y;
+        }
+    }
+    if (fold && a->len==b->len) {
+        i32 d = __builtin_memcmp(a->data, b->data, (uz)len);
+        return d < 0;
     }
     return a->len < b->len;
 }
@@ -33,7 +56,8 @@ static b32 lineequal(Line *a, Line *b)
 }
 
 // Index and sort a worker's lines, in its own thread.
-static void sortlines(Worker *w)
+template<b32 fold>
+static void sortlines_(Worker *w)
 {
     Str text = finish(&w->tags);
     w->lines = alloc<Line>(&w->perm, w->nlines);
@@ -44,11 +68,20 @@ static void sortlines(Worker *w)
         Line *l = w->lines + n++;
         l->data = text.data + i;
         l->len  = end - i;
-        l->key  = linekey(l->data, l->len);
+        l->key  = linekey<fold>(l->data, l->len);
         i = end + 1;
     }
     assert(n == w->nlines);
-    sort(w->lines, n, lineless, w->scratch);
+    sort(w->lines, n, lineless<fold>, w->scratch);
+}
+
+static void sortlines(Worker *w)
+{
+    if (w->ctx->opt->sort == SORT_FOLD) {
+        sortlines_<1>(w);
+    } else {
+        sortlines_<0>(w);
+    }
 }
 
 
@@ -102,19 +135,21 @@ struct Stream {
     Line *end;
 };
 
+template<b32 fold>
 static b32 streamless(Stream *s, i32 a, i32 b)
 {
-    return lineless(s[a].beg, s[b].beg);
+    return lineless<fold>(s[a].beg, s[b].beg);
 }
 
+template<b32 fold>
 static void siftdown(i32 *heap, i32 len, i32 i, Stream *s)
 {
     for (;;) {
         i32 least = i;
         i32 l     = 2*i + 1;
         i32 r     = l + 1;
-        if (l<len && streamless(s, heap[l], heap[least])) least = l;
-        if (r<len && streamless(s, heap[r], heap[least])) least = r;
+        if (l<len && streamless<fold>(s, heap[l], heap[least])) least = l;
+        if (r<len && streamless<fold>(s, heap[r], heap[least])) least = r;
         if (least == i) {
             return;
         }
@@ -126,6 +161,7 @@ static void siftdown(i32 *heap, i32 len, i32 i, Stream *s)
 }
 
 // Write the union of sorted streams in order, each distinct line once.
+template<b32 fold>
 static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
 {
     i32 *heap = alloc<i32>(&scratch, n);
@@ -136,7 +172,7 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
         }
     }
     for (i32 i = len/2 - 1; i >= 0; i--) {
-        siftdown(heap, len, i, s);
+        siftdown<fold>(heap, len, i, s);
     }
 
     iz    count = 0;
@@ -152,7 +188,37 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
         if (top->beg == top->end) {
             heap[0] = heap[--len];
         }
-        siftdown(heap, len, 0, s);
+        siftdown<fold>(heap, len, 0, s);
+    }
+    return count;
+}
+
+static b32 chunkless(Chunk **a, Chunk **b)
+{
+    return compare((*a)->key, (*b)->key) < 0;
+}
+
+// Write each file's lines as its parser made them, the files in the
+// walk's order (SORT-4), and return how many.
+static iz writechunks(Out *o, Worker *ws, i32 n, Arena scratch)
+{
+    iz total = 0;
+    for (i32 i = 0; i < n; i++) {
+        total += ws[i].nchunks;
+    }
+    Chunk **all = alloc<Chunk *>(&scratch, total);
+    iz      len = 0;
+    for (i32 i = 0; i < n; i++) {
+        for (Chunk *k = ws[i].chunks; k; k = k->next) {
+            all[len++] = k;
+        }
+    }
+    sort(all, len, chunkless, scratch);
+
+    iz count = 0;
+    for (iz i = 0; i < len; i++) {
+        print(o, all[i]->text);
+        count += all[i]->ntags;
     }
     return count;
 }
@@ -302,14 +368,22 @@ static b32 checkoutput(Os *os, Str path, Arena scratch, Buf *log)
     return 1;
 }
 
-static Stream *streams(Worker *ws, i32 n, Arena *a)
+// Write the workers' lines in the order the options ask, and return
+// how many.
+static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Arena scratch)
 {
-    Stream *s = alloc<Stream>(a, n);
+    if (opt->sort == SORT_NO) {
+        return writechunks(o, ws, n, scratch);
+    }
+    Stream *s = alloc<Stream>(&scratch, n);
     for (i32 i = 0; i < n; i++) {
         s[i].beg = ws[i].lines;
         s[i].end = ws[i].lines + ws[i].nlines;
     }
-    return s;
+    if (opt->sort == SORT_FOLD) {
+        return mergelines<1>(o, s, n, scratch);
+    }
+    return mergelines<0>(o, s, n, scratch);
 }
 
 // Write the merged lines to standard output, or to a new file that
@@ -317,11 +391,9 @@ static Stream *streams(Worker *ws, i32 n, Arena *a)
 static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
                      Arena scratch, Buf *log)
 {
-    Stream *s = streams(ws, n, &scratch);
-
     if (opt->output == "-") {
         Out *o = newout(os, &scratch, 1);
-        *count = mergelines(o, s, n, scratch);
+        *count = writelines(o, opt, ws, n, scratch);
         flush(o);
         if (o->err) {
             print(log, "ctags: error writing output\n");
@@ -355,7 +427,7 @@ static b32 writetags(Os *os, Options *opt, Worker *ws, i32 n, iz *count,
     if (opt->extras & EXTRA_PSEUDO) {
         print(o, pseudotags(os, opt, &scratch, log));
     }
-    *count = mergelines(o, s, n, scratch);
+    *count = writelines(o, opt, ws, n, scratch);
     flush(o);
     b32 ok = !o->err;
     ok &= os_close(os, 3);

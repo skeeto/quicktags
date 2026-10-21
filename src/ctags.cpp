@@ -198,8 +198,9 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     }
 
     Ctx ctx = {};
-    ctx.os  = os;
-    ctx.opt = &opt;
+    ctx.os      = os;
+    ctx.opt     = &opt;
+    ctx.ordered = opt.sort == SORT_NO;
     if (opt.tagrelative != TREL_NO) {
         // Paths are made relative to the tags file's directory (OPT-18)
         ctx.cwd = os_cwd(os, &g);
@@ -217,7 +218,8 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     }
 
     // The arguments are the roots of the work, or with none, "." itself,
-    // which is not checked for exclusion (DISC-1)
+    // which is not checked for exclusion (DISC-1). Their order keys are
+    // their indexes, the -L list's entries following the arguments.
     b32   dot     = !opt.files.len && !opt.listfile.data;
     iz    ninputs = dot ? 1 : opt.files.len;
     Item *roots   = alloc<Item>(&g, ninputs);
@@ -232,6 +234,7 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
             it->type   = ITEM_ARG;
             it->lang   = lang.lang;
             it->header = lang.header;
+            it->key    = ctx.ordered ? childkey(&g, {}, (u32)i) : Str{};
         }
     }
 
