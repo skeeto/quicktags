@@ -551,7 +551,7 @@ depends on how far the walk had read when the label was seen. Our
   - If that byte is `\n`, the line keeps its newline and gets `$`.
   - If the name is not found, the full line is used.
   - Examples: `/^#define f(a) f(/`, `/^# define A(...)   [ __VA_AR/`, `/^  subroutine sub1(/`.
-- **OUT-5 [V]** Emacs TAGS layout (`-e`), LF line endings: one section per input file, `\f\n<path>,<size>\n`, where the size counts the bytes of the entries after that line; each entry is `<text>\x7f<name>\x01<line>,<offset>\n`, with the line's text and the name always explicit.
+- **OUT-5 [V]** Emacs TAGS layout (`-e`), LF line endings: one section per input file, `\f\n<path>,<size>\n`, where the size counts the bytes of the entries after that line; each entry is `<text>\x7f<name>\x01<line>,<offset>\n`, with the line's text and the name always explicit. OPT-21 has the details.
 - **OUT-6 [S][V] `--excmd`** chooses the address (`entry.c initTagEntryFull`, `writer-ctags.c`); `-n` is `number` and `-N` is `pattern` (OPT-7).
   - `mixed`, the default: OUT-2.
   - `number`: the line number for every tag (`12;"`).
@@ -702,7 +702,7 @@ depends on how far the walk had read when the label was seen. Our
   - Its fields, each while enabled (FLD-5): the kind `F`, `file` with `K`, after `kind:` with `z`; `line:1`; `language:` with the parser's name, so `C++` for a `.h` file (LANG-4); `roles:def`; `extras:inputFile`; and `epoch:` (`T`, enabled by default), the file's last modification time, in seconds since 1970 UTC. No other tag has `epoch:`. Universal Ctags also writes `end:` (`e`) with the number of lines; here `e` writes nothing (section 4).
   - The other extras leave it alone: it is not dropped by `--extras=-F` or `--extras=-{anonymous}`, gets no qualified copy, and takes no anonymous number.
   - E-ctags (FLD-6) writes its name and file as they are, dropping it when either holds a tab or a newline, or here a NUL (X4).
-  - Files that are not tagged get none: those of no language or a disabled one, excluded, missing or unreadable ones, and directories. Here neither do files over 64 MiB (D7), nor files of languages this program does not parse, which Universal Ctags tags with an empty parser or its own (`--langdef=Foo --map-Foo=+.foo` gives `x.foo` one, of the language `Foo`).
+  - Files that are not tagged get none: those of no language or a disabled one, excluded, missing or unreadable ones, and directories. Here neither do files over 64 MiB (D7), nor files of languages this program does not parse, which Universal Ctags tags with an empty parser or its own (`--langdef=Foo --map-Foo=+.foo` gives `x.foo` one, of the language `Foo`), but under etags, where such files, and those of the language `Unknown` (OPT-12), get their sections and file tags as Universal Ctags writes them (OPT-21).
   - Universal Ctags reads the time with `stat` when it opens the file. On Windows, this build's C runtime converts the system's time to local time and back with the daylight saving offset in effect now, not then, so in summer a file last modified in winter gets an epoch an hour late [V]: `touch -t 202601151200` in New York, then `1768500000` for `1768496400`. Here the time is the system's, unconverted (D17).
 
 ### 1.12 Options
@@ -728,7 +728,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--param-CPreProcessor._expand` and `.if0` when true, and `.define`; `-D`; `--if0` and `--line-directives` when true;
   - `-G` and `--guess-language-eagerly` when true, which read files whose names match no language for modelines and the like, so that `-G` tags a file named `x` holding `/* vim: set ft=c: */` as C [V];
   - `-x`, `-B`, and `--output-format=xref`. `--output-format=json` is FATAL as in this build of Universal Ctags: `the output format "json" is not available on this platform`.
-- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` and `--output-format=etags`. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
+- **OPT-6 Not yet** (here). Every option the plan implements is parsed now, and once all are, a value that would change the output and is not yet implemented is FATAL `OPTION: not yet supported`: `-e` (or `--output-format=etags`) with `--sort=yes` or `foldcase` after it. The defaults are accepted silently, as are `-V`, `--verbose`, `--quiet`, `--totals[=yes|no|extra]`, `-F`, `-w`, `--recurse=no` and `--output-format=u-ctags`.
 
 **Values**
 - **OPT-7 [S][V]**
@@ -776,6 +776,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - `--langmap=default` restores every map. Otherwise items `LANG:[+]MAPS` separated by `,`: the language runs to the first `:` in the rest of the value; without `+` its map is first cleared; `LANG:default` (ignoring case) restores one map; each map is `.ext` (up to `.`, `(`, `,` or the end) or `(pattern)` (`\)` does not end it), and is taken from every other language. An unknown language warns with the whole value and ends the option; a bad map is FATAL `Badly formed language map for C language` or `Unterminated file name pattern for C language`.
   - `--map-LANG=[+|-]MAP` adds, removes, or replaces the map with one item, the rest ignored, without taking it from other languages. An empty value is FATAL `no parameter is given for map-C`.
   - `-h LIST`, `--languages`, `--language-force` and the maps act as LANG-6 says.
+  - `Unknown` (`parse.c FallbackParser`) is a language with no map and no tags, which takes every file that no enabled language takes. It is disabled until `-e` enables it (OPT-21), or `--languages` names it or `all`; replacing the list disables it, so `-e --languages=C` gives no section to a file of no language, and `--languages=C -e` does [V]. Here it acts only under etags: outside it, its files would get only file tags (EX-7), as other languages this program does not parse would.
   - `all` also enables the languages this program does not parse. Of those, ObjectiveC claims some `.h` files (LANG-4), and QtMoc (of C++) and JNI (of C and C++), enabled by default in Universal Ctags, add their tags to our files; the reference disables them all (P-1). Here, as in the reference, they never take a file or add a tag, whatever `--languages` says, so `--languages=all` and `--languages=+QtMoc` enable only our languages, of all they name, and those defined by `--langdef`, whose maps may take files (LANG-6).
   - `--langdef=NAME[{flags}]`: FATAL `No language specified for "langdef" option` when empty, `Language "X" already defined` for a known name, `"all" is reserved; don't use it as the name for defining a new language` (also `NONE`, exact case), and `don't use `_' in a language name (a_b)` for any character but a letter, digit, `+` or `#` (with `"'"` for a quote or backquote). The new language is enabled, with an empty map (LANG-6).
   - Its flags (`main/flags.c`, `parse.c processLanguageDefineOption`) start at the first `{`, each `{FLAG}` or `{FLAG=VALUE}`; text between them is ignored, `{{` ends them (a script follows), and a `{` without a `}` ends them with WARNING `long flags specifier opened with `{' is not closed `}': "FLAGS"`, FLAGS from the first `{` on.
@@ -812,7 +813,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
     - vim-clap requires the first line to start with `Universal Ctags`, which this does not.
 
 **Order of checks**
-- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check and OPT-6's checks follow.
+- **OPT-16 [S]** After the options: `-a` with output to stdout is FATAL `append mode is not compatible with tags to stdout`; then OPT-9's field checks; then the default output file; then, with no files and no `-L`, `-R` tags `.` or else it is FATAL (CLI-2). Here the `-L` list is read before them all (DISC-6), and OPT-5's `linkName` check and OPT-6's check follow.
 
 **Identifiers**
 - **OPT-17 [S][V] `-I LIST|@FILE|-`** (`options.c processIgnoreOption`, `cpreprocessor.c saveIgnoreToken`) fills a table of identifiers that the C and C++ tokenizer drops or replaces (LEX-14), each option acting as it is read.
@@ -856,6 +857,23 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - [V] On Windows, in a file whose lines end in LF alone, the flag's byte is found at a miscounted position, so the digit lands elsewhere (`!_TAG_FILE_SORTE0\t1` for `--sort=no`) or the flag is left as it was (`0` under `--sort=yes`), and the lines may be left out of order. A file with CRLF line ends is rewritten as the rule says.
   - Here the whole file is read into memory, where CR, LF and CRLF each end a line and blank lines are dropped, in every mode. Its order is checked by the mode's comparison, never taken from its flag: a file in order is merged as it is read, and one out of order is first sorted. The new lines are merged in, or under `--sort=no` follow the old, and the result, with LF line ends (section 4), is written to a new file that replaces the old, as without `-a`. The flag is rewritten as above, wherever the leading lines' line ends were LF or CRLF, blank lines among them ignored; the file is rewritten (sorted) even when no tag was added; and an empty file is written as a missing one is, with the pseudo-tags. A file too large for the memory the program reserves (about 1 GiB in a 32-bit process) stops the run before it is read, with `out of memory` and status 2.
   - Here the old lines of each file tagged in this run are dropped before the merge (D9): the lines not starting with `!_` whose second field, up to a tab or the line's end, is byte for byte the file field this run writes for one of the files it tags, whether or not that file has tags now. A file that is skipped, because it cannot be read or is too large (D7), is not tagged, and keeps its old lines. So appending the files of a tree to its own tags file changes nothing, and a file appended again replaces its old tags.
+  - Under etags, see OPT-21.
+
+**Emacs tags**
+- **OPT-21 [S][V] `-e`, `--output-format=etags`** (`writer-etags.c`; `entry.c truncateTagLineAfterTag`; `read.c readLineRaw`, `readLine`; `options.c setEtagsMode`) write an Emacs TAGS file: `TAGS` unless `-f` names another, standard output for `-`.
+  - **The mode.** Either option makes the output unsorted, sets `--tag-relative=yes` and enables the `Unknown` language (OPT-12), each until a later option changes it (OPT-7); `--output-format=e-ctags` after it writes e-ctags, but leaves the rest. The tags are those the same options write in a tags file: kinds, `--extras` (`F`, `anonymous`, `q`, `f`) and `-I` act as there, and `--fields`, `--format`, `--excmd`, `-n` and `-N` change nothing. There are no pseudo-tags, whatever the pseudo extra says.
+  - **Sections.** Each file tagged gets one section, in the order the files are tagged (SORT-4), so a file named twice gets two: a form feed, LF, the path, `,`, the size, LF, then the entries. The size is the number of bytes of the entries, in decimal. The path is the file field's (OPT-18) as it is, unescaped, with its `\` on Windows: by default `--tag-relative=yes` makes a relative one relative to the TAGS file's directory, so `sub\c.f90` is `sub/c.f90`, while with `--tag-relative=no` it is `sub\c.f90`.
+  - A file is tagged here as in a tags file, and also when it is of a language this program does not parse: `Unknown`, one from `--langdef`, or one forced (OPT-12). Such a file has no tags, so an empty section, `\f\nREADME,0\n`, and here it is not read.
+  - **Entries**, one per tag, in the order the parser makes them: the tag's line, DEL (0x7f), the name as it is, SOH (0x01), the line number, `,`, the byte offset in the file where the line starts, a BOM counted, and LF. `int x;\x7fx\x011,0`, and for a file starting with a BOM, `int a;\x7fa\x011,3`.
+    - The line is read from its start through its LF, with a CR before that LF dropped; another CR stays, so `int x;\r\r\n` gives `int x;\r`, as does a lone CR inside the line.
+    - Then for a tag cut as OUT-4 says (macros, and Fortran's tags but labels), the line is cut after the last occurrence of the name, keeping one byte more unless that is the LF or the end of the file: `#define FOO 1` gives `#define FOO `, `  common /blk/ x` gives `  common /blk/`, `#define Y` at the end of a line `#define Y`. When the name is not in the line, the whole line is kept, with its LF: `subroutine fo&` continued on the next line by `&o(x)` gives the entry `subroutine fo&\n\x7ffoo\x011,0` [V].
+    - Otherwise the LF goes.
+    - Then the line is cut to the pattern length limit (OUT-7, 96 by default, 0 for none) if it is longer, keeping up to 3 more bytes past the limit while they are UTF-8 continuation bytes. Universal Ctags compares the limit with the line's length before the cut after the name, which only cuts it shorter, so the result is the same.
+    - A tag whose line is past the end of the file gets no entry.
+  - **File tags** (EX-7, `--extras=+f`): DEL, the name, SOH, `1,0`, LF, after the file's other entries. Files of the languages this program does not parse get them too.
+  - Every line ends in LF. On Windows, Universal Ctags writes standard output as text, so there each LF becomes CRLF, as for tags (section 4).
+  - **The TAGS file** is created before any file is tagged, so a walk of its directory finds it, of no language, and gives it an empty section: `-R` writes `TAGS,0` [V]. Here, too, the file is created empty before the walk if it does not exist.
+  - **`-a`** (OPT-20) adds the new sections after the bytes of the file as they are [V]. An existing file must still pass CLI-3's test, which accepts a TAGS file by its first line, or a tags file, to which the sections are then added.
 
 ---
 
@@ -1065,7 +1083,8 @@ Decided for this program, deliberately different from Universal Ctags.
   `--LANG-types`, `--kinds-all`), `--extras` (and `--extra`,
   `--file-scope`, `--file-tags`), `--fields` (FLD-5), `--excmd`, `-n`,
   `-N` (OUT-6), `--pattern-length-limit` (OUT-7), `--format` (OUT-8),
-  `--output-format=e-ctags` (FLD-6), `--options`, `--exclude`,
+  `--output-format=e-ctags` (FLD-6), `-e` and `--output-format=etags`
+  (OPT-21), `--options`, `--exclude`,
   `--exclude-exception`, `-L`, `--links`, `--languages`,
   `--language-force` (and `--lang`, `--language`), `--langmap`,
   `--map-LANG`, `-h`, `-I` (and `--param-CPreProcessor.ignore`),
