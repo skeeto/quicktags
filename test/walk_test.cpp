@@ -60,6 +60,29 @@ static void runtrel(Test *t, Os *os, TrelCase *cases, iz n)
     }
 }
 
+// A --tag-relative case on a quirk of Universal Ctags, with its output,
+// which ours differs from exactly where it departs (D14, D15, D16).
+struct TrelQuirk {
+    Str out;
+    Str args;
+    Str want;
+    Str uctags;
+    b32 departs;  // else kept as there
+};
+
+static void runquirks(Test *t, Os *os, TrelQuirk *cases, iz n)
+{
+    Arena *a = os->a;
+    for (iz i = 0; i < n; i++) {
+        TrelQuirk *q    = cases + i;
+        TrelCase   c    = {q->out, q->args, 0, q->want, ""};
+        Str        name = concat(a, "departs: -f ", q->out);
+        name = concat(a, concat(a, name, " "), q->args);
+        runtrel(t, os, &c, 1);
+        expect(t, name, num(a, q->want!=q->uctags), num(a, q->departs));
+    }
+}
+
 static void test_walk(Test *t)
 {
     Arena a = t->perm;
@@ -1115,24 +1138,21 @@ static void test_walk(Test *t)
         // D14: doubled separators are no name of their own where Universal
         // Ctags' counting them goes wrong, and stay where they lead to the
         // file, as there
-        struct { Str out, args, want, uctags; } d14[] = {
-            {"-",           "--tag-relative .//a.c",          "a=a.c", "a=/a.c"},
+        TrelQuirk d14[] = {
+            {"-",           "--tag-relative .//a.c",          "a=a.c", "a=/a.c", 1},
             {"sub/tags",    "--tag-relative sub//b.c sub///deep/d.c",
-                            "b=b.c d=deep/d.c",       "b=/b.c d=//deep/d.c"},
+                            "b=b.c d=deep/d.c",       "b=/b.c d=//deep/d.c", 1},
             {"sub//tags",   "--tag-relative a.c sub/b.c",
-                            "a=../a.c b=b.c",         "a=../../a.c b=../b.c"},
+                            "a=../a.c b=b.c",         "a=../../a.c b=../b.c", 1},
             {".//sub/tags", "--tag-relative=always a.c sub/b.c",
-                            "a=../a.c b=../sub/b.c",  "a=../../a.c b=../../sub/b.c"},
+                            "a=../a.c b=../sub/b.c",  "a=../../a.c b=../../sub/b.c", 1},
             {"-",           "--tag-relative=never x//../a.c",
-                            a1,                       "a=/home/u/w/x/a.c"},
-            {"sub/tags",    "--tag-relative .//a.c",          "a=..//a.c", "a=..//a.c"},
+                            a1,                       "a=/home/u/w/x/a.c", 1},
+            {"sub/tags",    "--tag-relative .//a.c",          "a=..//a.c", "a=..//a.c", 0},
             {"-",           "--tag-relative=never .//a.c",
-                            "a=/home/u/w//a.c",       "a=/home/u/w//a.c"},
+                            "a=/home/u/w//a.c",       "a=/home/u/w//a.c", 0},
         };
-        for (iz i = 0; i < countof(d14); i++) {
-            TrelCase c = {d14[i].out, d14[i].args, 0, d14[i].want, ""};
-            runtrel(t, os, &c, 1);
-        }
+        runquirks(t, os, d14, countof(d14));
 
         // Without a current directory, --tag-relative fails
         os->cwd = {};
@@ -1218,20 +1238,17 @@ static void test_walk(Test *t)
 
         // D15: ".." at a drive's root stays there, where Universal Ctags
         // takes the drive's ':' with it
-        struct { Str out, args, want, uctags; } d15[] = {
+        TrelQuirk d15[] = {
             {"-",        "--tag-relative=never C:\\..\\Users\\u\\w\\a.c",
-                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c"},
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c", 1},
             {"-",        "--tag-relative=never /../../Users/u/w/a.c",
-                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c"},
+                         "a=C:/Users/u/w/a.c", "a=C/Users/u/w/a.c", 1},
             {"sub/tags", "--tag-relative=always C:/../Users/u/w/a.c",
-                         "a=../a.c",           "a=C/Users/u/w/a.c"},
+                         "a=../a.c",           "a=C/Users/u/w/a.c", 1},
             {"-",        "--tag-relative ..\\..\\..\\..\\Users\\u\\w\\a.c",
-                         "a=a.c",              "a=C/Users/u/w/a.c"},
+                         "a=a.c",              "a=C/Users/u/w/a.c", 1},
         };
-        for (iz i = 0; i < countof(d15); i++) {
-            TrelCase c = {d15[i].out, d15[i].args, 0, d15[i].want, ""};
-            runtrel(t, os, &c, 1);
-        }
+        runquirks(t, os, d15, countof(d15));
 
         // The current directory's drive letter in lowercase, as cmd.exe
         // may have it, is uppercased in absolute paths
@@ -1284,19 +1301,16 @@ static void test_walk(Test *t)
         os->cwd     = "C:\\Users\\u\\w";
         vfsfile(os, "//host/share/x/a.c", "int a;\n");
         Str unc = "a=//host/share/x/a.c";
-        struct { Str out, args, want, uctags; } d16[] = {
+        TrelQuirk d16[] = {
             {"-",        "--tag-relative=never \\\\host\\share\\x\\a.c",
-                         unc, "a=C://host/share/x/a.c"},
+                         unc, "a=C://host/share/x/a.c", 1},
             {"sub/tags", "--tag-relative=always //host/share/x/a.c",
-                         unc, "a=../../../..//host/share/x/a.c"},
+                         unc, "a=../../../..//host/share/x/a.c", 1},
             {"-",        "--tag-relative=never //host/share/../x/a.c",
-                         unc, "a=C://host/x/a.c"},
-            {"-",        "--tag-relative //host/share/x/a.c", unc, unc},
+                         unc, "a=C://host/x/a.c", 1},
+            {"-",        "--tag-relative //host/share/x/a.c", unc, unc, 0},
         };
-        for (iz i = 0; i < countof(d16); i++) {
-            TrelCase c = {d16[i].out, d16[i].args, 0, d16[i].want, ""};
-            runtrel(t, os, &c, 1);
-        }
+        runquirks(t, os, d16, countof(d16));
 
         os->cwd = "\\\\host\\share\\w";
         vfsfile(os, "a.c",          "int a;\n");
@@ -1304,23 +1318,20 @@ static void test_walk(Test *t)
         vfsfile(os, "\\x\\c.c",     "int c;\n");
         vfsfile(os, "//host/other/d.c", "int d;\n");
         Str share = "a=//host/share/w/a.c b=//host/share/w/sub/b.c";
-        struct { Str out, args, want, uctags; } cwd16[] = {
+        TrelQuirk cwd16[] = {
             // The current directory's own paths, as Universal Ctags has them
-            {"-",        "--tag-relative=never a.c sub\\b.c", share, share},
+            {"-",        "--tag-relative=never a.c sub\\b.c", share, share, 0},
             {"sub/tags", "--tag-relative a.c sub\\b.c",
-                         "a=../a.c b=b.c",              "a=../a.c b=b.c"},
+                         "a=../a.c b=b.c",              "a=../a.c b=b.c", 0},
             {"-",        "--tag-relative=never ..\\..\\w\\a.c",
-                         "a=//host/share/w/a.c",        "a=//host/w/a.c"},
+                         "a=//host/share/w/a.c",        "a=//host/w/a.c", 1},
             {"-",        "--tag-relative=never \\x\\c.c",
-                         "c=//host/share/x/c.c",        "c=@:/x/c.c"},
+                         "c=//host/share/x/c.c",        "c=@:/x/c.c", 1},
             {"-",        "--tag-relative=always \\\\HOST\\Share\\w\\sub\\b.c",
-                         "b=sub/b.c",                   "b=@://HOST/Share/w/sub/b.c"},
+                         "b=sub/b.c",                   "b=@://HOST/Share/w/sub/b.c", 1},
             {"sub/tags", "--tag-relative=always //host/other/d.c",
-                         "d=//host/other/d.c",          "d=@://host/other/d.c"},
+                         "d=//host/other/d.c",          "d=@://host/other/d.c", 1},
         };
-        for (iz i = 0; i < countof(cwd16); i++) {
-            TrelCase c = {cwd16[i].out, cwd16[i].args, 0, cwd16[i].want, ""};
-            runtrel(t, os, &c, 1);
-        }
+        runquirks(t, os, cwd16, countof(cwd16));
     }
 }
