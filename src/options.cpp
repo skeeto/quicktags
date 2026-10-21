@@ -372,8 +372,10 @@ static i32 macrosopt(Parse *p, Str list)
         if (r.err) {
             return fatal(p, "cannot open \"", name, "\" : ", errstr(r.err));
         }
-        // Each line, without trailing whitespace, is a token
-        for (Str rest = r.data; rest.len;) {
+        // Each line, without trailing whitespace, is a token. Read as
+        // text on Windows, the file ends at a Ctrl-Z.
+        Str data = p->opt->windows ? cut(r.data, 0x1a).head : r.data;
+        for (Str rest = data; rest.len;) {
             Cut line  = cut(rest, '\n');
             Str token = trimright(line.head);
             if (token.len) {

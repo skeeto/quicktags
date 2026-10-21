@@ -709,7 +709,7 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
 
 **Identifiers**
 - **OPT-17 [S][V] `-I LIST|@FILE|-`** (`options.c processIgnoreOption`, `cpreprocessor.c saveIgnoreToken`) fills a table of identifiers that the C and C++ tokenizer drops or replaces (LEX-14), each option acting as it is read.
-  - A parameter starting with `@`, `.`, `/` or `\`, or on Windows with a letter and `:`, names a file (after the `@`), read at once: each line, at LF or CRLF, with its trailing whitespace removed, is one token, and empty lines are skipped. Leading whitespace, spaces and commas stay in the token, so `a b` is one that names nothing. One that cannot be read is FATAL `cannot open "FILE" : REASON`, as `Permission denied` for a directory, and `Invalid argument` for an empty name (`-I @`), on Windows.
+  - A parameter starting with `@`, `.`, `/` or `\`, or on Windows with a letter and `:`, names a file (after the `@`), read at once: each line, at LF or CRLF, with its trailing whitespace removed, is one token, and empty lines are skipped. On Windows the file is read as text, so it ends at its first Ctrl-Z (0x1A) [V]. Leading whitespace, spaces and commas stay in the token, so `a b` is one that names nothing. One that cannot be read is FATAL `cannot open "FILE" : REASON`, as `Permission denied` for a directory, and `Invalid argument` for an empty name (`-I @`), on Windows.
   - `-I -` empties the table.
   - Any other parameter is a list split at spaces, tabs, newlines and commas.
   - `--param-CPreProcessor.ignore=TOKEN` adds one token, unsplit (OPT-13).

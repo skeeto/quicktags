@@ -318,6 +318,19 @@ static void test_walk(Test *t)
         r = run(os, a, "-f - -I @ m.c");
         expect(t, "-I @ windows err", r.err,
                "ctags: cannot open \"\" : Invalid argument\n");
+
+        // Read as text on Windows, a list ends at a Ctrl-Z
+        vfsfile(os, "z.c", "FOO int a;\nBAZ int b;\n");
+        vfsfile(os, "z.txt", "FOO\x1a" "BAR+\n\x1a" "BAZ\n");
+        Str za = "a\tz.c\t/^FOO int a;$/;\"\tv\tline:1\ttyperef:typename:";
+        Str zb = "b\tz.c\t/^BAZ int b;$/;\"\tv\tline:2\ttyperef:typename:BAZ int\n";
+        r = run(os, a, "-f - -I @z.txt z.c");
+        expect(t, "-I Ctrl-Z windows", r.out,
+               concat(&a, concat(&a, za, "int\n"), zb));
+        os->windows = 0;
+        r = run(os, a, "-f - -I @z.txt z.c");
+        expect(t, "-I Ctrl-Z", r.out,
+               concat(&a, concat(&a, za, "FOO int\n"), zb));
     }
 
     {
