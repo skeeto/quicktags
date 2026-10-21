@@ -733,7 +733,7 @@
 - f	flang/test/Parser/compiler-directives.f90	/^    function f(/;"	f	line:113
 - g	flang/test/Parser/compiler-directives.f90	/^    subroutine g(/;"	s	line:118
 
-@ corpus/llvm/flang: F5, a joined END (endmodule, endblock) ends a specification part instead of being skipped as a statement function with the next unit's header: subroutines one and four, modules m2 and m4, and s7 come back. In keyword-optional-spaces.f90, subroutine one's declarations now end at the joined doubleprecision (FTN-12), so its enum is no longer tagged at the top level, and F2's bogus modules shift.
+@ corpus/llvm/flang: F5, a joined END (endmodule, endblock) ends a specification part instead of being skipped as a statement function with the next unit's header: subroutines one and four, modules m2 and m4, and s7 come back. In keyword-optional-spaces.f90, subroutine one's declarations now end at the joined doubleprecision (FTN-12), so its enum is no longer tagged at the top level, and its dummy and local are no longer variables there.
 + __anonfa7f6f280105	flang/test/Parser/keyword-optional-spaces.f90	/^  interface$/;"	i	line:107	module:m1
 + four	flang/test/Parser/keyword-optional-spaces.f90	/^subroutine four$/;"	s	line:91
 + m2	flang/test/Parser/keyword-optional-spaces.f90	/^module m2$/;"	m	line:124
@@ -766,7 +766,7 @@
 - s13	flang/test/Semantics/call10.f90	/^  pure subroutine s13$/;"	s	line:201
 - s14	flang/test/Semantics/call10.f90	/^  pure subroutine s14(/;"	s	line:205
 
-@ corpus/llvm/flang: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope. A typed function with a prefix after its type (real impure function) now shows the prefix as a variable, as Universal Ctags does for pure; MODULE before the prefix still makes a bogus module (F2).
+@ corpus/llvm/flang: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope.
 + barearg	flang/test/Semantics/elemental01.f90	/^impure elemental subroutine barearg(/;"	s	line:28
 + bug	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^simple impure subroutine bug(/;"	s	line:7
 + bug2	flang/test/Semantics/simple-pure-attribute-conflicts.f90	/^impure simple subroutine bug2(/;"	s	line:12
@@ -841,7 +841,7 @@
 - y	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(/;"	v	line:26
 - z	flang/test/HLFIR/order_assignments/where-scheduling.f90	/^  real :: x(:), y(:), z(/;"	v	line:26
 
-@ corpus/llvm/flang-rt: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope. A typed function with a prefix after its type (real impure function) now shows the prefix as a variable, as Universal Ctags does for pure; MODULE before the prefix still makes a bogus module (F2).
+@ corpus/llvm/flang-rt: F1, IMPURE, NON_RECURSIVE, and SIMPLE are prefixes before a unit: the units they head are tagged, and inside interfaces they no longer end the interface early, so prototypes and dummies stop showing as functions and variables of the enclosing unit, and later tags keep their scope.
 + /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150	module:ieee_arithmetic
 - /=	flang-rt/lib/runtime/ieee_arithmetic.f90	/^  interface operator(\/=)/;"	i	line:150
 
