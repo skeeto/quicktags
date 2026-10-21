@@ -336,8 +336,11 @@ static b32 loadold(Old *old, Os *os, Options *opt, Arena *mem, Buf *log)
         return 1;  // a new file
     }
 
-    iz   max = arenasize(*mem) - 1;  // room for the sentinel
-    Read r   = os_read(os, mem, opt->output, max);
+    iz max = arenasize(*mem) - 1;  // room for the sentinel
+    if (s.size > max) {
+        os_oom();  // before reading what cannot fit
+    }
+    Read r = os_read(os, mem, opt->output, max);
     if (r.err) {
         print(log, "ctags: cannot open tag file \"");
         print(log, opt->output);
