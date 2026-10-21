@@ -463,9 +463,9 @@ depends on how far the walk had read when the label was seen. Our
   - Nothing for `C` (xref output only), `R`, `p` (no effect in tags output), `x` (it needs libxml2, which this build lacks), and `T` but on file-kind tags (`epoch:`, EX-6).
   - Universal Ctags also writes `end:` (`e`) on definitions whose last line it knows, and `nth:` (`o`) on members, enumerators and macro parameters. Here `e` and `o` are accepted and write nothing (section 4).
 - **FLD-6 [S][V] `--output-format=e-ctags`** (`writer-ctags.c eCtagsWriter`), Exuberant Ctags' flavor of the format:
-  - The name, the file field and the scope name are written as they are, not escaped (FLD-2), but the typeref and the parser's fields still are.
+  - The name, the file field, the scope name and the signature (FLD-8) are written as they are, not escaped (FLD-2), but the typeref, the base classes (FLD-9) and the parser's fields still are.
   - On Windows the file field keeps the backslashes of the path as given (`sub\deep\z.c`, `.\sub/y.c` for `-R .\sub`), which Universal Ctags' own writer turns into `/` (DISC-5).
-  - A tag whose name or file holds a tab or a newline, or with `--format=2` its scope name (with `s`), or an enabled parser field, is dropped: it could not be read back.
+  - A tag whose name or file holds a tab or a newline, or with `--format=2` its scope name (with `s`) or signature (with `S`), or an enabled parser field, is dropped: it could not be read back.
   - The pseudo-tags say `e-ctags`, and on Windows `backslash` (PT-4).
 - **FLD-7 [S][V] `access:` of C and C++ tags** (`cxx_tag.c`, `cxx_scope.c`). A tag begun inside a scope takes the access its innermost scope has at that moment: `public`, `private` or `protected`.
   - A class body begins `private`, a struct, union or enum body `public`, and an access label (`protected:`) changes it for the rest of that body. C is no different: its members and enumerators say `public`.
