@@ -603,8 +603,8 @@ static void skipnumbers(Cxx *c)
     }
 
     if (stop) {
-        advance(&p->in, stop);
         cppdrained(p);
+        advance(&p->in, stop);
         p->innum     = 0;
         p->prevident = 0;
         p->accept    = 0;

@@ -206,13 +206,15 @@ static iz cpppos(Cpp *p)
     return p->backlive ? p->backpos : p->in.linepos;
 }
 
-// Nothing is pushed back any more: read from the file again.
+// Nothing is pushed back any more: read from the file again. That is
+// counted unless the file is at its end, where replacements bringing
+// their own macros back would otherwise never stop (X12).
 static void cppdrained(Cpp *p)
 {
     p->backlive = 0;
     p->backsize = 0;
     p->nmarks   = 0;
-    p->drains++;
+    p->drains  += p->in.p < p->in.end;
 }
 
 static i32 rawget(Cpp *p)

@@ -293,6 +293,18 @@ static TagCase ccases[] = {
      "g\thx.c\t/^int Z$/;\"\tv\tline:7\ttyperef:typename:int\n"
      "m\thx.c\t/^{ int m; };$/;\"\tm\tline:2\tstruct:B\ttyperef:typename:int\tfile:\n",
      ""},
+    // Universal Ctags never finishes these
+    {OURS, "X12 -I loops at the end, looking for a group", "le.c", "-I S+=;S",
+     "int a;\n"
+     "S\n",
+     "a\tle.c\t/^int a;$/;\"\tv\tline:1\ttyperef:typename:int\n",
+     ""},
+    {OURS, "X12 -I loops at the end", "le.c", "-I T=int*v;T",
+     "int b;\n"
+     "T",
+     "b\tle.c\t/^int b;$/;\"\tv\tline:1\ttyperef:typename:int\n"
+     "v\tle.c\t/^T/;\"\tv\tline:2\ttyperef:typename:int *\n",
+     ""},
     {SHARED, "-I groups", "g.c", "-I M+,N+",
      "int M(a[1], {b], <c) v;\n"
      "int N(x) (y) u;\n"

@@ -181,11 +181,12 @@ static void test_fuzz(Test *t)
         Str file = finish(&path);
         vfsfile(os, file, src);
 
-        // Also -I macros, with loops (T leads to one) and replacements
-        // that open groups they do not close
+        // Also -I macros, with loops (T leads to one, and S and R bring
+        // themselves back after other tokens, also at the end) and
+        // replacements that open groups they do not close
         Str opts[] = {
             "", "--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",
-            "-I x=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f( ",
+            "-I x=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R ",
         };
         for (iz o = 0; o < countof(opts); o++) {
             Buf cmd(&a, 128);

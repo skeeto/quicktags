@@ -41,7 +41,7 @@ int main()
         Str kinds   = buf[0]&0x80 ? Str("--kinds-C=*") : Str("--kinds-C=+p");
         Str ckinds  = buf[0]&0x80 ? Str("--kinds-C++=*") : Str("--kinds-C++=+p");
         Str fkinds  = buf[0]&0x80 ? Str("--kinds-Fortran=*") : Str("--kinds-Fortran=+L");
-        Str macros  = buf[0]&0x40 ? Str("-Ix=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(")
+        Str macros  = buf[0]&0x40 ? Str("-Ix=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R")
                                   : Str("-I-");
 
         Arena a  = {mem, mem+cap/2};
