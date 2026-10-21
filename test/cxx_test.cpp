@@ -133,6 +133,14 @@ static TagCase ccases[] = {
      "end$\tx.c\t/^int end$;$/;\"\tv\tline:2\ttyperef:typename:int\n"
      "path\tx.c\t/^char *path = \"a\\/b\\\\\\\\c\";$/;\"\tv\tline:1\ttyperef:typename:char *\n",
      ""},
+    {IMPROVED, "P9 static after a struct body", "p9.c", "",
+     "struct S { int a; } static x;\n",
+     "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
+     "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
+     "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \tfile:\n",
+     "S\tp9.c\t/^struct S { int a; } static x;$/;\"\ts\tline:1\tfile:\n"
+     "a\tp9.c\t/^struct S { int a; } static x;$/;\"\tm\tline:1\tstruct:S\ttyperef:typename:int\tfile:\n"
+     "x\tp9.c\t/^struct S { int a; } static x;$/;\"\tv\tline:1\ttyperef:struct:S \n"},
 };
 
 static TagCase cxxcases[] = {

@@ -113,6 +113,9 @@ static b32 declarationtrailer(Cxx *c, u32 seen, i32 kw, Str name)
         c->seen |= seen & (SEEN_STATIC|SEEN_EXTERN|SEEN_MUTABLE|SEEN_INLINE|
                            SEEN_DEPRECATED|SEEN_CONSTEXPR|SEEN_CONSTINIT|
                            SEEN_THREADLOCAL);
+        if (firstkeyword(c->chain, KW_static)) {
+            c->seen |= SEEN_STATIC;  // departure P9: } static x;
+        }
         extractvars(c, c->chain, 0);
     }
     return 1;

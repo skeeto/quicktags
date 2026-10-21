@@ -85,3 +85,12 @@
 
 @ corpus/llvm/polly: D2, .inl and X.h.in files are headers, so their tags are not file:
 = 2 polly/lib/External/isl/interface/include/isl-interface/config.h.in
+
+@ corpus/llama: P9, } static x; is file-scoped
+= 2 ggml/src/ggml-cpu/kleidiai/kleidiai.cpp
+
+@ corpus/llvm/clang: P9, } static x; is file-scoped
+= 2 clang/test/Parser/declarators.c
+
+@ corpus/llvm/llvm: P9, } static x; is file-scoped
+= 2 llvm/tools/llvm-exegesis/lib/SerialSnippetGenerator.cpp
