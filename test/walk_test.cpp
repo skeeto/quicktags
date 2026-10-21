@@ -224,6 +224,21 @@ static void test_walk(Test *t)
                "ctags: Warning: Ignoring non-option in od/b.ctags\n");
     }
     {
+        // Only a file with a non-option warns, unlike Universal Ctags,
+        // whose warning repeats for every later option file (OPT-14)
+        Os *os = newos(&a);
+        vfsfile(os, "a.c", src);
+        vfsfile(os, "n2", "--kinds-C=+p\nfoo.c\n");
+        vfsfile(os, "n3", "--extras=+q\n");
+        Run r = run(os, a, "-f - --options=n2 --options=n3 a.c");
+        expect(t, "options n2 n3 err", r.err,
+               "ctags: Warning: Ignoring non-option in n2\n");
+        r = run(os, a, "-f - a.c --options=n3");
+        expect(t, "options after file err", r.err, "");
+        expect(t, "options after file out", r.out, concat(&a, concat(&a,
+               concat(&a, m, mn), s), sm));
+    }
+    {
         // Nested files, each read once
         Os *os = newos(&a);
         vfsfile(os, "a.c", src);
