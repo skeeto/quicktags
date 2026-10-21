@@ -1,6 +1,16 @@
 // Determinism: the output depends only on the input, never on the number
 // of workers, the order they run in, or what ran before in the process.
 
+static Str parallelcmd(Arena *a, Str mode, Str jobs)
+{
+    Buf b(a, 64);
+    print(&b, mode);
+    putbyte(&b, ' ');
+    print(&b, jobs);
+    print(&b, " -R -f - src");
+    return finish(&b);
+}
+
 static void test_parallel(Test *t)
 {
     Arena a  = t->perm;
@@ -30,15 +40,22 @@ static void test_parallel(Test *t)
     vfsfile(os, "src/num/old.f",
         "      PROGRAM OLD\n"
         "      END\n");
+    vfsdir(os, "src/empty");
     for (i32 i = 0; i < 40; i++) {
+        // Spread over directories, some nested, for the walk to interleave
         Buf name(&a, 32);
-        print(&name, "src/gen/f");
+        print(&name, "src/gen/d");
+        print(&name, (i64)(i%4));
+        print(&name, i%3 ? Str("/") : Str("/sub/"));
+        print(&name, "f");
         print(&name, (i64)i);
         print(&name, ".c");
         Buf src(&a, 64);
         print(&src, "struct s");
         print(&src, (i64)i);
         print(&src, " { int v; } g");
+        print(&src, (i64)i);
+        print(&src, ";\nstruct { int w; } h");
         print(&src, (i64)i);
         print(&src, ";\n");
         vfsfile(os, finish(&name), finish(&src));
@@ -53,10 +70,7 @@ static void test_parallel(Test *t)
         for (i32 reverse = 0; reverse < 2; reverse++) {
             os->ncpu    = 4;
             os->reverse = reverse;
-            Buf cmd(&a, 64);
-            print(&cmd, jobs[i]);
-            print(&cmd, " -R -f - src");
-            Run r = run(os, a, finish(&cmd));
+            Run r = run(os, a, parallelcmd(&a, "", jobs[i]));
             expect(t, jobs[i], r.out, first.out);
         }
     }
@@ -68,4 +82,33 @@ static void test_parallel(Test *t)
         Run r = run(os, a, "-R -f - src");
         expect(t, "repeated", r.out, first.out);
     }
+
+    // Workers taking turns at random, in each mode, must write what one
+    // worker alone writes, and more than one must have tagged files
+    Str modes[] = {
+        "",
+        "--extras=+q",
+    };
+    for (iz m = 0; m < countof(modes); m++) {
+        os->seed = 0;
+        Run one = run(os, a, parallelcmd(&a, modes[m], "--jobs=1"));
+        expect(t, "seeded status", num(&a, one.status), "0");
+        for (u64 seed = 1; seed <= 8; seed++) {
+            for (iz i = 1; i < countof(jobs); i++) {
+                Buf name(&a, 64);
+                print(&name, "seed ");
+                print(&name, (i64)seed);
+                putbyte(&name, ' ');
+                print(&name, jobs[i]);
+                putbyte(&name, ' ');
+                print(&name, modes[m]);
+
+                os->seed = seed;
+                Run r = run(os, a, parallelcmd(&a, modes[m], jobs[i]));
+                expect(t, finish(&name), r.out, one.out);
+                expect(t, finish(&name), num(&a, os->nworked > 1), "1");
+            }
+        }
+    }
+    os->seed = 0;
 }
