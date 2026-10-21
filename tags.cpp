@@ -1,0 +1,235 @@
+// Tags: formatting finished tags into tags-file lines
+// This is free and unencumbered software released into the public domain.
+
+// An input file, read whole into memory.
+struct Source {
+    Str  path;      // as constructed, the input to anonymous names
+    Str  outpath;   // the file field: '\' as '/', escaped
+    Str  text;      // contents after any UTF-8 BOM
+    u32  anonhash;
+    i32  lang;
+    b32  header;
+};
+
+// One parse of one file. A failed first pass discards its lines but
+// keeps the anonymous counter, so a second pass numbers on from it.
+struct File {
+    Source *src;
+    Kinds  *kinds;
+    Buf    *out;
+    iz      mark;   // where this file's lines begin in out
+    iz      ntags;
+    i32     anon;
+    b32     nofast;
+};
+
+struct Tag {
+    Str name;
+    Str scopekind;  // long kind name of the enclosing scope, or null
+    Str scope;
+    Str typekind;   // "typename", "struct", ..., or null for no typeref
+    Str type;
+    i32 kind;       // index into the language's kind table
+    i32 line;
+    iz  linepos;    // offset of the line's first byte in the text
+    b32 filescope;
+    b32 truncate;   // cut the pattern just after the name
+    b32 lineaddr;   // address by line number instead of a pattern
+};
+
+// A finished tags-file line, keyed for sorting by its first bytes.
+struct Line {
+    u64 key;   // first eight bytes, big endian, zero padded
+    u8 *data;
+    iz  len;   // without the newline
+};
+
+enum : i32 { PATTERNMAX = 96 };
+
+// djb2 over the path's bytes, as Universal Ctags names anonymous tags.
+static u32 anonhash(Str path)
+{
+    u32 h = 5381;
+    for (iz i = 0; i < path.len; i++) {
+        h = h*33 + path[i];
+    }
+    return h;
+}
+
+// Name the next anonymous entity in a file: __anon, the path hash, a
+// per-file counter, and the kind's index, in hex.
+static Str anonname(File *f, Arena *a, i32 kind)
+{
+    Buf b(a, 32);
+    print(&b, "__anon");
+    printhex(&b, f->src->anonhash, 8);
+    u32 n = (u32)++f->anon;
+    i32 digits = 2;
+    for (u32 t = n>>8; t; t >>= 4) digits++;
+    printhex(&b, n, digits);
+    printhex(&b, (u32)kind, 2);
+    return finish(&b);
+}
+
+// Escape a name or field value like Universal Ctags: backslash and
+// control bytes, and for tag names a leading space or '!', which would
+// otherwise sort among the pseudo-tags.
+static void printescaped(Buf *b, Str s, b32 isname)
+{
+    for (iz i = 0; i < s.len; i++) {
+        u8 c = s[i];
+        if (c == '\\') {
+            print(b, "\\\\");
+        } else if (c<0x20 || c==0x7f) {
+            switch (c) {
+            case '\a': print(b, "\\a"); break;
+            case '\b': print(b, "\\b"); break;
+            case '\t': print(b, "\\t"); break;
+            case '\n': print(b, "\\n"); break;
+            case '\v': print(b, "\\v"); break;
+            case '\f': print(b, "\\f"); break;
+            case '\r': print(b, "\\r"); break;
+            default:
+                print(b, "\\x");
+                putbyte(b, "0123456789ABCDEF"[c>>4]);
+                putbyte(b, "0123456789ABCDEF"[c&15]);
+            }
+        } else if (isname && !i && (c==' ' || c=='!')) {
+            print(b, c==' ' ? Str("\\x20") : Str("\\x21"));
+        } else {
+            putbyte(b, c);
+        }
+    }
+}
+
+// Offset of the last occurrence of needle in s, or -1.
+static iz findlast(Str s, Str needle)
+{
+    if (!needle.len || needle.len>s.len) {
+        return -1;
+    }
+    for (iz i = s.len - needle.len; i >= 0; i--) {
+        if (s[i]==needle[0] && takehead(cuthead(s, i), needle.len)==needle) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// The physical line starting at pos, without its line ending. Only LF
+// ends a line, and a CR just before it belongs to the ending.
+struct Physline {
+    Str text;
+    b32 newline;  // ended by LF, not by the end of the file
+};
+
+static Physline lineat(Str text, iz pos)
+{
+    Physline r = {};
+    iz   end = pos;
+    for (; end<text.len && text[end]!='\n'; end++) {}
+    r.newline = end < text.len;
+    r.text    = span(text.data+pos, text.data+end);
+    if (r.newline && r.text.len && r.text[r.text.len-1]=='\r') {
+        r.text.len--;
+    }
+    return r;
+}
+
+// A search pattern for the tag's line, as Vim reads it: nomagic, with
+// only '\', '/', and a final '$' escaped. Like Universal Ctags it holds
+// at most PATTERNMAX bytes after escaping, plus enough to finish a UTF-8
+// sequence, and ends with the "$" anchor only when it reaches the end of
+// the line. Unlike it, a lone CR or a NUL ends the pattern without the
+// anchor, since Vim would not find the line, and a '$' where the pattern
+// is cut is escaped, so it cannot be read as an anchor.
+static void printpattern(Buf *b, Str text, Tag *t)
+{
+    Physline l = lineat(text, t->linepos);
+    if (t->truncate) {
+        // Through the last occurrence of the name, plus one byte
+        iz at = findlast(l.text, t->name);
+        if (at >= 0) {
+            iz keep = at + t->name.len + 1;
+            if (keep <= l.text.len) {
+                l.text    = takehead(l.text, keep);
+                l.newline = 0;
+            }
+        }
+    }
+
+    print(b, "/^");
+    iz  len   = 0;
+    i32 extra = 0;  // continuation bytes past the limit
+    b32 cut   = 0;
+    for (iz i = 0; i < l.text.len; i++) {
+        u8 c = l.text[i];
+        if (c=='\r' || !c) {
+            cut = 1;
+            break;
+        }
+        if (len>=PATTERNMAX && ((c&0xc0)!=0x80 || ++extra>3)) {
+            cut = 1;
+            break;
+        }
+        b32 last = 0;  // the last byte written
+        if (c == '$') {
+            iz  n    = i + 1;
+            b32 more = n < l.text.len;
+            u8  next = more ? l.text[n] : 0;
+            last = !more || next=='\r' || !next ||
+                   (len+1>=PATTERNMAX && (next&0xc0)!=0x80);
+        }
+        if (c=='\\' || c=='/' || last) {
+            putbyte(b, '\\');
+            len++;
+        }
+        putbyte(b, c);
+        len++;
+    }
+    if (l.newline && !cut) {
+        putbyte(b, '$');
+    }
+    putbyte(b, '/');
+}
+
+// Append a finished tag to its file's output as one tags-file line:
+// name, file, address, then the kind, line, scope, typeref, and file:
+// fields in the order Universal Ctags writes them with --fields=+n.
+static void tagemit(File *f, Tag *t)
+{
+    Source *src = f->src;
+    Buf    *b   = f->out;
+    assert(kindon(f->kinds, src->lang, t->kind));
+
+    printescaped(b, t->name, 1);
+    putbyte(b, '\t');
+    print(b, src->outpath);
+    putbyte(b, '\t');
+    if (t->lineaddr) {
+        print(b, (i64)t->line);
+    } else {
+        printpattern(b, src->text, t);
+    }
+    print(b, ";\"\t");
+    putbyte(b, kindletter(src->lang, t->kind));
+    print(b, "\tline:");
+    print(b, (i64)t->line);
+    if (t->scopekind.data) {
+        putbyte(b, '\t');
+        print(b, t->scopekind);
+        putbyte(b, ':');
+        printescaped(b, t->scope, 0);
+    }
+    if (t->typekind.data) {
+        print(b, "\ttyperef:");
+        print(b, t->typekind);
+        putbyte(b, ':');
+        printescaped(b, t->type, 0);
+    }
+    if (t->filescope) {
+        print(b, "\tfile:");
+    }
+    putbyte(b, '\n');
+    f->ntags++;
+}

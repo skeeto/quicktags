@@ -1,0 +1,550 @@
+// Win32 platform layer: no CRT, no headers, and kernel32.dll the only
+// import, all of it present in Windows XP
+// $ c++ -std=c++20 -O2 -nostartfiles -static-libgcc -Wl,--stack,0x800000 -s -o ctags.exe main_win32.cpp
+//
+// Paths are UTF-8 (WTF-8) with either separator. Each is made absolute
+// and extended-length (\\?\) before use, so MAX_PATH never applies.
+//
+// This is free and unencumbered software released into the public domain.
+#include "ctags.cpp"
+#include "wide.cpp"
+
+enum : i32 {
+    CREATE_NEW                    = 1,
+    ERROR_ACCESS_DENIED           = 5,
+    ERROR_ALREADY_EXISTS          = 183,
+    ERROR_DIRECTORY               = 267,
+    ERROR_FILE_EXISTS             = 80,
+    ERROR_FILE_NOT_FOUND          = 2,
+    ERROR_INVALID_NAME            = 123,
+    ERROR_INVALID_PARAMETER       = 87,
+    ERROR_NO_MORE_FILES           = 18,
+    ERROR_PATH_NOT_FOUND          = 3,
+    ERROR_SHARING_VIOLATION       = 32,
+    FILE_ATTRIBUTE_DEVICE         = 0x40,
+    FILE_ATTRIBUTE_DIRECTORY      = 0x10,
+    FILE_ATTRIBUTE_NORMAL         = 0x80,
+    FILE_ATTRIBUTE_REPARSE_POINT  = 0x400,
+    FILE_SHARE_ALL                = 7,
+    FILE_TYPE_DISK                = 1,
+    FIND_FIRST_EX_LARGE_FETCH     = 2,
+    FindExInfoBasic               = 1,
+    FindExInfoStandard            = 0,
+    FindExSearchNameMatch         = 0,
+    GENERIC_READ                  = (i32)0x80000000,
+    GENERIC_WRITE                 = 0x40000000,
+    GetFileExInfoStandard         = 0,
+    IO_REPARSE_TAG_NAME_SURROGATE = 0x20000000,  // symlinks, junctions
+    MEM_COMMIT                    = 0x1000,
+    MEM_RESERVE                   = 0x2000,
+    MOVEFILE_REPLACE_EXISTING     = 1,
+    OPEN_EXISTING                 = 3,
+    PAGE_READWRITE                = 4,
+    STACK_SIZE_PARAM_IS_A_RESERVATION = 0x10000,
+    STD_ERROR_HANDLE              = -12,
+};
+
+enum : uz {
+    INVALID_HANDLE_VALUE = (uz)-1,
+};
+
+struct Filetime {
+    u32 lo;
+    u32 hi;
+};
+
+struct FileAttributes {  // WIN32_FILE_ATTRIBUTE_DATA
+    u32      attr;
+    Filetime ctime;
+    Filetime atime;
+    Filetime mtime;
+    u32      sizehi;
+    u32      sizelo;
+};
+static_assert(sizeof(FileAttributes) == 36);
+
+struct FindData {  // WIN32_FIND_DATAW
+    u32      attr;
+    Filetime ctime;
+    Filetime atime;
+    Filetime mtime;
+    u32      sizehi;
+    u32      sizelo;
+    u32      reparsetag;
+    u32      reserved;
+    c16      name[260];
+    c16      altname[14];
+};
+static_assert(sizeof(FindData) == 592);
+
+struct SystemInfo {  // SYSTEM_INFO
+    u32 arch;        // wProcessorArchitecture, wReserved
+    u32 pagesize;
+    uz  minaddr;
+    uz  maxaddr;
+    uz  activemask;
+    i32 nproc;
+    u32 proctype;
+    u32 granularity;
+    u32 level;       // wProcessorLevel, wProcessorRevision
+};
+static_assert(sizeof(SystemInfo) == (sizeof(uz)==8 ? 48 : 36));
+
+#define W32(r, p) extern "C" __declspec(dllimport) r __stdcall p noexcept
+W32(b32,    CloseHandle(uz));
+W32(uz,     CreateFileW(c16 *, i32, i32, uz, i32, i32, uz));
+W32(uz,     CreateThread(uz, iz, i32 (__stdcall *)(void *), void *, i32, i32 *));
+W32(b32,    DeleteFileW(c16 *));
+W32(void,   ExitProcess[[noreturn]](i32));
+W32(b32,    FindClose(uz));
+W32(uz,     FindFirstFileExW(c16 *, i32, FindData *, i32, uz, i32));
+W32(b32,    FindNextFileW(uz, FindData *));
+W32(c16 *,  GetCommandLineW());
+W32(b32,    GetConsoleMode(uz, i32 *));
+W32(b32,    GetFileAttributesExW(c16 *, i32, FileAttributes *));
+W32(b32,    GetFileSizeEx(uz, i64 *));
+W32(i32,    GetFileType(uz));
+W32(i32,    GetFullPathNameW(c16 *, i32, c16 *, c16 **));
+W32(i32,    GetLastError());
+W32(uz,     GetStdHandle(i32));
+W32(void,   GetSystemInfo(SystemInfo *));
+W32(b32,    MoveFileExW(c16 *, c16 *, i32));
+W32(b32,    QueryPerformanceCounter(i64 *));
+W32(b32,    QueryPerformanceFrequency(i64 *));
+W32(b32,    ReadFile(uz, u8 *, i32, i32 *, uz));
+W32(void,   Sleep(i32));
+W32(b32,    SwitchToThread());
+W32(byte *, VirtualAlloc(byte *, iz, i32, i32));
+W32(i32,    WaitForSingleObject(uz, i32));
+W32(b32,    WriteConsoleW(uz, c16 *, i32, i32 *, uz));
+W32(b32,    WriteFile(uz, u8 *, i32, i32 *, uz));
+
+// GCC emits calls to these even without a CRT. Defining them keeps
+// msvcrt.dll out of the imports.
+#if defined(__x86_64__) || defined(__i386__)
+extern "C" void *memcpy(void *dst, void const *src, uz len)
+{
+    void *r = dst;
+    __asm volatile ("rep movsb" : "+D"(dst), "+S"(src), "+c"(len) : : "memory");
+    return r;
+}
+
+extern "C" void *memset(void *dst, i32 c, uz len)
+{
+    void *r = dst;
+    __asm volatile ("rep stosb" : "+D"(dst), "+c"(len) : "a"(c) : "memory");
+    return r;
+}
+
+extern "C" void *memchr(void const *s, i32 c, uz len)
+{
+    u8 *p = (u8 *)s;
+    for (uz i = 0; i < len; i++) {
+        if (p[i] == (u8)c) {
+            return p + i;
+        }
+    }
+    return 0;
+}
+
+extern "C" i32 memcmp(void const *a, void const *b, uz len)
+{
+    u8 *x = (u8 *)a;
+    u8 *y = (u8 *)b;
+    for (uz i = 0; i < len; i++) {
+        if (x[i] != y[i]) {
+            return x[i] - y[i];
+        }
+    }
+    return 0;
+}
+#endif
+
+struct Os {
+    uz  out;      // the file created as fd 3
+    i32 oldfind;  // listings use the arguments before Windows 7
+};
+
+static i32 chunk(iz len)  // bound a single ReadFile/WriteFile
+{
+    i32 max = 1<<21;
+    return len<max ? (i32)len : max;
+}
+
+static i32 oserr(i32 err)
+{
+    switch (err) {
+    case ERROR_FILE_NOT_FOUND:
+    case ERROR_PATH_NOT_FOUND:
+    case ERROR_INVALID_NAME:
+    case ERROR_DIRECTORY:
+        return OSERR_NOENT;
+    case ERROR_ACCESS_DENIED:
+    case ERROR_SHARING_VIOLATION:
+        return OSERR_ACCES;
+    case ERROR_FILE_EXISTS:
+    case ERROR_ALREADY_EXISTS:
+        return OSERR_EXIST;
+    }
+    return OSERR_IO;
+}
+
+// Absolute, extended-length, null-terminated form of a path. Falls back
+// to the plain conversion if the system rejects the path, leaving the
+// error for the caller's system call to report.
+static Str16 widepath(Arena *a, Str path)
+{
+    Str16 rel = towide(a, path);
+    c16  *buf = alloc<c16>(a, 0);
+    iz    max = (a->end - (byte *)buf)/(iz)sizeof(c16) - 8;
+    if (max < 0x8000+8 && a->lim) {
+        grow(a, (0x8000+16)*(iz)sizeof(c16));
+        max = (a->end - (byte *)buf)/(iz)sizeof(c16) - 8;
+    }
+    i32   cap = max<0x8000 ? (i32)max : 0x8000;  // longest possible path
+    i32   len = cap>0 ? GetFullPathNameW(rel.data, cap, buf+6, 0) : 0;
+    if (!len || len>=cap) {
+        return rel;
+    }
+    Str16 r = extendpath(buf, len);
+    a->beg = (byte *)(r.data + r.len + 1);  // keep the terminator
+    return r;
+}
+
+static b32 writeall(uz h, Str s)
+{
+    for (iz off = 0; off < s.len;) {
+        i32 len = chunk(s.len - off);
+        if (!WriteFile(h, s.data+off, len, &len, 0) || !len) {
+            return 0;
+        }
+        off += len;
+    }
+    return 1;
+}
+
+static Stat os_stat(Os *, Arena scratch, Str path)
+{
+    Stat           r = {};
+    FileAttributes a = {};
+    if (!GetFileAttributesExW(widepath(&scratch, path).data, GetFileExInfoStandard, &a)) {
+        r.err = oserr(GetLastError());
+        return r;
+    }
+    if (a.attr & FILE_ATTRIBUTE_DIRECTORY) {
+        r.type = STAT_DIR;
+    } else if (a.attr & FILE_ATTRIBUTE_DEVICE) {
+        r.type = STAT_OTHER;
+    } else {
+        r.type = STAT_FILE;
+        r.size = (i64)((u64)a.sizehi<<32 | a.sizelo);
+    }
+    return r;
+}
+
+// The first entry of a listing, fetching many at a time where the
+// system supports it (Windows 7). Earlier versions reject the arguments,
+// and from then on get theirs.
+static uz findfirst(Os *os, c16 *pattern, FindData *fd)
+{
+    uz h = INVALID_HANDLE_VALUE;
+    if (!__atomic_load_n(&os->oldfind, __ATOMIC_RELAXED)) {
+        #if CTAGS_FORCE_XP
+        h = INVALID_HANDLE_VALUE;
+        b32 refused = 1;
+        #else
+        h = FindFirstFileExW(
+            pattern, FindExInfoBasic, fd, FindExSearchNameMatch, 0,
+            FIND_FIRST_EX_LARGE_FETCH
+        );
+        b32 refused = h==INVALID_HANDLE_VALUE &&
+                      GetLastError()==ERROR_INVALID_PARAMETER;
+        #endif
+        if (!refused) {
+            return h;
+        }
+        __atomic_store_n(&os->oldfind, 1, __ATOMIC_RELAXED);
+    }
+    return FindFirstFileExW(
+        pattern, FindExInfoStandard, fd, FindExSearchNameMatch, 0, 0
+    );
+}
+
+static Listing os_list(Os *os, Arena *a, Str path)
+{
+    Listing r = {};
+    if (!path.len) {
+        r.err = OSERR_NOENT;
+        return r;
+    }
+
+    Arena tmp = *a;
+    Str16 dir = widepath(&tmp, path);
+    c16  *pat = alloc<c16>(&tmp, dir.len+3);
+    iz    len = dir.len;
+    copybytes(pat, dir.data, len*(iz)sizeof(c16));
+    if (!len || (pat[len-1]!='\\' && pat[len-1]!='/')) {
+        pat[len++] = '\\';
+    }
+    pat[len] = '*';
+
+    // The listing goes where the pattern was, which is dead once the
+    // search begins
+    FindData fd = {};  // too big for the arena's churn, fine on the stack
+    uz h = findfirst(os, pat, &fd);
+    if (h == INVALID_HANDLE_VALUE) {
+        i32 err = GetLastError();
+        if (err != ERROR_FILE_NOT_FOUND) {
+            r.err = oserr(err);
+        }
+        return r;  // empty
+    }
+
+    Dirent **tail = &r.head;
+    do {
+        c16 *name = fd.name;
+        if (name[0]=='.' && (!name[1] || (name[1]=='.' && !name[2]))) {
+            continue;
+        }
+        if (fd.attr & FILE_ATTRIBUTE_DEVICE) {
+            continue;
+        }
+        b32 isdir = !!(fd.attr & FILE_ATTRIBUTE_DIRECTORY);
+        if (isdir && fd.attr&FILE_ATTRIBUTE_REPARSE_POINT &&
+                fd.reparsetag&IO_REPARSE_TAG_NAME_SURROGATE) {
+            continue;  // a link or junction, which might make a cycle
+        }
+        iz namelen = 0;
+        for (; namelen<countof(fd.name) && name[namelen]; namelen++) {}
+        Dirent *d = alloc<Dirent>(a);
+        d->name  = fromwide(a, name, namelen);
+        d->size  = (i64)((u64)fd.sizehi<<32 | fd.sizelo);
+        d->isdir = isdir;
+        *tail = d;
+        tail  = &d->next;
+    } while (FindNextFileW(h, &fd));
+    i32 err = GetLastError();
+    FindClose(h);
+    if (err != ERROR_NO_MORE_FILES) {
+        r.head = 0;
+        r.err  = oserr(err);  // not a partial listing
+    }
+    return r;
+}
+
+static Read os_read(Os *, Arena *a, Str path, iz max)
+{
+    Read  r   = {};
+    Arena tmp = *a;
+    uz h = CreateFileW(
+        widepath(&tmp, path).data, GENERIC_READ, FILE_SHARE_ALL, 0,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0
+    );
+    if (h == INVALID_HANDLE_VALUE) {
+        r.err = oserr(GetLastError());
+        return r;
+    }
+    if (GetFileType(h)!=FILE_TYPE_DISK || !GetFileSizeEx(h, &r.size)) {
+        CloseHandle(h);
+        r.err = OSERR_IO;
+        return r;
+    }
+
+    iz len = r.size<max ? (iz)r.size : max;
+    r.data.data = allocbytes(a, len);
+    while (r.data.len < len) {
+        i32 n = chunk(len - r.data.len);
+        if (!ReadFile(h, r.data.data+r.data.len, n, &n, 0)) {
+            r.err = oserr(GetLastError());
+            break;
+        } else if (!n) {
+            break;  // shrank while reading
+        }
+        r.data.len += n;
+    }
+    CloseHandle(h);
+    return r;
+}
+
+static i32 os_create(Os *os, Arena scratch, Str path)
+{
+    uz h = CreateFileW(
+        widepath(&scratch, path).data, GENERIC_WRITE, 0, 0, CREATE_NEW,
+        FILE_ATTRIBUTE_NORMAL, 0
+    );
+    if (h == INVALID_HANDLE_VALUE) {
+        return oserr(GetLastError());
+    }
+    os->out = h;
+    return 0;
+}
+
+static b32 os_write(Os *os, i32 fd, Str s)
+{
+    if (fd == 3) {
+        return writeall(os->out, s);
+    }
+
+    uz  h    = GetStdHandle(-10 - fd);
+    i32 mode = 0;
+    if (!GetConsoleMode(h, &mode)) {
+        return writeall(h, s);
+    }
+
+    // Consoles display UTF-16 correctly regardless of code page.
+    c16 buf[512];
+    i32 len = 0;
+    for (iz i = 0; i < s.len;) {
+        len += (i32)utf16encode(buf+len, utf8decode(s, &i));
+        if (len>countof(buf)-2 || i==s.len) {
+            i32 dummy;
+            if (!WriteConsoleW(h, buf, len, &dummy, 0)) {
+                return 0;
+            }
+            len = 0;
+        }
+    }
+    return 1;
+}
+
+static b32 os_close(Os *os, i32 fd)
+{
+    assert(fd == 3);
+    return CloseHandle(os->out);
+}
+
+// Retry for about a second while something holds the destination, as
+// Vim does for a moment as it reads a tags file, or a virus scanner.
+static i32 os_rename(Os *, Arena scratch, Str src, Str dst)
+{
+    c16 *wsrc = widepath(&scratch, src).data;
+    c16 *wdst = widepath(&scratch, dst).data;
+    for (i32 wait = 1;; wait *= 2) {
+        if (MoveFileExW(wsrc, wdst, MOVEFILE_REPLACE_EXISTING)) {
+            return 0;
+        }
+        i32 err = oserr(GetLastError());
+        if (err!=OSERR_ACCES || wait>512) {
+            return err;
+        }
+        Sleep(wait);
+    }
+}
+
+static void os_delete(Os *, Arena scratch, Str path)
+{
+    DeleteFileW(widepath(&scratch, path).data);
+}
+
+static b32 os_windows(Os *)
+{
+    return 1;
+}
+
+static i32 os_ncpu(Os *)
+{
+    SystemInfo info = {};
+    GetSystemInfo(&info);
+    return info.nproc>1 ? info.nproc : 1;
+}
+
+struct Thread {
+    void  (*fn)(Worker *);
+    Worker *w;
+};
+
+__attribute((force_align_arg_pointer))
+static i32 __stdcall threadentry(void *arg)
+{
+    Thread *t = (Thread *)arg;
+    t->fn(t->w);
+    return 0;
+}
+
+static void os_parallel(Os *, Worker *ws, i32 n, void (*fn)(Worker *))
+{
+    Thread threads[32] = {};
+    uz     handles[32] = {};
+    assert(n>=1 && n<=countof(threads));
+    for (i32 i = 1; i < n; i++) {
+        threads[i].fn = fn;
+        threads[i].w  = ws + i;
+        handles[i] = CreateThread(
+            0, (iz)8<<20, threadentry, threads+i,
+            STACK_SIZE_PARAM_IS_A_RESERVATION, 0
+        );
+    }
+    fn(ws);
+    for (i32 i = 1; i < n; i++) {
+        if (handles[i]) {
+            WaitForSingleObject(handles[i], -1);
+            CloseHandle(handles[i]);
+        } else {
+            fn(ws + i);  // couldn't start a thread, so do its share here
+        }
+    }
+}
+
+static void os_backoff(Os *, i32 attempt)
+{
+    if (attempt < 64) {
+        #if defined(__x86_64__) || defined(__i386__)
+        __builtin_ia32_pause();
+        #endif
+    } else if (attempt < 1024) {
+        SwitchToThread();
+    } else {
+        Sleep(1);
+    }
+}
+
+static i64 os_clock(Os *)
+{
+    i64 freq  = 0;
+    i64 count = 0;
+    QueryPerformanceFrequency(&freq);
+    QueryPerformanceCounter(&count);
+    return count/freq*1000000 + count%freq*1000000/freq;
+}
+
+[[noreturn]] static void os_oom()
+{
+    writeall(GetStdHandle(STD_ERROR_HANDLE), "ctags: out of memory\n");
+    ExitProcess(2);
+}
+
+static b32 os_commit(byte *p, iz len)
+{
+    return !len || VirtualAlloc(p, len, MEM_COMMIT, PAGE_READWRITE);
+}
+
+// As much address space as the system will reserve, up to 64 GiB (1 GiB
+// in a 32-bit process), halving on refusal. It is committed as used.
+static Arena reserve()
+{
+    iz cap = (iz)1 << (sizeof(void *)==8 ? 36 : 30);
+    for (; cap >= (iz)1<<24; cap /= 2) {
+        byte *p = VirtualAlloc(0, cap, MEM_RESERVE, PAGE_READWRITE);
+        if (p) {
+            Arena r = {};
+            r.beg = r.end = p;
+            r.lim = p + cap;
+            return r;
+        }
+    }
+    os_oom();
+}
+
+extern "C" __attribute((force_align_arg_pointer))
+void mainCRTStartup()
+{
+    Arena a = reserve();
+
+    c16 *cmd = GetCommandLineW();
+    iz   len = 0;
+    for (; cmd[len]; len++) {}
+    Slice<Str> args = splitcmdline(&a, fromwide(&a, cmd, len));
+
+    Os os = {};
+    ExitProcess(ctags_main(&os, a, args.data, (i32)args.len));
+}
