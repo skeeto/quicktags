@@ -55,24 +55,70 @@ static b32 lineequal(Line *a, Line *b)
            !__builtin_memcmp(a->data, b->data, (uz)a->len);
 }
 
+// Sort lines, stably, as sort() would, but with the comparison inlined:
+// runs of 16 by insertion, then merged back and forth between the lines
+// and a copy, rather than copied back after each pass.
+template<b32 fold>
+static void sortindex(Line *a, iz n, Arena scratch)
+{
+    iz run = 16;
+    for (iz lo = 0; lo < n; lo += run) {
+        iz hi = lo+run<n ? lo+run : n;
+        for (iz i = lo+1; i < hi; i++) {
+            Line x = a[i];
+            iz   j = i;
+            for (; j>lo && lineless<fold>(&x, a+j-1); j--) {
+                a[j] = a[j-1];
+            }
+            a[j] = x;
+        }
+    }
+    if (n <= run) {
+        return;
+    }
+
+    Line *src = a;
+    Line *dst = alloc<Line>(&scratch, n);
+    for (iz width = run; width < n; width *= 2) {
+        for (iz lo = 0; lo < n; lo += 2*width) {
+            iz mid = lo+width < n ? lo+width : n;
+            iz hi  = lo+2*width < n ? lo+2*width : n;
+            iz i = lo, j = mid, k = lo;
+            while (i < mid && j < hi) {
+                dst[k++] = lineless<fold>(src+j, src+i) ? src[j++] : src[i++];
+            }
+            while (i < mid) dst[k++] = src[i++];
+            while (j < hi)  dst[k++] = src[j++];
+        }
+        Line *t = src;
+        src = dst;
+        dst = t;
+    }
+    if (src != a) {
+        for (iz i = 0; i < n; i++) {
+            a[i] = src[i];
+        }
+    }
+}
+
 // Index and sort a worker's lines, in its own thread.
 template<b32 fold>
 static void sortlines_(Worker *w)
 {
     Str text = finish(&w->tags);
+    u8 *end  = text.data + text.len;
     w->lines = alloc<Line>(&w->perm, w->nlines);
     iz n = 0;
-    for (iz i = 0; i < text.len;) {
-        iz end = i;
-        for (; text[end] != '\n'; end++) {}
-        Line *l = w->lines + n++;
-        l->data = text.data + i;
-        l->len  = end - i;
+    for (u8 *beg = text.data; beg < end;) {
+        u8   *lf = findbyte(w->ctx->opt->simd, beg, end, '\n');
+        Line *l  = w->lines + n++;
+        l->data = beg;
+        l->len  = lf - beg;
         l->key  = linekey<fold>(l->data, l->len);
-        i = end + 1;
+        beg = lf + 1;
     }
     assert(n == w->nlines);
-    sort(w->lines, n, lineless<fold>, w->scratch);
+    sortindex<fold>(w->lines, n, w->scratch);
 }
 
 static void sortlines(Worker *w)
@@ -352,7 +398,7 @@ static iz writeranges(Out *o, Worker *ws, i32 n, i32 nranges, Arena scratch)
             samples[nsample++] = ws[i].lines[j];
         }
     }
-    sort(samples, nsample, lineless<fold>, scratch);
+    sortindex<fold>(samples, nsample, scratch);
 
     Ranges *m = alloc<Ranges>(&scratch);
     m->ws      = ws;
@@ -477,7 +523,7 @@ static void scanold(Old *old, i32 mode, Arena *mem)
         refill<fold>(&s);
         old->lines[i] = s.cur;
     }
-    sort(old->lines, count, lineless<fold>, *mem);
+    sortindex<fold>(old->lines, count, *mem);
 }
 
 // Read the tags file to append to, if it exists and is not empty, into
