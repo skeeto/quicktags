@@ -378,3 +378,83 @@ static iz firstdiff(u8 *a, u8 *b, iz len)
     for (; i<len && a[i]==b[i]; i++) {}
     return i;
 }
+
+
+// Tables of numbers: 64 bytes as masks of the classes such a table holds,
+// bit i for byte i, by vector on x86-64, where such masks are native.
+
+struct Tableblock {
+    u64 num;    // within a number: . 0-9 A-F H L U X a-f h l u x
+    u64 digit;
+    u64 blank;  // space, tab, LF, and CR, which must precede a LF
+    u64 cr;
+    u64 lf;
+    u64 comma;
+};
+
+// Bit i holds the parity of bits 0 through i.
+static u64 prefixxor(u64 x)
+{
+    x ^= x << 1;
+    x ^= x << 2;
+    x ^= x << 4;
+    x ^= x << 8;
+    x ^= x << 16;
+    x ^= x << 32;
+    return x;
+}
+
+#if __x86_64__
+static Tableblock tableblock_sse2(u8 *p)
+{
+    Tableblock r = {};
+    for (i32 i = 0; i < 4; i++) {
+        V16 x      = load16(p + 16*i);
+        V16 lower  = x | splat16(0x20);
+        V16 digit  = (V16)((x > splat16('0'-1)) & (x < splat16('9'+1)));
+        V16 hex    = (V16)((lower > splat16('a'-1)) & (lower < splat16('f'+1)));
+        V16 suffix = (V16)((lower == splat16('h')) | (lower == splat16('l')) |
+                           (lower == splat16('u')) | (lower == splat16('x')));
+        V16 cr     = (V16)(x == splat16('\r'));
+        V16 lf     = (V16)(x == splat16('\n'));
+        V16 blank  = (V16)((x == splat16(' ')) | (x == splat16('\t'))) | cr | lf;
+        V16 num    = (V16)(x == splat16('.')) | digit | hex | suffix;
+        i32 at     = 16*i;
+        r.num   |= (u64)bits16(num) << at;
+        r.digit |= (u64)bits16(digit) << at;
+        r.blank |= (u64)bits16(blank) << at;
+        r.cr    |= (u64)bits16(cr) << at;
+        r.lf    |= (u64)bits16(lf) << at;
+        r.comma |= (u64)bits16((V16)(x == splat16(','))) << at;
+    }
+    return r;
+}
+
+AVX2 static Tableblock tableblock_avx2(u8 *p)
+{
+    Tableblock r = {};
+    for (i32 i = 0; i < 2; i++) {
+        V32 x;
+        load32(x, p + 32*i);
+        V32 lower  = x | (V32{} + (char)0x20);
+        V32 digit  = (V32)((x > (V32{} + (char)('0'-1))) &
+                           (x < (V32{} + (char)('9'+1))));
+        V32 hex    = (V32)((lower > (V32{} + (char)('a'-1))) &
+                           (lower < (V32{} + (char)('f'+1))));
+        V32 suffix = (V32)((lower == (V32{} + 'h')) | (lower == (V32{} + 'l')) |
+                           (lower == (V32{} + 'u')) | (lower == (V32{} + 'x')));
+        V32 cr     = (V32)(x == (V32{} + '\r'));
+        V32 lf     = (V32)(x == (V32{} + '\n'));
+        V32 blank  = (V32)((x == (V32{} + ' ')) | (x == (V32{} + '\t'))) | cr | lf;
+        V32 num    = (V32)(x == (V32{} + '.')) | digit | hex | suffix;
+        i32 at     = 32*i;
+        r.num   |= (u64)bits32(num) << at;
+        r.digit |= (u64)bits32(digit) << at;
+        r.blank |= (u64)bits32(blank) << at;
+        r.cr    |= (u64)bits32(cr) << at;
+        r.lf    |= (u64)bits32(lf) << at;
+        r.comma |= (u64)bits32((V32)(x == (V32{} + ','))) << at;
+    }
+    return r;
+}
+#endif

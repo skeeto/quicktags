@@ -129,4 +129,40 @@ static void test_scan(Test *t)
         }
     }
     expect(t, "firstdiff", fail.data ? fail : Str("ok"), "ok");
+
+    // Data tables, the vector forms against the scalar: numbers, blanks,
+    // and commas, over several blocks, with the bytes that end a run
+    // sometimes put in, ending anywhere
+    Str numbers[] = {
+        "0x1f", "123", "1.5e3", "077uLL", "0xFFFFFFFFu", "0", "9.", ".5",
+        "1'000", "12ab", "0xg", "1h", "x1",
+    };
+    Str blanks[]  = {"", " ", "\t", "\n", "\r\n", "  ", "\n\t "};
+    Str breaks[]  = {"g", "_", "'", "\r", ",", " ", ".", "x", "", "(",
+                     "\x80", ",,", "\r\r\n", "1 2"};
+    iz  tries = 0;
+    for (i32 trial = 0; trial<20000 && !fail.data; trial++) {
+        Buf b(&a, 1024);
+        i32 n = (i32)(scanrand(&rng) % 60);
+        for (i32 i = 0; i < n; i++) {
+            print(&b, blanks[scanrand(&rng) % countof(blanks)]);
+            u32 r = scanrand(&rng);
+            print(&b, r%8 ? numbers[r%7] : numbers[r%countof(numbers)]);
+            u32 q = scanrand(&rng);
+            print(&b, q%64 ? blanks[q%countof(blanks)] : Str("\r"));  // lone CR
+            print(&b, scanrand(&rng)%64 ? Str(",") : breaks[r%countof(breaks)]);
+        }
+        Str table = finish(&b);
+        iz  len   = table.len ? scanrand(&rng)%(u32)(table.len+1) : 0;
+        u8 *s     = table.data;
+        u8 *want  = numbersrun(SIMD_NONE, s, s+len);
+        for (i32 simd = SIMD_SSE2; simd <= best; simd++) {
+            if (numbersrun(simd, s, s+len) != want) {
+                fail = scanfail(&a, "numbersrun", simd, s, len);
+            }
+        }
+        tries += want != 0;
+    }
+    expect(t, "numbersrun", fail.data ? fail : Str("ok"), "ok");
+    expect(t, "numbersrun runs", num(&a, tries > 10000), "1");
 }

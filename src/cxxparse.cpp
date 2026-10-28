@@ -611,21 +611,12 @@ static u8 *skipblanks(u8 *s, u8 *end)  // spaces, tabs, and newlines
     return s;
 }
 
-// Fast path for data tables: at a ',' in a statement already at the
-// token limit, where each token replaces the last until one matters,
-// skip a run of plain numbers and commas in the source, leaving the
-// last ',' as the current character with the state reading it would
-// leave. Anything else stops the run, before the number it is in.
-static void skipnumbers(Cxx *c)
+// Where a run of plain numbers and commas from s ends: just past the
+// last comma after a complete number, else stop. Each number begins with
+// a digit and is followed, after blanks, by its comma. Anything else ends
+// the run before the number it is in.
+static u8 *numbersrun_scalar(u8 *s, u8 *end, u8 *stop)
 {
-    Cpp *p = &c->cpp;
-    if (p->nback || p->state!=D_NONE) {
-        return;
-    }
-
-    u8 *s    = p->in.p;
-    u8 *end  = p->in.end;
-    u8 *stop = 0;  // just past the last ',' of a complete number
     for (;;) {
         s = skipblanks(s, end);
         if (s==end || (u8)(*s-'0')>9) {
@@ -641,7 +632,55 @@ static void skipnumbers(Cxx *c)
         }
         stop = ++s;
     }
+    return stop;
+}
 
+// The same, by vector where it can, else null for no run. A block of 64
+// bytes holds no more than number bytes, blanks, and commas, its numbers
+// begin with digits, numbers and commas alternate, by the parity of the
+// count of them so far, and each CR precedes a LF, or else the run ends
+// at the last comma before the first byte that breaks those rules. Bytes
+// left too few for a block go to the scalar form, from the last comma.
+static u8 *numbersrun(i32 simd, u8 *s, u8 *end)
+{
+    u8 *beg  = s;
+    u8 *stop = 0;
+    #if __x86_64__
+    u64 innum  = 0;  // the last byte was in a number
+    u64 parity = 0;  // of the numbers and commas so far
+    for (; simd && end-s>=64; s += 64) {
+        Tableblock b = simd>=SIMD_AVX2 ? tableblock_avx2(s) : tableblock_sse2(s);
+        u64 lfnext = end-s>64 && s[64]=='\n';
+        u64 starts = b.num & ~(b.num<<1 | innum);
+        u64 counts = prefixxor(starts | b.comma) ^ -parity;  // odd at numbers
+        u64 bad    = ~(b.num | b.blank | b.comma) | (starts & ~b.digit) |
+                     (starts & ~counts) | (b.comma & counts) |
+                     (b.cr & ~(b.lf>>1 | lfnext<<63));
+        if (bad) {
+            u64 before = b.comma & ((bad & -bad) - 1);
+            return before ? s + 64 - __builtin_clzll(before) : stop;
+        }
+        stop   = b.comma ? s + 64 - __builtin_clzll(b.comma) : stop;
+        innum  = b.num >> 63;
+        parity = counts >> 63;
+    }
+    #endif
+    return numbersrun_scalar(stop ? stop : beg, end, stop);
+}
+
+// Fast path for data tables: at a ',' in a statement already at the
+// token limit, where each token replaces the last until one matters,
+// skip a run of plain numbers and commas in the source, leaving the
+// last ',' as the current character with the state reading it would
+// leave. Anything else stops the run, before the number it is in.
+static void skipnumbers(Cxx *c)
+{
+    Cpp *p = &c->cpp;
+    if (p->nback || p->state!=D_NONE) {
+        return;
+    }
+
+    u8 *stop = numbersrun(p->in.simd, p->in.p, p->in.end);
     if (stop) {
         cppdrained(p);  // while bytes remain, as reading them would
         advance(&p->in, stop);
