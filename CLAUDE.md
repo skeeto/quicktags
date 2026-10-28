@@ -112,6 +112,10 @@ Elsewhere:
   `tagdiff.cpp` (differential comparison), `ledger.txt`, `imports.txt`,
   `xp.sh`, and `plugins/` (the plugin tests' sample tree, kept byte for
   byte).
+- `test/prof/`: a sampling profiler for the Windows build (`prof.c`, which
+  samples a debuggee's threads, and `prof.py`, which symbolizes and ranks
+  the samples), with which performance work is measured. Their headers
+  explain their use.
 - `docs/spec.md`: Universal Ctags' rules in our words, with rule IDs, and
   our departures from it. Read the relevant section before porting a
   behavior.
