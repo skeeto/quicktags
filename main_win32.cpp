@@ -158,27 +158,22 @@ extern "C" void *memset(void *dst, i32 c, uz len)
     return r;
 }
 
+// By SSE2 where built for it, since sorting tags compares many lines
+// that share long prefixes.
 extern "C" void *memchr(void const *s, i32 c, uz len)
 {
-    u8 *p = (u8 *)s;
-    for (uz i = 0; i < len; i++) {
-        if (p[i] == (u8)c) {
-            return p + i;
-        }
-    }
-    return 0;
+    u8 *beg = (u8 *)s;
+    u8 *end = beg + len;
+    u8 *r   = findbyte(SIMD_SSE2, beg, end, (u8)c);
+    return r<end ? r : 0;
 }
 
 extern "C" i32 memcmp(void const *a, void const *b, uz len)
 {
     u8 *x = (u8 *)a;
     u8 *y = (u8 *)b;
-    for (uz i = 0; i < len; i++) {
-        if (x[i] != y[i]) {
-            return x[i] - y[i];
-        }
-    }
-    return 0;
+    iz  i = firstdiff(x, y, (iz)len);
+    return i<(iz)len ? x[i]-y[i] : 0;
 }
 #endif
 

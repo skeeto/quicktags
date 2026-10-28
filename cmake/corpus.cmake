@@ -112,8 +112,9 @@ function(ctags_same_test name root opts)
     LABELS "corpus;same" TIMEOUT 1800 PROCESSORS 8)
 endfunction()
 
-# Fields built from token runs (signatures, base classes) too, and the
-# unsorted and folded orders, with any number of threads
+# Fields built from token runs (signatures, base classes) too, the
+# unsorted and folded orders, with any number of threads, and each level
+# of vector scanning below the processor's
 set(ctags_same_fields --fields=+iaSm)
 if(CTAGS_CORPUS_LLAMA)
   ctags_same_test(llama/nofast ${CTAGS_CORPUS_LLAMA} --_nofast)
@@ -124,6 +125,8 @@ if(CTAGS_CORPUS_LLAMA)
   ctags_same_test(llama/foldcase ${CTAGS_CORPUS_LLAMA} --jobs=1
     --sort=foldcase)
   ctags_same_test(llama/etags ${CTAGS_CORPUS_LLAMA} --jobs=1 -e)
+  ctags_same_test(llama/simd0 ${CTAGS_CORPUS_LLAMA} --_simd=0)
+  ctags_same_test(llama/simd1 ${CTAGS_CORPUS_LLAMA} --_simd=1)
 endif()
 if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast ${CTAGS_CORPUS_LLVM} --_nofast)
@@ -132,4 +135,6 @@ if(CTAGS_CORPUS_LLVM)
     ${ctags_same_fields})
   ctags_same_test(llvm/sortno ${CTAGS_CORPUS_LLVM} --jobs=1 --sort=no)
   ctags_same_test(llvm/etags ${CTAGS_CORPUS_LLVM} --jobs=1 -e)
+  ctags_same_test(llvm/simd0 ${CTAGS_CORPUS_LLVM} --_simd=0)
+  ctags_same_test(llvm/simd1 ${CTAGS_CORPUS_LLVM} --_simd=1)
 endif()

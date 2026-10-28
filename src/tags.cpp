@@ -40,6 +40,7 @@ struct File {
     i32     anon;
     i32     carry;  // left by a failed pass for the next, 0 for nothing
     b32     nofast;
+    i32     simd;   // scanning level, SIMD_*
 };
 
 struct Tag {

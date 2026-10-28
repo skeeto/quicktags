@@ -59,15 +59,17 @@ struct Reader {
     i32 line;     // of the last byte read
     iz  linepos;  // offset of that line's first byte
     b32 newline;  // the next byte starts a line
+    i32 simd;     // scanning level, SIMD_*
 };
 
-static Reader newreader(Str text)
+static Reader newreader(Str text, i32 simd)
 {
     Reader r = {};
     r.beg     = text.data;
     r.end     = text.data + text.len;
     r.p       = r.beg;
     r.newline = 1;
+    r.simd    = simd;
     return r;
 }
 
@@ -99,20 +101,12 @@ static void advance(Reader *r, u8 *to)
     if (r->newline) {
         r->line++;
         r->linepos = r->p - r->beg;
-        r->newline = 0;
     }
-    for (u8 *s = r->p;; s++) {
-        s = (u8 *)__builtin_memchr(s, '\n', (uz)(to - s));
-        if (!s) {
-            break;
-        } else if (s+1 == to) {
-            r->newline = 1;
-            break;
-        }
-        r->line++;
-        r->linepos = s+1 - r->beg;
-    }
-    r->p = to;
+    Lines l = countlines(r->simd, r->p, to-1);  // a last LF is pending
+    r->line   += (i32)l.count;
+    r->linepos = l.after ? l.after-r->beg : r->linepos;
+    r->newline = to[-1] == '\n';
+    r->p       = to;
 }
 
 enum : i32 {
@@ -187,7 +181,7 @@ struct Cpp {
 static void cppinit(Cpp *p, File *f, Arena *a, b32 brace)
 {
     *p = {};
-    p->in     = newreader(f->src->text);
+    p->in     = newreader(f->src->text, f->simd);
     p->f      = f;
     p->a      = a;
     p->brace  = brace;

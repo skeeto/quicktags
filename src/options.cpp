@@ -91,6 +91,7 @@ struct Options {
     b32         stats;
     b32         nofast;
     iz          bigfile;      // --_bigfile: files tagged first, or 0
+    i32         simd;         // scanning level, SIMD_*, at most --_simd
     b32         windows;      // '\' and ':' separate paths
 };
 
@@ -1702,7 +1703,7 @@ enum : i32 {
     OPT_LINEDIRS, OPT_LINKS, OPT_LISTEXTRAS, OPT_LISTFIELDS, OPT_LISTKINDS,
     OPT_LISTLANGS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
     OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
-    OPT_VERSION, OPT_STATS, OPT_NOFAST, OPT_BIGFILE,
+    OPT_VERSION, OPT_STATS, OPT_NOFAST, OPT_BIGFILE, OPT_SIMD,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
@@ -1745,6 +1746,7 @@ static struct { Str name; i32 id; } longopts[] = {
     {"version",                OPT_VERSION},
     {"_bigfile",               OPT_BIGFILE},
     {"_nofast",                OPT_NOFAST},
+    {"_simd",                  OPT_SIMD},
     {"_stats",                 OPT_STATS},
 };
 
@@ -2016,6 +2018,11 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
         // From how many bytes files are tagged first, for tests
         opt->bigfile = parsenum(value, 1<<30);
         return opt->bigfile<0 ? badvalue(p, name) : ARGS_OK;
+
+    case OPT_SIMD:
+        // The widest vectors to scan with (SIMD_*), for tests
+        opt->simd = parsenum(value, SIMD_AVX2);
+        return opt->simd<0 ? badvalue(p, name) : ARGS_OK;
     }
     return ARGS_OK;
 }
@@ -2145,6 +2152,7 @@ static void parseinit(Parse *p, Options *opt, Os *os, Arena *perm, Buf *log)
     opt->sort   = SORT_YES;
     opt->format = 2;
     opt->patmax = 96;  // as Universal Ctags
+    opt->simd   = SIMD_AVX2;
     opt->langs  = LANGS_ALL;
     for (i32 lang = LANG_C; lang <= LANG_FORTRAN; lang++) {
         defaultmap(&opt->map, lang, perm);

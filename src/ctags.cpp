@@ -136,6 +136,7 @@ static Arena carve(Arena *a, iz len)
 }
 
 
+#include "scan.cpp"
 #include "kinds.cpp"
 #include "glob.cpp"
 #include "options.cpp"
@@ -195,6 +196,9 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         os_write(os, 2, finish(&log));
         return 1;
     }
+    i32 simd = simdlevel();
+    opt.simd = opt.simd<simd ? opt.simd : simd;  // --_simd can only lower it
+
     if (opt.output!="-" && !checkoutput(os, opt.output, g, &log)) {
         os_write(os, 2, finish(&log));
         return 1;

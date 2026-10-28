@@ -186,6 +186,7 @@ static void runcases(Test *t, TagCase *cases, iz n)
 }
 
 #include "test/wide_test.cpp"
+#include "test/scan_test.cpp"
 #include "test/output_test.cpp"
 #include "test/cli_test.cpp"
 #include "test/walk_test.cpp"
@@ -217,6 +218,7 @@ int main(int argc, char **argv)
         b32         cases;  // has tag cases to export
     } groups[] = {
         {"wide",     test_wide,      0},
+        {"scan",     test_scan,      0},
         {"output",   test_output,    0},
         {"cli",      test_cli,       0},
         {"walk",     test_walk,      0},

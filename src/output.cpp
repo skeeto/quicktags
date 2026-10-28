@@ -33,8 +33,8 @@ static b32 lineless(Line *a, Line *b)
     }
     iz len = a->len<b->len ? a->len : b->len;
     if (!fold && len>8) {
-        i32 d = __builtin_memcmp(a->data+8, b->data+8, (uz)(len-8));
-        if (d) return d < 0;
+        iz i = 8 + firstdiff(a->data+8, b->data+8, len-8);
+        if (i < len) return a->data[i] < b->data[i];
     } else if (fold) {
         for (iz i = 8; i < len; i++) {
             u8 x = foldbyte(a->data[i]);

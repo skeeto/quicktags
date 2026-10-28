@@ -707,6 +707,7 @@ static void visitfile(Worker *w, Item *it)
     f.out    = &w->tags;
     f.mark   = w->tags.len;
     f.nofast = c->opt->nofast;
+    f.simd   = c->opt->simd;
     parsefile(&f, tmp);
     if (c->opt->extras&EXTRA_INPUTFILE && c->opt->filekind) {
         filetag(&f, filetagname(it->path, c->opt->windows));
