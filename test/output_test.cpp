@@ -426,4 +426,72 @@ static void test_output(Test *t)
                "Z\tx\n_\tx\n\xc3\xa9\tx\n");
         expect(t, "fold merge count", num(&a, count), "11");
     }
+
+    // Merging in ranges, as the workers do, against one merge: lines
+    // repeated across workers, which must still be written once, and a
+    // first worker without room, whose range the writer merges itself
+    for (b32 fold = 0; fold < 2; fold++) {
+        for (i32 nranges = 1; nranges <= 9; nranges++) {
+            Arena  b   = a;
+            u64    rng = 1;
+            Buf    joined(&b, 1<<12);
+            Line  *ls  = alloc<Line>(&b, 90);
+            for (i32 i = 0; i < 90; i++) {
+                rng = rng*0x3243f6a8885a308d + 1;
+                u32 r  = (u32)(rng >> 32);
+                iz  at = joined.len;
+                putbyte(&joined, "aAbB_z"[r%6]);
+                putbyte(&joined, "aAbB_z"[r/6%6]);
+                print(&joined, "\tf");
+                print(&joined, (i64)(r>>8 & 3));
+                ls[i].data = joined.data + at;
+                ls[i].len  = joined.len - at;
+                putbyte(&joined, '\n');
+            }
+            Worker ws[3]  = {};
+            Ctx    ctx    = {};
+            Os    *os     = newos(&b);
+            ctx.os = os;
+            for (i32 w = 0; w < 3; w++) {
+                Line *wl = ls + 30*w;
+                for (i32 i = 0; i < 30; i++) {
+                    wl[i].key = fold ? linekey<1>(wl[i].data, wl[i].len)
+                                     : linekey<0>(wl[i].data, wl[i].len);
+                }
+                if (fold) {
+                    sort(wl, 30, lineless<1>, b);
+                } else {
+                    sort(wl, 30, lineless<0>, b);
+                }
+                iz    cap = w ? 1<<20 : 1<<10;  // too little for a range
+                byte *mem = (byte *)allocbytes(&b, cap);
+                ws[w].ctx     = &ctx;
+                ws[w].lines   = wl;
+                ws[w].nlines  = 30;
+                ws[w].scratch = {mem, mem+cap};
+            }
+
+            Stream s[3] = {};
+            for (i32 w = 0; w < 3; w++) {
+                s[w].beg = ws[w].lines;
+                s[w].end = ws[w].lines + ws[w].nlines;
+            }
+            Out *one  = newout(os, &b, 1);
+            iz   want = fold ? mergelines<1>(one, s, 3, b) : mergelines<0>(one, s, 3, b);
+            flush(one);
+            Str  wantout = finish(&os->out);
+
+            os->out = Buf(os->a, 1<<12);
+            Out *o   = newout(os, &b, 1);
+            iz   got = fold ? writeranges<1>(o, ws, 3, nranges, b)
+                            : writeranges<0>(o, ws, 3, nranges, b);
+            flush(o);
+            Buf name(&b, 32);
+            print(&name, "ranges ");
+            print(&name, (i64)nranges);
+            print(&name, fold ? Str(" fold") : Str(""));
+            expect(t, finish(&name), finish(&os->out), wantout);
+            expect(t, "ranges count", num(&b, got), num(&b, want));
+        }
+    }
 }

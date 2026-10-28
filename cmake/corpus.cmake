@@ -134,6 +134,8 @@ if(CTAGS_CORPUS_LLVM)
   ctags_same_test(llvm/nofast-fields ${CTAGS_CORPUS_LLVM} --_nofast
     ${ctags_same_fields})
   ctags_same_test(llvm/sortno ${CTAGS_CORPUS_LLVM} --jobs=1 --sort=no)
+  ctags_same_test(llvm/foldcase ${CTAGS_CORPUS_LLVM} --jobs=1
+    --sort=foldcase)
   ctags_same_test(llvm/etags ${CTAGS_CORPUS_LLVM} --jobs=1 -e)
   ctags_same_test(llvm/simd0 ${CTAGS_CORPUS_LLVM} --_simd=0)
   ctags_same_test(llvm/simd1 ${CTAGS_CORPUS_LLVM} --_simd=1)

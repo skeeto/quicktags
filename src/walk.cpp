@@ -46,6 +46,8 @@ struct Queue {
     alignas(64) iz pending;
 };
 
+struct Ranges;
+
 struct Ctx {
     Os      *os;
     Options *opt;
@@ -54,6 +56,7 @@ struct Ctx {
     b32      ordered;  // files' tags are written in the walk's order
     b32      chunked;  // each file tagged gets a chunk: ordered, or -a (D9)
     Queue    queue;
+    Ranges  *ranges;   // while merging in parallel
 };
 
 // One file's tags, for output in the walk's order: a span of its

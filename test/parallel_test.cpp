@@ -107,6 +107,9 @@ static void test_parallel(Test *t)
         "--_bigfile=48",  // most files, but not f0.c to f9.c, tagged first
         "--_bigfile=48 --sort=no --extras=+f",
         "-e --_bigfile=1",
+        "--_ranges=3",    // merged in parallel, however few the lines
+        "--_ranges=40 --extras=+q",
+        "--_ranges=7 --sort=foldcase --fields=+K",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;

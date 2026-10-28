@@ -210,9 +210,10 @@ static void siftdown(i32 *heap, i32 len, i32 i, Stream *s)
     }
 }
 
-// Write the union of sorted streams in order, each distinct line once.
-template<b32 fold>
-static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
+// Write the union of sorted streams in order, each distinct line once,
+// to an Out or a Buf.
+template<b32 fold, typename Sink>
+static iz mergelines(Sink *o, Stream *s, i32 n, Arena scratch)
 {
     i32 *heap = alloc<i32>(&scratch, n);
     i32  len  = 0;
@@ -245,6 +246,139 @@ static iz mergelines(Out *o, Stream *s, i32 n, Arena scratch)
             }
         }
         siftdown<fold>(heap, len, 0, s);
+    }
+    return count;
+}
+
+
+// Merging in parallel: the lines split into ranges by value, at lines
+// sampled from all the workers', each range merged by the worker that
+// claims it, into its scratch, now free, and the ranges written in order.
+// Lines equal to a bound fall in the range it begins, so all copies of a
+// line meet in one range, which writes it once.
+
+struct Range {
+    Str text;   // its lines merged, unless no worker had room
+    iz  count;  // distinct lines
+    b32 done;
+};
+
+struct Ranges {
+    Worker *ws;
+    i32     n;
+    Line   *bounds;   // nranges-1 lines, each beginning a range
+    Range  *ranges;
+    i32     nranges;
+    i32     next;     // the next range to claim
+};
+
+// The first of a worker's sorted lines not before x.
+template<b32 fold>
+static iz lowerbound(Worker *w, Line *x)
+{
+    iz lo = 0;
+    iz hi = w->nlines;
+    while (lo < hi) {
+        iz mid = lo + (hi - lo)/2;
+        if (lineless<fold>(w->lines+mid, x)) {
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+    return lo;
+}
+
+// Point the streams at each worker's lines in a range, and return their
+// bytes, newlines included.
+template<b32 fold>
+static iz rangestreams(Ranges *m, i32 r, Stream *s)
+{
+    iz len = 0;
+    for (i32 i = 0; i < m->n; i++) {
+        Worker *w  = m->ws + i;
+        iz      lo = r ? lowerbound<fold>(w, m->bounds+r-1) : 0;
+        iz      hi = r<m->nranges-1 ? lowerbound<fold>(w, m->bounds+r) : w->nlines;
+        s[i] = {};
+        s[i].beg = w->lines + lo;
+        s[i].end = w->lines + hi;
+        for (iz j = lo; j < hi; j++) {
+            len += w->lines[j].len + 1;
+        }
+    }
+    return len;
+}
+
+// Merge ranges as they are claimed, until none are left, or one would
+// not fit, which the writer then merges itself. A worker never waits on
+// another.
+template<b32 fold>
+static void mergeranges(Worker *w)
+{
+    Ranges *m = w->ctx->ranges;
+    Arena  *a = &w->scratch;
+    for (;;) {
+        i32 r = __atomic_fetch_add(&m->next, 1, __ATOMIC_RELAXED);
+        if (r >= m->nranges) {
+            return;
+        }
+        Stream *s   = alloc<Stream>(a, m->n);
+        iz      len = rangestreams<fold>(m, r, s);
+        if (len > arenasize(*a)-((iz)1<<16)) {
+            return;  // with room for the heap
+        }
+        Buf b(a, len);
+        m->ranges[r].count = mergelines<fold>(&b, s, m->n, *a);
+        m->ranges[r].text  = finish(&b);
+        m->ranges[r].done  = 1;
+    }
+}
+
+// Merge the workers' sorted lines in ranges, in parallel, and write them
+// in order, returning how many. The bounds come from lines sampled at a
+// fixed stride through each worker's, about eight a range.
+template<b32 fold>
+static iz writeranges(Out *o, Worker *ws, i32 n, i32 nranges, Arena scratch)
+{
+    iz total = 0;
+    for (i32 i = 0; i < n; i++) {
+        total += ws[i].nlines;
+    }
+    iz    stride  = total/((iz)nranges*8) + 1;
+    Line *samples = alloc<Line>(&scratch, total/stride + n);
+    iz    nsample = 0;
+    for (i32 i = 0; i < n; i++) {
+        for (iz j = stride/2; j < ws[i].nlines; j += stride) {
+            samples[nsample++] = ws[i].lines[j];
+        }
+    }
+    sort(samples, nsample, lineless<fold>, scratch);
+
+    Ranges *m = alloc<Ranges>(&scratch);
+    m->ws      = ws;
+    m->n       = n;
+    m->nranges = nranges;
+    m->bounds  = alloc<Line>(&scratch, nranges);
+    m->ranges  = alloc<Range>(&scratch, nranges);
+    for (i32 r = 1; r < nranges; r++) {
+        m->bounds[r-1] = nsample ? samples[(iz)r*nsample/nranges] : Line{};
+    }
+
+    Ctx *c = ws->ctx;
+    c->ranges = m;
+    os_parallel(c->os, ws, n, mergeranges<fold>);
+    c->ranges = 0;
+
+    iz      count = 0;
+    Stream *s     = alloc<Stream>(&scratch, n);
+    for (i32 r = 0; r < nranges; r++) {
+        if (m->ranges[r].done) {
+            print(o, m->ranges[r].text);
+            count += m->ranges[r].count;
+        } else {
+            rangestreams<fold>(m, r, s);
+            count += mergelines<fold>(o, s, n, scratch);
+        }
     }
     return count;
 }
@@ -632,10 +766,21 @@ static iz writelines(Out *o, Options *opt, Worker *ws, i32 n, Old *old,
         return count + writechunks(o, ws, n, 0, scratch);
     }
 
+    // Several workers' many lines and no old file: in parallel
+    iz total = 0;
     for (i32 i = 0; i < n; i++) {
         s[i].beg = ws[i].lines;
         s[i].end = ws[i].lines + ws[i].nlines;
+        total   += ws[i].nlines;
     }
+    i32 nranges = opt->ranges ? opt->ranges : total>=(iz)1<<14 ? 4*n : 0;
+    if (ns==n && n>1 && nranges) {
+        if (opt->sort == SORT_FOLD) {
+            return writeranges<1>(o, ws, n, nranges, scratch);
+        }
+        return writeranges<0>(o, ws, n, nranges, scratch);
+    }
+
     if (opt->sort == SORT_FOLD) {
         return mergelines<1>(o, s, ns, scratch);
     }
