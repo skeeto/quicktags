@@ -441,7 +441,7 @@ static void test_walk(Test *t)
         "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
         "!_TAG_PROC_CWD\t/work/\t//\n"
         "!_TAG_PROGRAM_NAME\tctags\t//\n"
-        "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n"
+        "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n"
         "x\ta.c\t/^int x;$/;\"\tv\tline:1\ttyperef:typename:int\n"
         "y\tsub/b.cpp\t/^int y;$/;\"\tv\tline:1\ttyperef:typename:int\n";
     {
@@ -496,7 +496,7 @@ static void test_walk(Test *t)
              "!_TAG_PATTERN_LENGTH_LIMIT\t16\t/0 for no limit/\n"
              "!_TAG_PROC_CWD\t/work/\t//\n"
              "!_TAG_PROGRAM_NAME\tctags\t//\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n", ""},
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n", ""},
             {"--fields=+E --output-format=e-ctags -n --format=0", "C:\\w\\x", 1,
              "!_TAG_FILE_FORMAT\t0\t/unknown format/\n"
              "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
@@ -506,7 +506,7 @@ static void test_walk(Test *t)
              "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
              "!_TAG_PROC_CWD\tC:/w/x/\t//\n"
              "!_TAG_PROGRAM_NAME\tctags\t//\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n", ""},
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n", ""},
             {"--fields=+E -N --pattern-length-limit=0", "C:\\", 1,
              "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/;\"\textras:pseudo\n"
              "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/;\"\textras:pseudo\n"
@@ -516,7 +516,7 @@ static void test_walk(Test *t)
              "!_TAG_PATTERN_LENGTH_LIMIT\t0\t/0 for no limit/;\"\textras:pseudo\n"
              "!_TAG_PROC_CWD\tC:/\t//;\"\textras:pseudo\n"
              "!_TAG_PROGRAM_NAME\tctags\t//;\"\textras:pseudo\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//;\"\textras:pseudo\n", ""},
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//;\"\textras:pseudo\n", ""},
             {"--excmd=m", "/a\\b\x01", 0,
              "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
              "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
@@ -526,7 +526,7 @@ static void test_walk(Test *t)
              "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
              "!_TAG_PROC_CWD\t/a\\\\b\\x01/\t//\n"
              "!_TAG_PROGRAM_NAME\tctags\t//\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n", ""},
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n", ""},
             {"--output-format=e-ctags", "/a\\b\x01", 0,
              "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
              "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
@@ -536,7 +536,7 @@ static void test_walk(Test *t)
              "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
              "!_TAG_PROC_CWD\t/a\\b\x01/\t//\n"
              "!_TAG_PROGRAM_NAME\tctags\t//\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n", ""},
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n", ""},
             {"--output-format=e-ctags", "/a\nb\tc", 0,
              "!_TAG_FILE_FORMAT\t2\t/extended format; --format=1 will not append ;\" to lines/\n"
              "!_TAG_FILE_SORTED\t1\t/0=unsorted, 1=sorted, 2=foldcase/\n"
@@ -545,7 +545,7 @@ static void test_walk(Test *t)
              "!_TAG_OUTPUT_MODE\te-ctags\t/u-ctags or e-ctags/\n"
              "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
              "!_TAG_PROGRAM_NAME\tctags\t//\n"
-             "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n",
+             "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n",
              "ctags: Warning: skip priting !_TAG_PROC_CWD pseudo tag; the "
              "input field of the pseudo tag includes a tab character: "
              "/a\nb\tc/\n"},
@@ -959,7 +959,7 @@ static void test_walk(Test *t)
         r = run(os, a, "--version x.c");
         expect(t, "version status", num(&a, r.status), "0");
         expect(t, "version", r.out,
-               "ctags 0.1.0 (Universal Ctags 6.2.1 compatible)\n");
+               "ctags 0.2.0 (Universal Ctags 6.2.1 compatible)\n");
         expect(t, "version err", r.err, "");
         iz at = find(r.out, "Universal Ctags ");
         expect(t, "version tagbar", num(&a, at>=0), "1");
@@ -1298,7 +1298,7 @@ static void test_walk(Test *t)
         }
         Run r = run(os, a, "-L list4");
         expect(t, "-L list4", r.out,
-               "ctags 0.1.0 (Universal Ctags 6.2.1 compatible)\n");
+               "ctags 0.2.0 (Universal Ctags 6.2.1 compatible)\n");
 
         // D13: a -L after a file name is read as any other. Universal
         // Ctags parses it but never reads the list, so it tags x.h alone,
@@ -1655,7 +1655,7 @@ static void test_walk(Test *t)
                 "!_TAG_PATTERN_LENGTH_LIMIT\t96\t/0 for no limit/\n"
                 "!_TAG_PROC_CWD\t/home/u/w/\t//\n"
                 "!_TAG_PROGRAM_NAME\tctags\t//\n"
-                "!_TAG_PROGRAM_VERSION\t0.1.0\t//\n"
+                "!_TAG_PROGRAM_VERSION\t0.2.0\t//\n"
                 "a\t../a.c\t1;/^int a;$/;\"\tvariable\tline:1\ttyperef:typename:int\n"
                 "b\tb.c\t1;/^int b;$/;\"\tvariable\tline:1\ttyperef:typename:int\n");
             vfsunlink(os, "sub/tags");

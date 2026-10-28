@@ -806,10 +806,10 @@ How Universal Ctags parses its options (`main/options.c`, `main/parse.c`, `main/
   - The pseudo extra (`xtag.c`): until an option sets it, by naming it or by a reset, it is enabled only where the writer writes pseudo-tags (not etags) and the output is a file, not `-` or `/dev/stdout`. So `-f - --list-extras` lists it disabled, as does `-e --extras=+p --list-extras`, while `--extras=+p -e --list-extras` lists it enabled and fixed [V].
   - Here other languages list no kinds, extras or fields, and all-language tables hold only our rows, so their columns are narrower than Universal Ctags'.
 - **OPT-19 [V] `--version`** prints to stdout and exits 0 at once, as the listings do. Universal Ctags prints several lines, the first `Universal Ctags 6.2.1, Copyright (C) 2015-2025 Universal Ctags Team`, then its derivation from `Exuberant Ctags 5.8` and its build's features.
-  - Here it prints one line, `ctags 0.1.0 (Universal Ctags 6.2.1 compatible)`, naming this program and its version, as `PROGRAM_NAME` and `PROGRAM_VERSION` do (PT-4), and the version whose behavior it follows. Editor plugins read this text to decide what the program can do, and each accepts it:
+  - Here it prints one line, `ctags 0.2.0 (Universal Ctags 6.2.1 compatible)`, naming this program and its version, as `PROGRAM_NAME` and `PROGRAM_VERSION` do (PT-4), and the version whose behavior it follows. Editor plugins read this text to decide what the program can do, and each accepts it:
     - tagbar requires a match of `\(Exuberant\|Universal\) Ctags`, case-sensitively, then takes its Universal Ctags path on `Universal Ctags`, ignoring case;
     - easytags matches `\(Exuberant\|Universal\) Ctags \zs\(\d\+\(\.\d\+\)*\|Development\)` in the first line, which finds `6.2.1`, above its minimum;
-    - fzf-lua looks for `Universal`, after which it passes `--excmd=combine`, and reads `0.1.0` as a version it does not use; the Linux kernel's `tags.sh` greps for `universal`, ignoring case.
+    - fzf-lua looks for `Universal`, after which it passes `--excmd=combine`, and reads `0.2.0` as a version it does not use; the Linux kernel's `tags.sh` greps for `universal`, ignoring case.
     - vim-clap requires the first line to start with `Universal Ctags`, which this does not.
 
 **Order of checks**

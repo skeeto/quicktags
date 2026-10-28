@@ -15,7 +15,7 @@
 // This is free and unencumbered software released into the public domain.
 #include "base.cpp"
 
-static Str version = "0.1.0";
+static Str version = "0.2.0";
 
 
 // Platform API
