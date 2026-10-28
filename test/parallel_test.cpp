@@ -104,6 +104,9 @@ static void test_parallel(Test *t)
         "-u --extras=+fq --fields=+KE",
         "-e",
         "-e --extras=+fq --kinds-C=* --tag-relative=never",
+        "--_bigfile=48",  // most files, but not f0.c to f9.c, tagged first
+        "--_bigfile=48 --sort=no --extras=+f",
+        "-e --_bigfile=1",
     };
     for (iz m = 0; m < countof(modes); m++) {
         os->seed = 0;

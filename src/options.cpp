@@ -90,6 +90,7 @@ struct Options {
     b32         fieldsreset;  // --fields reset them: no fixed-field warnings
     b32         stats;
     b32         nofast;
+    iz          bigfile;      // --_bigfile: files tagged first, or 0
     b32         windows;      // '\' and ':' separate paths
 };
 
@@ -1701,7 +1702,7 @@ enum : i32 {
     OPT_LINEDIRS, OPT_LINKS, OPT_LISTEXTRAS, OPT_LISTFIELDS, OPT_LISTKINDS,
     OPT_LISTLANGS, OPT_OPTIONS, OPT_OUTFORMAT, OPT_PATLIMIT, OPT_QUIET,
     OPT_RECURSE, OPT_SORT, OPT_TAGRELATIVE, OPT_TOTALS, OPT_VERBOSE,
-    OPT_VERSION, OPT_STATS, OPT_NOFAST,
+    OPT_VERSION, OPT_STATS, OPT_NOFAST, OPT_BIGFILE,
 };
 
 static struct { Str name; i32 id; } longopts[] = {
@@ -1742,6 +1743,7 @@ static struct { Str name; i32 id; } longopts[] = {
     {"totals",                 OPT_TOTALS},
     {"verbose",                OPT_VERBOSE},
     {"version",                OPT_VERSION},
+    {"_bigfile",               OPT_BIGFILE},
     {"_nofast",                OPT_NOFAST},
     {"_stats",                 OPT_STATS},
 };
@@ -2009,6 +2011,11 @@ static i32 exactopt(Parse *p, i32 id, Str name, Str value)
     case OPT_NOFAST:
         opt->nofast = 1;
         return ARGS_OK;
+
+    case OPT_BIGFILE:
+        // From how many bytes files are tagged first, for tests
+        opt->bigfile = parsenum(value, 1<<30);
+        return opt->bigfile<0 ? badvalue(p, name) : ARGS_OK;
     }
     return ARGS_OK;
 }

@@ -277,26 +277,20 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
         for (iz i = 1; i < nroots; i++) {
             roots[i-1].next = roots + i;
         }
-        pushitems(&ctx.queue, roots, roots+nroots-1);
+        pushitems(ctx.queue.stacks+STACK_FILES, roots, roots+nroots-1);
         os_parallel(os, ws, n, examineall);
     } else {
         for (iz i = 0; i < nroots; i++) {
             examine(&ctx, roots+i, g);
         }
     }
-    Item *first  = 0;
-    Item *last   = 0;
+    Batch b      = {};
     iz    count  = 0;
     b32   anydir = 0;
     for (iz i = 0; i < nroots; i++) {
         Item *it = roots + i;
         if (it->type != ITEM_NONE) {
-            if (last) {
-                last->next = it;
-            } else {
-                first = it;
-            }
-            last = it;
+            batchadd(&b, it);
             count++;
             anydir |= it->type == ITEM_DIR;
         }
@@ -304,10 +298,8 @@ static i32 ctags_main(Os *os, Arena mem, Str *args, i32 nargs)
     if (!anydir) {
         n = count<n ? (i32)(count>1 ? count : 1) : n;
     }
-    if (first) {
-        ctx.queue.pending = count;
-        pushitems(&ctx.queue, first, last);
-    }
+    ctx.queue.pending = count;
+    pushbatch(&ctx.queue, &b);
     iz slotmin = !mem.lim ? (iz)1<<20 : sizeof(void *)==8 ? (iz)1<<30 : (iz)128<<20;
     iz slot    = arenasize(mem) / n;
     for (; n>1 && slot<slotmin; n--, slot = arenasize(mem)/n) {}

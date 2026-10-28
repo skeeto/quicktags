@@ -8,7 +8,10 @@ enum : i32 {
     ITEM_NONE,  // an argument with nothing to do
 };
 
-enum : iz { FILEMAX = (iz)64<<20 };  // larger files are skipped
+enum : iz {
+    FILEMAX = (iz)64<<20,  // larger files are skipped
+    BIGFILE = (iz)1<<20,   // larger files are tagged first (--_bigfile)
+};
 
 // A directory to list or a file to tag, pushed on the work stack once.
 struct Item {
@@ -19,17 +22,28 @@ struct Item {
     i32   type;
     i32   lang;
     b32   header;
+    b32   big;     // a file to tag before the others
     i32   err;     // an argument that cannot be examined: OSERR_*
 };
 
-// A lock-free stack of items (Treiber). While workers run, each item is
+// Lock-free stacks of items (Treiber). While workers run, each item is
 // pushed at most once and never reused, so a popped item cannot reappear
-// at the top, and the stack has no ABA problem. (Arguments examined by
+// at the top, and a stack has no ABA problem. (Arguments examined by
 // workers are pushed again for the next run.) Work is done when pending,
 // items pushed but not yet finished, reaches zero.
+//
+// Directories are popped first, so that the walk is soon done and every
+// file known, then large files, so that none starts late and finishes
+// alone while the other workers wait, then the rest.
+enum : i32 { STACK_DIRS, STACK_BIG, STACK_FILES, NSTACKS };
+
+struct alignas(64) Stack {
+    Item *top;
+};
+
 struct Queue {
-    alignas(64) Item *top;
-    alignas(64) iz    pending;
+    Stack          stacks[NSTACKS];
+    alignas(64) iz pending;
 };
 
 struct Ctx {
@@ -77,23 +91,58 @@ struct alignas(64) Worker {
 static void sortlines(Worker *);
 static void parsefile(File *, Arena scratch);
 
-static void pushitems(Queue *q, Item *first, Item *last)
+static void pushitems(Stack *s, Item *first, Item *last)
 {
-    Item *top = __atomic_load_n(&q->top, __ATOMIC_RELAXED);
+    Item *top = __atomic_load_n(&s->top, __ATOMIC_RELAXED);
     do {
         last->next = top;
     } while (!__atomic_compare_exchange_n(
-        &q->top, &top, first, 1, __ATOMIC_RELEASE, __ATOMIC_RELAXED
+        &s->top, &top, first, 1, __ATOMIC_RELEASE, __ATOMIC_RELAXED
     ));
 }
 
-static Item *popitem(Queue *q)
+static Item *popfrom(Stack *s)
 {
-    Item *top = __atomic_load_n(&q->top, __ATOMIC_ACQUIRE);
+    Item *top = __atomic_load_n(&s->top, __ATOMIC_ACQUIRE);
     while (top && !__atomic_compare_exchange_n(
-        &q->top, &top, top->next, 1, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE
+        &s->top, &top, top->next, 1, __ATOMIC_ACQUIRE, __ATOMIC_ACQUIRE
     )) {}
     return top;
+}
+
+// Pop an item from the first stack that has one.
+static Item *popitem(Queue *q)
+{
+    for (i32 i = 0; i < NSTACKS; i++) {
+        Item *it = popfrom(q->stacks+i);
+        if (it) {
+            return it;
+        }
+    }
+    return 0;
+}
+
+// Items gathered for the stacks, each list pushed at once.
+struct Batch {
+    Item *head[NSTACKS];
+    Item *tail[NSTACKS];
+};
+
+static void batchadd(Batch *b, Item *it)
+{
+    i32 k = it->type==ITEM_DIR ? STACK_DIRS : it->big ? STACK_BIG : STACK_FILES;
+    it->next   = b->head[k];
+    b->head[k] = it;
+    if (!b->tail[k]) b->tail[k] = it;
+}
+
+static void pushbatch(Queue *q, Batch *b)
+{
+    for (i32 k = 0; k < NSTACKS; k++) {
+        if (b->head[k]) {
+            pushitems(q->stacks+k, b->head[k], b->tail[k]);
+        }
+    }
 }
 
 
@@ -536,6 +585,12 @@ static Str childkey(Arena *a, Str parent, u32 index)
     return r;
 }
 
+// The size from which files are tagged first.
+static iz bigfile(Options *opt)
+{
+    return opt->bigfile ? opt->bigfile : BIGFILE;
+}
+
 static Item *newitem(Arena *a, Str path, i32 type, Lang lang)
 {
     Item *it = alloc<Item>(a);
@@ -546,8 +601,7 @@ static Item *newitem(Arena *a, Str path, i32 type, Lang lang)
     return it;
 }
 
-// List a directory onto the work stack: its subdirectories on top, so
-// that the walk keeps ahead of the parsing.
+// List a directory onto the work stacks.
 static void visitdir(Worker *w, Item *it)
 {
     Ctx    *c       = w->ctx;
@@ -559,12 +613,10 @@ static void visitdir(Worker *w, Item *it)
         return;
     }
 
-    Item *dirs  = 0;
-    Item *files = 0;
-    Item *last  = 0;  // of files, else of dirs
-    Item *dlast = 0;
+    Batch b     = {};
     iz    count = 0;
     u32   index = 0;
+    iz    big   = bigfile(c->opt);
     for (Dirent *d = l.head; d; d = d->next, index++) {
         byte *mark = w->perm.beg;
         Str   path = joinpath(&w->perm, it->path, d->name, windows);
@@ -573,39 +625,28 @@ static void visitdir(Worker *w, Item *it)
             w->perm.beg = mark;
             continue;
         }
+        Item *n = 0;
         if (d->isdir) {
-            Item *n = newitem(&w->perm, path, ITEM_DIR, {});
-            n->key  = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
-            n->next = dirs;
-            dirs    = n;
-            if (!dlast) dlast = n;
+            n = newitem(&w->perm, path, ITEM_DIR, {});
         } else {
             Lang lang = detectlang(c->opt, path);
             if (!lang.lang) {
                 w->perm.beg = mark;
                 continue;
             }
-            Item *n = newitem(&w->perm, path, ITEM_FILE, lang);
-            n->key   = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
+            n = newitem(&w->perm, path, ITEM_FILE, lang);
             n->mtime = d->mtime;
-            n->next  = files;
-            files    = n;
-            if (!last) last = n;
+            n->big   = lang.lang!=LANG_FOREIGN && d->size>=big;
         }
+        n->key = c->ordered ? childkey(&w->perm, it->key, index) : Str{};
+        batchadd(&b, n);
         count++;
     }
     w->scratch.end = tmp.end>w->scratch.end ? tmp.end : w->scratch.end;
-    if (!count) {
-        return;
+    if (count) {
+        __atomic_fetch_add(&c->queue.pending, count, __ATOMIC_RELAXED);
+        pushbatch(&c->queue, &b);
     }
-
-    Item *first = dirs ? dirs : files;
-    if (dirs) {
-        dlast->next = files;
-        if (!files) last = dlast;
-    }
-    __atomic_fetch_add(&c->queue.pending, count, __ATOMIC_RELAXED);
-    pushitems(&c->queue, first, last);
 }
 
 static void visitfile(Worker *w, Item *it)
@@ -707,6 +748,7 @@ static void examine(Ctx *c, Item *it, Arena scratch)
     } else if (s.type==STAT_FILE && it->lang) {
         it->type  = ITEM_FILE;
         it->mtime = s.mtime;
+        it->big   = it->lang!=LANG_FOREIGN && s.size>=bigfile(c->opt);
     }
 }
 
