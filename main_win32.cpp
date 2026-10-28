@@ -30,7 +30,6 @@ enum : i32 {
     FILE_TYPE_CHAR                = 2,
     FILE_TYPE_DISK                = 1,
     FILE_TYPE_PIPE                = 3,
-    FIND_FIRST_EX_LARGE_FETCH     = 2,
     FindExInfoBasic               = 1,
     FindExInfoStandard            = 0,
     FindExSearchNameMatch         = 0,
@@ -246,9 +245,11 @@ static b32 writeall(uz h, Str s)
     return 1;
 }
 
-// The first entry of a listing, fetching many at a time where the
-// system supports it (Windows 7). Earlier versions reject the arguments,
-// and from then on get theirs.
+// The first entry of a listing, without short names where the system
+// supports it (Windows 7). Earlier versions reject the argument, and from
+// then on get theirs. Not FIND_FIRST_EX_LARGE_FETCH: its 64 KiB buffer
+// comes from the process heap, and threads listing at once queue on the
+// heap's lock, which doubled the time to walk llvm-project.
 static uz findfirst(Os *os, c16 *pattern, FindData *fd)
 {
     uz h = INVALID_HANDLE_VALUE;
@@ -258,8 +259,7 @@ static uz findfirst(Os *os, c16 *pattern, FindData *fd)
         b32 refused = 1;
         #else
         h = FindFirstFileExW(
-            pattern, FindExInfoBasic, fd, FindExSearchNameMatch, 0,
-            FIND_FIRST_EX_LARGE_FETCH
+            pattern, FindExInfoBasic, fd, FindExSearchNameMatch, 0, 0
         );
         b32 refused = h==INVALID_HANDLE_VALUE &&
                       GetLastError()==ERROR_INVALID_PARAMETER;
