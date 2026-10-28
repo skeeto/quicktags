@@ -518,7 +518,7 @@ struct CharClass {
     u32 repeat;  // token type repeated
 };
 
-static CharClass charclass(i32 c)
+static constexpr CharClass classify(i32 c)
 {
     CharClass r = {};
     if (c>=0x80 && c<=0xff) {
@@ -566,9 +566,29 @@ static CharClass charclass(i32 c)
     return r;
 }
 
+struct CharClasses {
+    CharClass of[256];
+};
+
+static constexpr CharClasses charclasses()
+{
+    CharClasses r = {};
+    for (i32 c = 0; c < 256; c++) {
+        r.of[c] = classify(c);
+    }
+    return r;
+}
+
+static constexpr CharClasses charclassof = charclasses();
+
+static CharClass charclass(i32 c)
+{
+    return (u32)c<256 ? charclassof.of[c] : CharClass{};
+}
+
 static void nextchar(Cxx *c)
 {
-    c->ch = cppget(&c->cpp);
+    c->ch = cppnext(&c->cpp);
 }
 
 static b32 innumber(u8 b)  // CC_NUMBER, from a bit table
@@ -804,6 +824,7 @@ static i32 readtoken(Cxx *c)
     c->tok = t;
 
     while (cppspace(c->ch)) {
+        blankrun(&c->cpp);
         nextchar(c);
     }
     c->cpp.resolve = 1;
@@ -844,6 +865,7 @@ static i32 readtoken(Cxx *c)
         }
         while (charclass(c->ch).cls & CC_IDPART) {
             wordput(p, &t->word, (u8)c->ch);
+            wordcat(p, &t->word, identrun(&c->cpp));
             nextchar(c);
         }
 

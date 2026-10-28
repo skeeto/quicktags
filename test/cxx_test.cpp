@@ -1443,8 +1443,102 @@ static Str bigtable(Arena *a, Str head, Str tail, i32 *afterline)
     return finish(&b);
 }
 
+// Inputs at the edges of the lexer's fast paths, where reading ahead,
+// splices, line endings, and literals meet them.
+static Str fastedges[] = {
+    "int a = 1'000;\nint b;\n",
+    "  #define X 1\nint y;\n",
+    "/*/ int x; */ int y;\n",
+    "int a; // x",
+    "int a; // x\\",
+    "int a; /* x",
+    "int a; \"x",
+    "int a; R\"(x",
+    "int f() { return ~0; }\nstruct S { ~S(); ~ T(); int z; };\n",
+    "int g = 1ga'b';\nint h;\n",
+    "int ab\\\nR\"(x)\";\nint z;\n",
+    "#include\n\"str\" int w;\n",
+    "int fo\\\no;\nint fo\\\r\no2;\nint fo\\\r\ro3;\n",
+    "// a\\\nint hidden;\nint shown;\n",
+    "// a\\\r\nint hidden;\n// b\\\\\nint shown;\n// c\\\r\r\nint shown2;\n",
+    "char *s = \"a\\\nb\";\nint after;\nchar *t = \"a\\\r\nb\";\nint after2;\n",
+    "int a;\r\n// c\r\nint b;\r\nint c\r = 1;\nint d;\r\r\nint e;\n",
+    "?\?=define T 1\nint a?\?(3?\?);\n?\?/\nint b;\nint c ?\?- ?\?! ?\?' ?\?< ?\?> ?\?) ?\?x;\n",
+    "<: :> <% %> %:define D 2\nint a<::b> c;\nx<::>y;\nint e<:: ;\nint g;\n",
+    "char *r = R\"d(raw)d\";\nint after;\n",
+    "char *u = u8R\"(x)\";\nint v;\nchar *l = LR\"(y)\";\nint fooR\"x\";\nint w;\n",
+    "char *s = u8R\"x(\"; } {)x\";\nint after;\nchar *t = R\"(;}{)\";\nint after2;\n"
+    "char *u = uR\"(\";)\"; int after3; char *v = xR\"(\";)\"; int after4;\n",
+    "int x = 0x1F'FF'u + 1'0.5e3f + 0x1'f + 1.'a' + 0x1\\\n'2';\nint y;\n",
+    "/**/int b;/***/int c;/* * / */int d;/*\r\n*/int e;\n",
+    "#if 0\n'\n#endif\nint c;\n#if 0\n#define\nint x;\n#endif\nint d;\n",
+    "int x\\\n\\\ny;\n#define M(a) \\\n a\nint z;\n",
+    "\"open\nint after;\n'x\nint after2;\n",
+    "int \x80\xff\x80z;\nint z\x00y;\nint \x01q\x7f;\n",
+    "int a\v= 1;\fint b;\n  \t #  define Y 2\nint c;\n",
+    "int f(int a = 1? 2 : 3, int b = a<b, char c = '\\'', char *d = \"\\\"\");\n",
+    "u8Rx q;\nint after;\n",
+};
+
 static void test_fastpaths(Test *t)
 {
+    // Each edge, as C and C++, with the default options, with every
+    // kind and the signatures built from tokens' text, and with -I
+    // replacements, the same with and without the fast paths
+    {
+        Str opts[] = {"", "--kinds-C=* --kinds-C++=* --fields=+S",
+                      "-I u8Rx=int,ab+,x=0x2"};
+        Str files[] = {"e.c", "e.cpp"};
+        for (iz i = 0; i < countof(fastedges); i++) {
+            for (iz f = 0; f < countof(files); f++) {
+                for (iz o = 0; o < countof(opts); o++) {
+                    Arena a  = t->perm;
+                    Os   *os = newos(&a);
+                    vfsfile(os, files[f], fastedges[i]);
+                    Buf fast(&a, 64);
+                    print(&fast, opts[o]);
+                    print(&fast, " -f - ");
+                    print(&fast, files[f]);
+                    Buf slow(&a, 64);
+                    print(&slow, "--_nofast ");
+                    print(&slow, opts[o]);
+                    print(&slow, " -f - ");
+                    print(&slow, files[f]);
+                    Run x = run(os, a, finish(&fast));
+                    Run y = run(os, a, finish(&slow));
+                    Buf name(&a, 64);
+                    print(&name, "fast edge ");
+                    print(&name, (i64)i);
+                    print(&name, " ");
+                    print(&name, files[f]);
+                    print(&name, " ");
+                    print(&name, opts[o]);
+                    expect(t, finish(&name), x.out, y.out);
+                }
+            }
+        }
+    }
+
+    // A string longer than LITMAX, then a raw string, whose token text
+    // is the last literal's kept contents, in a signature
+    {
+        Arena a = t->perm;
+        Buf   b(&a, 4096);
+        print(&b, "void f(const char *s = \"");
+        for (i32 i = 0; i < 1100; i++) {
+            putbyte(&b, (u8)('a' + i%26));
+            if (i == 1022) {
+                print(&b, "\\n");  // an escape across the limit
+            }
+        }
+        print(&b, "\", const char *t = R\"(r)\") {}\n");
+        Os *os = newos(&a);
+        vfsfile(os, "l.cpp", finish(&b));
+        Run x = run(os, a, "--fields=+S -f - l.cpp");
+        Run y = run(os, a, "--_nofast --fields=+S -f - l.cpp");
+        expect(t, "fast edge LITMAX", x.out, y.out);
+    }
+
     struct {
         Str name;
         Str head;

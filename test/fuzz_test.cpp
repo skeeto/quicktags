@@ -119,16 +119,20 @@ struct Lint {
     i32 order = ORDER_BYTES;
     b32 filetag = 0;  // one file tag (EX-7), last if unsorted
     b32 etags   = 0;  // Emacs tags, checked by etagslint
+    b32 twin    = 0;  // also without the fast paths, the same
 };
 
 static Lint lints[] = {
-    {"",                                                EXCMD_MIXED,   0, 1, 0},
-    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1, 0},
+    {"",                                                EXCMD_MIXED,   0, 1, 0,
+     ORDER_BYTES, 0, 0, 1},
+    {"--kinds-C=* --kinds-C++=* --kinds-Fortran=* ",    EXCMD_MIXED,   0, 1, 0,
+     ORDER_BYTES, 0, 0, 1},
     // -I macros, with loops (T leads to one, and S and R bring themselves
     // back after other tokens, also at the end) and replacements that
     // open groups they do not close
     {"-I x=x,y=z,z=y,a+,b+=c(,T=y,MACRO+=f(,S+=;S,R+=)R ",
-                                                        EXCMD_MIXED,   0, 1, 0},
+                                                        EXCMD_MIXED,   0, 1, 0,
+     ORDER_BYTES, 0, 0, 1},
     // One of the following too, in turn
     {"--fields=* --extras=+q --kinds-C++=* ",           EXCMD_MIXED,   0, 0, 0},
     {"--excmd=number --fields=+lKzZEr --extras=+qf ",   EXCMD_NUMBER,  0, 0, 0,
@@ -141,7 +145,8 @@ static Lint lints[] = {
     {"--output-format=e-ctags --fields=+zES --file-tags ",
                                                         EXCMD_MIXED,   0, 0, 0,
      ORDER_BYTES, 1},
-    {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1},
+    {"--fields=+lzZEriaSm ",                            EXCMD_MIXED,   0, 0, 1,
+     ORDER_BYTES, 0, 0, 1},
     // Unsorted and folded, which sorted are the default output (but for
     // the file tag)
     {"-u --fields=+lzZEr --extras=+f ",                 EXCMD_MIXED,   0, 0, 1,
@@ -450,6 +455,16 @@ static Fuzzed fuzzcheck(Arena a, Str file, Str src, Lint **runs, iz nruns)
         }
         if (got.status) {
             r.bad = "nonzero exit status";
+        }
+
+        if (!r.bad.data && runs[o]->twin) {
+            Buf slow(&a, 128);
+            print(&slow, "--_nofast ");
+            print(&slow, finish(&cmd));
+            Run twin = runcap(os, a, finish(&slow), (iz)8<<20);
+            if (!(twin.out == got.out)) {
+                r.bad = "not the output without the fast paths";
+            }
         }
     }
     return r;

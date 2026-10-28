@@ -182,6 +182,15 @@ static void runcases(Test *t, TagCase *cases, iz n)
         Run r = run(os, a, finish(&cmd));
         expect(t, c->name, r.out, c->want);
         expect(t, c->name, r.err, "");
+
+        // The fast paths' slow twins agree
+        Buf slow(&a, 128);
+        print(&slow, "--_nofast ");
+        print(&slow, c->args);
+        print(&slow, " -f - ");
+        print(&slow, c->file);
+        Run s = run(os, a, finish(&slow));
+        expect(t, c->name, s.out, r.out);
     }
 }
 

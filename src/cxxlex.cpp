@@ -27,7 +27,7 @@ static b32 cppspace(i32 c)
     return c==' ' || (c>='\t' && c<='\r');
 }
 
-static b32 cppident(i32 c)
+static constexpr b32 cppident(i32 c)
 {
     return (c>='0' && c<='9') || (c>='a' && c<='z') || (c>='A' && c<='Z') ||
            c=='_' || c=='$' || (c>=0x80 && c<=0xff);
@@ -73,16 +73,22 @@ static Reader newreader(Str text, i32 simd)
     return r;
 }
 
-static i32 readbyte(Reader *r)
+// Begin a line if the last byte read ended one, as reading the next does.
+static void startline(Reader *r)
 {
-    if (r->p == r->end) {
-        return C_EOF;
-    }
     if (r->newline) {
         r->line++;
         r->linepos = r->p - r->beg;
         r->newline = 0;
     }
+}
+
+static i32 readbyte(Reader *r)
+{
+    if (r->p == r->end) {
+        return C_EOF;
+    }
+    startline(r);
     u8 c = *r->p++;
     if (c=='\r' && r->p<r->end && *r->p=='\n') {
         c = *r->p++;
@@ -98,10 +104,7 @@ static void advance(Reader *r, u8 *to)
     if (r->p == to) {
         return;
     }
-    if (r->newline) {
-        r->line++;
-        r->linepos = r->p - r->beg;
-    }
+    startline(r);
     Lines l = countlines(r->simd, r->p, to-1);  // a last LF is pending
     r->line   += (i32)l.count;
     r->linepos = l.after ? l.after-r->beg : r->linepos;
@@ -175,6 +178,7 @@ struct Cpp {
     i32    over;      // levels past CONDMAX
     b32    innum;     // within a number
     b32    prevident; // the last character was part of an identifier
+    b32    fast;      // read ahead without pushing back, and in bulk
     Cond   cond[CONDMAX];
 };
 
@@ -186,6 +190,7 @@ static void cppinit(Cpp *p, File *f, Arena *a, b32 brace)
     p->a      = a;
     p->brace  = brace;
     p->accept = 1;
+    p->fast   = !f->nofast;
 }
 
 // The position of the current character, or of the earliest pushed-back
@@ -231,6 +236,23 @@ static i32 rawget(Cpp *p)
         cppdrained(p);
     }
     return readbyte(&p->in);
+}
+
+// Whether the fast paths may read the file directly: they are on, and
+// nothing is pushed back. Instead of reading a character to look at it,
+// then pushing it back, they peek at the file's bytes. That leaves the
+// pushback's bookkeeping (drains, backsize) behind where it would have
+// been, but those only bound -I replacements between reads of the file,
+// and reading continues just as it would, at the same positions.
+static b32 direct(Cpp *p)
+{
+    return p->fast && !p->backlive;
+}
+
+// The byte n past the last one read from the file, or C_EOF.
+static i32 peekbyte(Cpp *p, iz n)
+{
+    return n<p->in.end-p->in.p ? (i32)p->in.p[n] : (i32)C_EOF;
 }
 
 // Characters waiting in the innermost replacement, or in all of the
@@ -358,14 +380,47 @@ static b32 litput(Cpp *p, i32 c, iz max)
     return 1;
 }
 
+// Append bytes that are no escape, as litput would one at a time.
+static void litcat(Cpp *p, u8 *s, iz len, iz max)
+{
+    iz room = max - p->lit.len;
+    len = len<room ? len : room;
+    if (len <= 0) {
+        return;
+    }
+    if (p->lit.cap-p->lit.len < len) {
+        iz cap = p->lit.cap ? p->lit.cap : 64;
+        for (; cap-p->lit.len < len; cap *= 2) {}
+        u8 *data = allocbytes(p->a, cap);
+        copybytes(data, p->lit.data, p->lit.len);
+        p->lit.data = data;
+        p->lit.cap  = cap;
+    }
+    copybytes(p->lit.data+p->lit.len, s, len);
+    p->lit.len += len;
+}
+
 
 // Literals and comments
 
 static i32 skipstring(Cpp *p)
 {
     p->lit.len = 0;
-    for (i32 c; (c = rawget(p)) != C_EOF;) {
-        if (c == '\\') {
+    for (;;) {
+        if (direct(p)) {
+            // A run of plain bytes at once, up to what ends or escapes
+            u8 *s   = p->in.p;
+            u8 *run = findbyte4(p->in.simd, s, p->in.end, '"', '\\', '\n', '\r');
+            if (run > s) {
+                startline(&p->in);
+                litcat(p, s, run-s, LITMAX);
+                p->in.p = run;
+            }
+        }
+        i32 c = rawget(p);
+        if (c == C_EOF) {
+            break;
+        } else if (c == '\\') {
             i32 c0 = rawget(p);
             if (c0 == '\n') {
                 continue;
@@ -464,6 +519,14 @@ enum : i32 { COMMENT_NONE, COMMENT_C, COMMENT_CXX };
 
 static i32 iscomment(Cpp *p)
 {
+    if (direct(p)) {
+        i32 next = peekbyte(p, 0);
+        if (next!='*' && next!='/') {
+            return COMMENT_NONE;
+        }
+        p->in.p++;
+        return next=='*' ? COMMENT_C : COMMENT_CXX;
+    }
     i32 next = rawget(p);
     if (next == '*') {
         return COMMENT_C;
@@ -476,6 +539,12 @@ static i32 iscomment(Cpp *p)
 
 static i32 skipccomment(Cpp *p)  // ' ' for the comment, or EOF
 {
+    if (direct(p)) {
+        u8 *end = p->in.end;
+        u8 *at  = findpair(p->in.simd, p->in.p, end, '*', '/');
+        advance(&p->in, at<end ? at+2 : end);
+        return at<end ? (i32)' ' : (i32)C_EOF;
+    }
     i32 c = rawget(p);
     while (c != C_EOF) {
         if (c != '*') {
@@ -493,13 +562,37 @@ static i32 skipccomment(Cpp *p)  // ' ' for the comment, or EOF
     return c;
 }
 
-static i32 skipcxxcomment(Cpp *p)  // the newline that ends it, or EOF
+// Skip to the newline that ends a // comment, and return it, also
+// pushed back to be read again, or EOF. A backslash escapes the next
+// character, so a newline ends the comment after an even number of them.
+// Read directly, the newline is instead left to be read.
+static i32 skipcxxcomment(Cpp *p)
 {
+    if (direct(p)) {
+        u8 *beg = p->in.p;
+        u8 *end = p->in.end;
+        for (u8 *s = beg;;) {
+            u8 *lf = findbyte(p->in.simd, s, end, '\n');
+            if (lf == end) {
+                advance(&p->in, end);
+                return C_EOF;
+            }
+            u8 *at = lf[-1]=='\r' ? lf-1 : lf;  // CRLF is one character
+            iz  n  = 0;
+            for (; at-n>beg && at[-n-1]=='\\'; n++) {}
+            if (!(n & 1)) {
+                advance(&p->in, at);
+                return '\n';
+            }
+            s = lf + 1;
+        }
+    }
     i32 c;
     while ((c = rawget(p)) != C_EOF) {
         if (c == '\\') {
             rawget(p);
         } else if (c == '\n') {
+            unget(p, c);
             break;
         }
     }
@@ -805,6 +898,23 @@ static b32 directive(Cpp *p, i32 c)
 
 // The filter
 
+// The character a trigraph's third character stands for, or 0.
+static i32 trigraph(i32 c)
+{
+    switch (c) {
+    case '(':  return '[';
+    case ')':  return ']';
+    case '<':  return '{';
+    case '>':  return '}';
+    case '/':  return '\\';
+    case '!':  return '|';
+    case '\'': return '^';
+    case '-':  return '~';
+    case '=':  return '#';
+    }
+    return 0;
+}
+
 // Track numbers so that a quote is a digit separator only within one.
 static void cppnumber(Cpp *p, i32 c)
 {
@@ -816,6 +926,56 @@ static void cppnumber(Cpp *p, i32 c)
     }
     p->prevident = ident;
 }
+
+// How the parser's next character is read when nothing is pushed back,
+// by its first byte: most need no more than the reader's and the number
+// tracking's updates, made inline by cppnext (BK_*).
+enum : u8 {
+    BK_SLOW,   // cppget reads it
+    BK_PLAIN,  // in neither an identifier nor a number
+    BK_IDENT,  // these four continue identifiers
+    BK_HEX,    // a-f A-F
+    BK_DIGIT,
+    BK_R,      // unless a quote follows, which may begin a raw string
+    BK_DOT,    // continues a number
+    BK_BLANK,  // space and tab, which leave accept alone
+    BK_LF,
+    BK_CR,     // a LF if one follows, else plain
+};
+
+struct Bytekinds {
+    u8 kind[256];
+};
+
+static constexpr Bytekinds bytekinds()
+{
+    Bytekinds r = {};
+    for (i32 c = 0; c < 256; c++) {
+        u8 k = BK_PLAIN;
+        if (c>='0' && c<='9') {
+            k = BK_DIGIT;
+        } else if ((c>='a' && c<='f') || (c>='A' && c<='F')) {
+            k = BK_HEX;
+        } else if (c == 'R') {
+            k = BK_R;
+        } else if (cppident(c)) {
+            k = BK_IDENT;
+        }
+        switch (c) {
+        case ' ': case '\t':                    k = BK_BLANK; break;
+        case '\n':                              k = BK_LF;    break;
+        case '\r':                              k = BK_CR;    break;
+        case '.':                               k = BK_DOT;   break;
+        case '"': case '#': case '%': case '\'':
+        case '/': case ':': case '<': case '?':
+        case '\\':                              k = BK_SLOW;  break;
+        }
+        r.kind[c] = k;
+    }
+    return r;
+}
+
+static constexpr Bytekinds bytekind = bytekinds();
 
 // The next character for the parser.
 static i32 cppget(Cpp *p)
@@ -877,9 +1037,6 @@ static i32 cppget(Cpp *p)
                 break;
             case COMMENT_CXX:
                 c = skipcxxcomment(p);
-                if (c == '\n') {
-                    unget(p, c);
-                }
                 break;
             default:
                 p->accept = 0;
@@ -887,6 +1044,16 @@ static i32 cppget(Cpp *p)
             break;
 
         case '\\': {
+            if (direct(p)) {
+                i32 n0 = peekbyte(p, 0);
+                iz  n  = n0=='\n' ? 1 : n0=='\r' && peekbyte(p, 1)=='\n' ? 2 : 0;
+                if (n) {
+                    p->in.p      += n;
+                    p->in.newline = 1;
+                    goto again;
+                }
+                break;
+            }
             i32 next = rawget(p);
             if (next == '\n') {
                 goto again;
@@ -895,6 +1062,17 @@ static i32 cppget(Cpp *p)
         } break;
 
         case '?': {
+            if (direct(p)) {
+                i32 t = peekbyte(p, 0)=='?' ? trigraph(peekbyte(p, 1)) : 0;
+                if (t) {
+                    p->in.p += 2;
+                    c = t;
+                    if (c=='\\' || c=='#') {
+                        goto process;
+                    }
+                }
+                break;
+            }
             i32 next = rawget(p);
             if (next != '?') {
                 unget(p, next);
@@ -919,6 +1097,20 @@ static i32 cppget(Cpp *p)
 
         // Digraphs: <: :> <% %> %:
         case '<': {
+            if (direct(p)) {
+                // <:: not followed by : or > is a '<' and a "::"
+                i32 n0 = peekbyte(p, 0);
+                i32 n1 = peekbyte(p, 1);
+                i32 n2 = peekbyte(p, 2);
+                if (n0==':' && (n1!=':' || n2==':' || n2=='>')) {
+                    p->in.p++;
+                    c = '[';
+                } else if (n0 == '%') {
+                    p->in.p++;
+                    c = '{';
+                }
+                goto enter;
+            }
             i32 n0 = rawget(p);
             if (n0 == ':') {
                 i32 n1 = rawget(p);
@@ -946,6 +1138,13 @@ static i32 cppget(Cpp *p)
         } goto enter;
 
         case ':': {
+            if (direct(p)) {
+                if (peekbyte(p, 0) == '>') {
+                    p->in.p++;
+                    c = ']';
+                }
+                goto enter;
+            }
             i32 next = rawget(p);
             if (next == '>') {
                 c = ']';
@@ -955,6 +1154,17 @@ static i32 cppget(Cpp *p)
         } goto enter;
 
         case '%': {
+            if (direct(p)) {
+                i32 next = peekbyte(p, 0);
+                if (next=='>' || next==':') {
+                    p->in.p++;
+                    c = next=='>' ? '}' : '#';
+                    if (c == '#') {
+                        goto process;
+                    }
+                }
+                goto enter;
+            }
             i32 next = rawget(p);
             if (next == '>') {
                 c = '}';
@@ -977,6 +1187,9 @@ static i32 cppget(Cpp *p)
                 if (!cppident(prev) ||
                         (!cppident(prev2) && (prev=='L' || prev=='u' || prev=='U')) ||
                         (!cppident(prev3) && prev2=='u' && prev=='8')) {
+                    if (direct(p) && peekbyte(p, 0)!='"') {
+                        goto enter;
+                    }
                     i32 next = rawget(p);
                     if (next == '"') {
                         p->accept = 0;
@@ -987,9 +1200,16 @@ static i32 cppget(Cpp *p)
                     unget(p, next);
                 }
             } else if (cppxdigit(c) && p->innum) {
-                i32 next = rawget(p);
-                if (next != '\'') {
-                    unget(p, next);
+                // A quote after a digit within a number separates digits
+                if (direct(p)) {
+                    if (peekbyte(p, 0) == '\'') {
+                        p->in.p++;
+                    }
+                } else {
+                    i32 next = rawget(p);
+                    if (next != '\'') {
+                        unget(p, next);
+                    }
                 }
             } else if (cppxdigit(c) && p->nmarks) {
                 // Universal Ctags looks past every hex digit, which ends
@@ -1005,4 +1225,106 @@ static i32 cppget(Cpp *p)
         }
     } while (indirective || ignore);
     return c;
+}
+
+// The next character for the parser: by cppget, or where it would only
+// return the next byte with the same updates, directly. The fast paths
+// rest on this: a call to cppget never begins inside a directive or an
+// ignored branch, whose characters it consumes before returning.
+static i32 cppnext(Cpp *p)
+{
+    Reader *r = &p->in;
+    if (!direct(p) || r->p==r->end) {
+        return cppget(p);
+    }
+    i32 c = *r->p;
+    iz  n = 1;
+    switch (bytekind.kind[c]) {
+    case BK_SLOW:
+        return cppget(p);
+    case BK_CR:
+        if (r->end-r->p<2 || r->p[1]!='\n') {
+            p->innum = p->prevident = p->accept = 0;
+            break;
+        }
+        c = '\n';
+        n = 2;
+        [[fallthrough]];
+    case BK_LF:
+        p->accept = 1;
+        [[fallthrough]];
+    case BK_BLANK:
+        p->innum = p->prevident = 0;
+        break;
+    case BK_R:
+        if (r->end-r->p>1 && r->p[1]=='"') {
+            return cppget(p);
+        }
+        [[fallthrough]];
+    case BK_IDENT:
+        p->prevident = 1;
+        p->accept    = 0;
+        break;
+    case BK_DIGIT:
+        p->innum |= !p->prevident;
+        [[fallthrough]];
+    case BK_HEX:
+        p->prevident = 1;
+        p->accept    = 0;
+        if (p->innum && r->end-r->p>1 && r->p[1]=='\'') {
+            n = 2;  // a digit separator, dropped
+        }
+        break;
+    case BK_DOT:
+        p->prevident = 0;
+        p->accept    = 0;
+        break;
+    case BK_PLAIN:
+        p->innum = p->prevident = p->accept = 0;
+        break;
+    }
+    startline(r);
+    r->p      += n;
+    r->newline = c == '\n';
+    return c;
+}
+
+// After an identifier's character, read directly: the rest of the run
+// that is plainly the same identifier, up to an R before a quote, which
+// may begin a raw string, else nothing.
+static Str identrun(Cpp *p)
+{
+    Reader *r = &p->in;
+    if (!direct(p) || !p->prevident || p->innum) {
+        return {};
+    }
+    u8 *s = r->p;
+    for (; s < r->end; s++) {
+        u8 k = bytekind.kind[*s];
+        if (k<BK_IDENT || k>BK_R || (k==BK_R && r->end-s>1 && s[1]=='"')) {
+            break;
+        }
+    }
+    Str run = span(r->p, s);
+    if (run.len) {
+        startline(r);
+        r->p = s;
+    }
+    return run;
+}
+
+// After a blank, read directly: skip the rest of a run of spaces and
+// tabs, which change nothing a blank did not.
+static void blankrun(Cpp *p)
+{
+    Reader *r = &p->in;
+    if (!direct(p)) {
+        return;
+    }
+    u8 *s = r->p;
+    for (; s<r->end && (*s==' ' || *s=='\t'); s++) {}
+    if (s > r->p) {
+        startline(r);
+        r->p = s;
+    }
 }

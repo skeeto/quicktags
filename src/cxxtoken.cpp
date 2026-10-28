@@ -309,9 +309,16 @@ static void wordput(Pool *p, Word *w, u8 c)
 
 static void wordcat(Pool *p, Word *w, Str s)
 {
-    for (iz i = 0; i < s.len; i++) {
-        wordput(p, w, s[i]);
+    if (w->cap-w->len < s.len) {
+        iz cap = w->cap ? w->cap : 16;
+        for (; cap-w->len < s.len; cap *= 2) {}
+        u8 *data = allocbytes(p->a, cap);
+        copybytes(data, w->data, w->len);
+        w->data = data;
+        w->cap  = cap;
     }
+    copybytes(w->data+w->len, s.data, s.len);
+    w->len += s.len;
 }
 
 static Token *newtoken(Pool *p)

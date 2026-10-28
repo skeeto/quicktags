@@ -2,7 +2,7 @@
 // byte picks a language, kinds, -I macros, file tags, and the order or
 // Emacs tags, the rest is a file to tag.
 // Undefined behavior traps, and the output is checked for the format's
-// invariants.
+// invariants, and against the output without the fast paths.
 // $ afl-clang-fast++ -std=c++20 -g3 -fsanitize=undefined -fsanitize-trap -o fuzz main_fuzz.cpp
 // $ mkdir i && printf 'xint x;' >i/x && afl-fuzz -i i -o o ./fuzz
 // Without AFL++ it tags one input from standard input.
@@ -50,20 +50,29 @@ int main()
         i32 order   = buf[0]>>4 & 3;  // SORT_*, then Emacs tags
         b32 etags   = order == 3;
 
-        // Tagged in the chosen order or as Emacs tags, then sorted too
+        // Tagged in the chosen order or as Emacs tags, then sorted too,
+        // then as first without the fast paths
         Arena a = {mem, mem+cap/2};
         Arena m = {mem+cap/2, mem+cap};
-        Str   out[2] = {};
-        for (i32 run = 0; run < 1+(order==SORT_NO || etags); run++) {
+        Str   out[3] = {};
+        b32   twice  = order==SORT_NO || etags;
+        for (i32 run = 0; run < 3; run++) {
+            if (run==1 && !twice) {
+                continue;
+            }
             Os *os = newos(&a);
             vfsfile(os, name, {buf+1, len-1});
-            Str sort   = run ? Str("--sort=yes") : sorts[order];
+            Str sort   = run==1 ? Str("--sort=yes") : sorts[order];
+            Str fast   = run==2 ? Str("--_nofast") : Str("--_bigfile=0");
             Str args[] = {"ctags", kinds, ckinds, fkinds, macros, extras, sort,
-                          "-f", "-", name};
+                          fast, "-f", "-", name};
             if (ctags_main(os, m, args, countof(args))) {
                 __builtin_trap();
             }
             out[run] = finish(&os->out);
+        }
+        if (!(out[2] == out[0])) {
+            __builtin_trap();
         }
 
         // Emacs tags are well formed, and of the sorted output's tags
