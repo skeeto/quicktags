@@ -93,7 +93,7 @@ struct Keyword {
     u32 flags;
 };
 
-static Keyword keywords[NKEYWORDS] = {
+static constexpr Keyword keywords[NKEYWORDS] = {
     {"__attribute__",    KL_ALL, KF_VARDECL|KF_DROP},
     {"__constant__",     0,      KF_VARDECL|KF_NOTTYPE},  // CUDA
     {"__declspec",       KL_ALL, KF_VARDECL|KF_NOTTYPE|KF_DROP},
@@ -199,48 +199,55 @@ static Keyword keywords[NKEYWORDS] = {
     {"while",            KL_ALL, 0},
 };
 
-// The keywords in byte order, for bisection.
-static i32 kwsorted[NKEYWORDS] = {
-    KW_ALIGNAS, KW_THREAD_LOCAL, KW__ATTRIBUTE__, KW__CONSTANT__,
-    KW__DECLSPEC, KW__DEVICE__, KW__FASTCALL, KW__FORCEINLINE,
-    KW__FORCEINLINE__, KW__GLOBAL__, KW__HOST__, KW__INLINE,
-    KW__INLINE__, KW__MANAGED__, KW__NOINLINE__, KW__RESTRICT,
-    KW__RESTRICT__, KW__SHARED__, KW__STDCALL, KW__THISCALL, KW__THREAD,
-    KW__TYPEOF, KW__TYPEOF__, KW_alignas, KW_alignof, KW_asm, KW_auto,
-    KW_bool, KW_break, KW_case, KW_catch, KW_char, KW_char16_t,
-    KW_char32_t, KW_class, KW_concept, KW_const, KW_const_cast,
-    KW_consteval, KW_constexpr, KW_constinit, KW_continue, KW_decltype,
-    KW_default, KW_delete, KW_do, KW_double, KW_dynamic_cast, KW_else,
-    KW_enum, KW_explicit, KW_export, KW_extern, KW_false, KW_final,
-    KW_float, KW_for, KW_friend, KW_goto, KW_if, KW_inline, KW_int,
-    KW_long, KW_mutable, KW_namespace, KW_new, KW_noexcept, KW_nullptr,
-    KW_operator, KW_private, KW_protected, KW_public, KW_register,
-    KW_reinterpret_cast, KW_requires, KW_restrict, KW_return, KW_short,
-    KW_signed, KW_sizeof, KW_static, KW_static_assert, KW_static_cast,
-    KW_struct, KW_switch, KW_template, KW_this, KW_thread_local,
-    KW_throw, KW_true, KW_try, KW_typedef, KW_typeid, KW_typename,
-    KW_typeof, KW_union, KW_unsigned, KW_using, KW_virtual, KW_void,
-    KW_volatile, KW_wchar_t, KW_while,
+// Keywords by a hash of their first two bytes, last byte, and length,
+// probed linearly: each slot holds a keyword's index plus one, or 0. At
+// most a fifth full, a word not among them usually finds an empty slot,
+// or a keyword of another length, in one probe.
+enum : i32 { KWSLOTS = 512 };
+
+static constexpr u32 kwhash(u8 first, u8 second, u8 last, iz len)
+{
+    u32 key = first | (u32)second<<8 | (u32)last<<16 | (u32)len<<24;
+    return key*0x9e3779b1u >> 23;  // the high 9 bits: a slot
+}
+
+struct Kwtable {
+    u8 slots[KWSLOTS];
+    iz maxlen;
 };
+
+static constexpr Kwtable kwtables()
+{
+    Kwtable r = {};
+    for (i32 kw = 0; kw < NKEYWORDS; kw++) {
+        char const *name = keywords[kw].name.cdata;
+        iz          len  = keywords[kw].name.len;
+        u32         i    = kwhash((u8)name[0], (u8)name[1], (u8)name[len-1], len);
+        for (; r.slots[i]; i = (i + 1) % KWSLOTS) {}
+        r.slots[i] = (u8)(kw + 1);
+        r.maxlen   = len>r.maxlen ? len : r.maxlen;
+    }
+    return r;
+}
+
+static constexpr Kwtable kwtable = kwtables();
 
 // The keyword spelled s in the language (KL_C or KL_CXX), or -1.
 static i32 kwlookup(Str s, u32 lang)
 {
-    iz lo = 0;
-    iz hi = NKEYWORDS;
-    while (lo < hi) {
-        iz  mid = lo + (hi - lo)/2;
-        i32 kw  = kwsorted[mid];
-        i32 d   = compare(keywords[kw].name, s);
-        if (!d) {
+    if (s.len<2 || s.len>kwtable.maxlen) {
+        return -1;
+    }
+    for (u32 i = kwhash(s[0], s[1], s[s.len-1], s.len);; i = (i + 1) % KWSLOTS) {
+        i32 kw = kwtable.slots[i] - 1;
+        if (kw < 0) {
+            return -1;
+        }
+        Str name = keywords[kw].name;
+        if (name == s) {
             return keywords[kw].langs&lang ? kw : -1;
-        } else if (d < 0) {
-            lo = mid + 1;
-        } else {
-            hi = mid;
         }
     }
-    return -1;
 }
 
 static b32 kwflag(i32 kw, u32 flag)

@@ -1409,9 +1409,60 @@ static void test_c(Test *t)
     }
 }
 
+// The keyword spelled s in the language, by searching them all.
+static i32 kwsearch(Str s, u32 lang)
+{
+    for (i32 kw = 0; kw < NKEYWORDS; kw++) {
+        Str name = keywords[kw].name;
+        if (name == s) {
+            return keywords[kw].langs&lang ? kw : -1;
+        }
+    }
+    return -1;
+}
+
+// Keyword lookup by hash against a search: each keyword, its prefixes,
+// its extensions, and words one byte from it, in each language.
+static void test_keywords(Test *t)
+{
+    Arena a    = t->perm;
+    Str   fail = {};
+    u64   rng  = 1;
+    for (i32 kw = 0; kw<NKEYWORDS && !fail.data; kw++) {
+        Str name = keywords[kw].name;
+        for (i32 trial = 0; trial < 64; trial++) {
+            Buf b(&a, 32);
+            if (trial < name.len) {
+                print(&b, takehead(name, trial));  // a prefix
+            } else {
+                print(&b, name);
+                rng = rng*0x3243f6a8885a308d + 1;
+                u32 r = (u32)(rng >> 32);
+                iz  i = r % (u32)name.len;
+                switch (r>>8 & 3) {
+                case 0:  break;  // itself
+                case 1:  putbyte(&b, "_xs1"[r>>12 & 3]); break;
+                case 2:  b.data[i] = (u8)"_aeiouAZ09t"[(r>>12) % 11]; break;
+                case 3:  b.data[i] ^= 0x20; break;  // case, or not
+                }
+            }
+            Str word = finish(&b);
+            for (u32 lang = KL_C; lang <= KL_CXX; lang++) {
+                if (kwlookup(word, lang) != kwsearch(word, lang)) {
+                    fail = word;
+                }
+            }
+        }
+    }
+    expect(t, "keyword lookup", fail.data ? fail : Str("ok"), "ok");
+}
+
 static void test_cxx(Test *t)
 {
     runcases(t, cxxcases, countof(cxxcases));
+    if (!t->exportdir) {
+        test_keywords(t);
+    }
 }
 
 // A data table long enough to reach the token limit, with things in
